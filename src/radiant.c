@@ -85,7 +85,7 @@ int radiant_read(radiant_dev_t * bd, uint16_t * navail, int nbufs, int * N, uint
   {
     xfers[i].tx_buf = 0; 
     xfers[i].rx_buf = (uintptr_t) bufs[i]; 
-    xfers[i].len = (uintptr_t) 2*N[i]; 
+    xfers[i].len =  2*N[i]; 
   }
 
   int ret =  ioctl(bd->spi_fd, SPI_IOC_MESSAGE(nxfers), xfers); 
