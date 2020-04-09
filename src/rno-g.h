@@ -21,6 +21,10 @@ extern "C"
 #include <stdio.h> 
 #include <zlib.h> 
 
+#define RNO_G_MAX_RADIANT_NSAMPLES 2048
+#define RNO_G_NUM_RADIANT_CHANNELS 24 
+#define RNO_G_NUM_WINDOWS 16
+#define RNO_G_WINDOW_SIZE 128
 
 
 /* File handles so that we can handle different compression schemes in the same way. 
@@ -87,7 +91,8 @@ typedef struct rno_g_header
     RNO_G_TRIGGER_RF_ENV 
   } trigger_type : CHAR_BIT; 
 
-
+  uint8_t  radiant_start_windows[RNO_G_NUM_RADIANT_CHANNELS]; 
+  uint16_t radiant_nsamples; ///!< have this here too 
 
 } rno_g_header_t; 
 
@@ -95,18 +100,13 @@ int rno_g_header_write(rno_g_file_handle_t handle, const rno_g_header_t * header
 int rno_g_header_read(rno_g_file_handle_t handle, rno_g_header_t * header);
 
 
-#define RNO_G_MAX_RADIANT_NSAMPLES 2048
-#define RNO_G_NUM_RADIANT_CHANNELS 24 
-#define RNO_G_NUM_WINDOWS 16
-#define RNO_G_WINDOW_SIZE 128
-
 typedef struct rno_g_waveform
 {
   uint32_t event_number; 
   uint32_t run_number;   
   uint16_t nsamples; 
-  uint8_t  start_window; 
-  uint16_t radiant_waveforms[RNO_G_NUM_RADIANT_CHANNELS][RNO_G_MAX_RADIANT_NSAMPLES]; 
+  uint16_t reserved; //alignment 
+  uint16_t radiant_waveforms[RNO_G_NUM_RADIANT_CHANNELS][RNO_G_MAX_RADIANT_NSAMPLES]; //unrolled. 
  // uint16_t lt_waveforms[??][??]; 
 
 } rno_g_waveform_t; 

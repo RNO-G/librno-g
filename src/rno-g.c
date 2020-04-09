@@ -116,7 +116,7 @@ int rno_g_header_read(rno_g_file_handle_t h, rno_g_header_t *header)
 
 
  //WARNING: watch out for this struct changing! 
-#define N_BEFORE_DATA  ( offsetof(rno_g_waveform_t,start_window) + sizeof(((rno_g_waveform_t*) 0)->start_window)) 
+#define N_BEFORE_DATA  ( offsetof(rno_g_waveform_t,reserved) + sizeof(((rno_g_waveform_t*) 0)->reserved)) 
 
 //magic, version, checksum, then we dump the struct
 int rno_g_waveform_write(rno_g_file_handle_t h, const rno_g_waveform_t *wf)

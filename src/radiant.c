@@ -5,7 +5,6 @@
 #include <sys/ioctl.h> 
 #include <sys/file.h> 
 #include <stdlib.h> 
-#include <arpa/inet.h> // for ntohs
 #include <string.h> 
 
 
@@ -26,11 +25,8 @@ struct radiant_dev
 {
   int spi_fd; 
   int uart_fd; 
-
   int run; 
-
   int peek; // use peek form of read
-
 }; 
 
 
@@ -193,8 +189,6 @@ static void andall16(uint16_t *v, uint16_t andme, int N)
   }
 }
 
-//host endian from board endian
-#define HE16(x) (ntohs(x))
 
 int radiant_read_event(radiant_dev_t * bd, rno_g_header_t * hd, rno_g_waveform_t *wf) 
 {
@@ -265,22 +259,35 @@ int radiant_read_event(radiant_dev_t * bd, rno_g_header_t * hd, rno_g_waveform_t
   //get buffer number (assume little-endian here and assume the same for all channels?) 
   int high_window = (wf->radiant_waveforms[0][0] & 0xc000) >> 14; 
 
-  //now let's find the start window 
-  //right now I'm assuming it's the same for each channel
-  int nrotate = 0;
-
-  for (int w = 0; w < RNO_G_NUM_WINDOWS; w++) 
-  {
-    if (wf->radiant_waveforms[0][RNO_G_WINDOW_SIZE*w] & 0x2000)
-    {
-      wf->start_window = high_window ? w+RNO_G_NUM_WINDOWS: w; 
-      nrotate = w * RNO_G_WINDOW_SIZE; 
-      break; 
-    }
-  }
-
   for (int ichan = 0; ichan < RNO_G_NUM_RADIANT_CHANNELS; ichan++) 
   {
+
+
+    //now let's find the start window 
+    //right now I'm assuming it's the same for each channel
+    int nrotate = 0;
+
+    for (int w = 0; w < RNO_G_NUM_WINDOWS; w++) 
+    {
+      uint16_t val = wf->radiant_waveforms[ichan][RNO_G_WINDOW_SIZE*w];
+      if (val & 0x2000)//this is the start window
+      {
+        hd->radiant_start_window[ichan] = high_window ? w+RNO_G_NUM_WINDOWS: w; 
+        nrotate = w * RNO_G_WINDOW_SIZE; 
+        break; 
+      }
+      else if (val & 0x1000) //this is the stop window 
+      {
+        //figure out the number of windows we must have read... this might just be constant! 
+        int num_windows =  nsamples >> 7; 
+        int start = (w-num_windows) % RNO_G_NUM_WINDOWS ;
+        hd->radiant_start_window[ichan] = start + (high_window ? RNO_G_NUM_WINDOWS : 0);  
+        nrotate = start * RNO_G_WINDOW_SIZE; 
+        break; 
+      }
+    }
+
+
     //maybe it's possible to rotate and removce high bits at same time? 
     //that sounds a bit more complicated
     if (nrotate) roll16(wf->radiant_waveforms[ichan], nrotate, nsamples); 
