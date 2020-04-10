@@ -1,0 +1,55 @@
+-------------------------------------------------------------------------------
+   RNO-G DAQ Data Formats 
+------------------------------------------------------------------------------
+
+This document describes the RNO-G data formats as output by the acquisition
+code. The general philosophy of the DAQ data format is to get it out on disk
+and out over the network as fast as possible. For analysis and monitoring,
+other things (like random access and columnar access) are important, so the
+data will typically be converted to some other format afterwards. Likewise, the
+on-hardware format is documented elsewhere as well, as it is not directly
+mirrored by the DAQ. 
+
+The title of this document is "RNO-G DAQ Data Formats" because there are
+actually two formats: an on-disk and an in-memory format.  The in-memory format
+is what gets filled in in the DAQ and read out by the i/o library (librno-g).
+It is defined by the structs inside rno-g.h, and will not be further-described
+here (doxygen does a better job anyway). 
+
+You really shouldn't have to care about the on-disk format most of the time,
+but it is documented here just in case.  To first order, the on-disk format is
+the same as the in-memory format with some extra metadata.  However, this is
+only true for the latest version of the software. Because we may update the
+data format but still have old data we care about lying around, the i/o
+libraries must know how to convert all previous versions of on-disk formats to
+the newest in-memory format.   Also, generally the on-disk format will be
+compressed, but the decompressed version will match this. 
+
+The on-disk format is as follows:
+
+ MAGIC  (2 bytes, different for each packet type) 
+ VERSION  (2 bytes) 
+ PAYLOAD  (variable, will be the in-memory struct of that version) 
+ CKSUM  (2 bytes, adler32 checksum of payload) 
+
+Multiple packets will just be concatenated together. There is no index or
+anything like that (although one can of course use an out-of-band one if they
+want to). Since the payload struct is just written out directly (and the
+checksum is calulated on the raw struct bytes), the on-disk format is sensitive
+to things like platform endianness and integer sizes and compiler choices about
+padding. However, as long as we use fully-defined integer types (e.g. int32_t
+instead of int), and only use GCC on little-endian systems, it should be fine
+(although in practice, it will only get tested on ARMv7l and x86_64 Linux
+systems). Sorry.  We could use packed structs, but those will potentially incur
+a big memory penalty. We could write out every member individually (or use some
+fancy library to do that), but who has the patience for that? 
+
+When updating the data format, we make a versioned, non-exported copy of the
+struct inside the implementation file (rno-g.c). Then, upon detecting the old
+version, we read into that struct (which could potentially be type-punned to
+the new one if it's compatible "enough") and convert it to the new format
+(probably zeroing in anything that makes no sense). 
+
+Since everything is usually compressed, having a checksum is a bit overkill
+since the compression is checksummed anyway. It may be removed or modified in
+the future (but of course that will be encoded in the version somehow). 
