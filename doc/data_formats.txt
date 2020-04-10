@@ -29,12 +29,13 @@ The on-disk format is as follows:
 
  MAGIC  (2 bytes, different for each packet type) 
  VERSION  (2 bytes) 
- PAYLOAD  (variable, will be the in-memory struct of that version) 
+ PAYLOAD  (variable, will likely be the in-memory struct of that version 
+           but not necessarily e.g. the waveform only outputs actual length) 
  CKSUM  (2 bytes, adler32 checksum of payload) 
 
 Multiple packets will just be concatenated together. There is no index or
 anything like that (although one can of course use an out-of-band one if they
-want to). Since the payload struct is just written out directly (and the
+want to). Since the payload struct is usually just written out directly (and the
 checksum is calulated on the raw struct bytes), the on-disk format is sensitive
 to things like platform endianness and integer sizes and compiler choices about
 padding. However, as long as we use fully-defined integer types (e.g. int32_t
@@ -43,6 +44,8 @@ instead of int), and only use GCC on little-endian systems, it should be fine
 systems). Sorry.  We could use packed structs, but those will potentially incur
 a big memory penalty. We could write out every member individually (or use some
 fancy library to do that), but who has the patience for that? 
+
+
 
 When updating the data format, we make a versioned, non-exported copy of the
 struct inside the implementation file (rno-g.c). Then, upon detecting the old
