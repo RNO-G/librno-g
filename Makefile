@@ -1,6 +1,12 @@
 BUILD_DIR=build
 PREFIX=/rno-g
-CFLAGS=-fPIC -O3 
+CFLAGS=-fPIC -Os 
+
+# are we on the BBB? 
+ifeq ($(shell uname -m),armv7l) 
+CFLAGS+=-mfpu=neon
+endif
+
 LDFLAGS=-shared 
 LIBS=-lz
 INCLUDES=src/rno-g.h
