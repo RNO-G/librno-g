@@ -5,6 +5,7 @@
  * (C) 2020 RNO-G Collaboration
  * Cosmin Deaconu <cozzyd@kicp.uchicago.edu> 
  *
+ *
  * */ 
 
 
@@ -62,12 +63,10 @@ typedef struct rno_g_file_handle
 
 
 
-
  /** 
   * The RNO-G event header. Each event has one of these.
-  * This is the in-memory format; the on-disk format is slightly different (and includes version information/checksum/magic numbers. 
+  * This is the in-memory format; the on-disk format is slightly different (and includes version information/checksum/magic numbers. See doc/data-format.txt
   * Use the opaque handles for read/write). 
-  *
   *
   */
 typedef struct rno_g_header 

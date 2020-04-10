@@ -22,13 +22,13 @@ void radiant_set_run_number(radiant_dev_t * bd, int run);
  * @param  bd device handle
  * @param  num_avail_bytes  if non-zero, number of available bytes will be written to this memory location
  * @param  n_read_buffers   the number of buffers to read (this does NOT check navail so could write garbage). 
- * @param  read_words  pointer to array of words to read into each buffer
+ * @param  read_n_words  pointer to array of number of words to read into each buffer
  * @param  buffers  array of pointers to buffers 
  * @returns whatever the ioctl returns
  * */ 
 int radiant_read(radiant_dev_t * bd, uint16_t * num_avail_bytes, 
                  int n_read_buffers, 
-                 int *  read_words, 
+                 int *  read_n_words, 
                  uint16_t ** buffers);
 
 
