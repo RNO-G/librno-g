@@ -210,7 +210,7 @@ int radiant_read_event(radiant_dev_t * bd, rno_g_header_t * hd, rno_g_waveform_t
 
 
   //check magic 
-  if (HE16(fwhd.magic)!= 0x5244) 
+  if (fwhd.magic!= 0x5244 )
   {
     fprintf(stderr,"Bad magic :%g\n", fwhd.magic);
     return -0x5244; 
@@ -219,17 +219,17 @@ int radiant_read_event(radiant_dev_t * bd, rno_g_header_t * hd, rno_g_waveform_t
 
   // Start filling in the metadata 
   memset(hd,0,sizeof(*hd)); 
-  hd->event_number |= (HE16(fwhd.counter[1]));
-  hd->event_number |= (HE16(fwhd.counter[0])) << 16;
-  hd->trigger_time |= (HE16(fwhd.time[1]));
-  hd->trigger_time |= (HE16(fwhd.time[0])) << 16;
+  hd->event_number |= (fwhd.counter[1]);
+  hd->event_number |= (fwhd.counter[0]) << 16;
+  hd->trigger_time |= (fwhd.time[1]);
+  hd->trigger_time |= (fwhd.time[0]) << 16;
   hd->run_number = bd->run; 
 
-  int num_status = HE16(fwhd.nstatus[1]); 
-  num_status |= (HE16(fwhd.nstatus[0])) << 16; 
+  int num_status = fwhd.nstatus[1]; 
+  num_status |= (fwhd.nstatus[0]) << 16; 
 
-  int num_ev = HE16(fwhd.nev[1]); 
-  num_ev |= (HE16(fwhd.nev[0])) << 16; 
+  int num_ev = fwhd.nev[1]; 
+  num_ev |= (fwhd.nev[0]) << 16; 
 
   wf->event_number = hd->event_number; 
   wf->run_number = bd->run; 
@@ -272,7 +272,7 @@ int radiant_read_event(radiant_dev_t * bd, rno_g_header_t * hd, rno_g_waveform_t
       uint16_t val = wf->radiant_waveforms[ichan][RNO_G_WINDOW_SIZE*w];
       if (val & 0x2000)//this is the start window
       {
-        hd->radiant_start_window[ichan] = high_window ? w+RNO_G_NUM_WINDOWS: w; 
+        hd->radiant_start_windows[ichan] = high_window ? w+RNO_G_NUM_WINDOWS: w; 
         nrotate = w * RNO_G_WINDOW_SIZE; 
         break; 
       }
@@ -281,7 +281,7 @@ int radiant_read_event(radiant_dev_t * bd, rno_g_header_t * hd, rno_g_waveform_t
         //figure out the number of windows we must have read... this might just be constant! 
         int num_windows =  nsamples >> 7; 
         int start = (w-num_windows) % RNO_G_NUM_WINDOWS ;
-        hd->radiant_start_window[ichan] = start + (high_window ? RNO_G_NUM_WINDOWS : 0);  
+        hd->radiant_start_windows[ichan] = start + (high_window ? RNO_G_NUM_WINDOWS : 0);  
         nrotate = start * RNO_G_WINDOW_SIZE; 
         break; 
       }
