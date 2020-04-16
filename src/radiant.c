@@ -157,8 +157,7 @@ static void andall16(uint16_t *v, uint16_t andme, int N)
   if (Niter) 
   {
     //probably a smarter way to do this 
-    uint16_t andme_v[16] = { andme,andme,andme,andme,andme,andme,andme,andme};
-    uint16x8_t vandme = v1d1q_u16 (andme_v); 
+    uint16x8_t vandme = vdupq_n_u16 (andme); 
 
     for (i = 0; i < Niter; i++) 
     {
@@ -170,10 +169,10 @@ static void andall16(uint16_t *v, uint16_t andme, int N)
       v2 = vandq_u16(v2,vandme);
       v3 = vandq_u16(v3,vandme);
       v4 = vandq_u16(v4,vandme);
-      vst1q_u16(v1, v+i*32);
-      vst1q_u16(v2,v+i*32+8);
-      vst1q_u16(v3,v+i*32+16);
-      vst1q_u16(v4,v+i*32+24);
+      vst1q_u16( v+i*32,v1);
+      vst1q_u16(v+i*32+8,v2);
+      vst1q_u16(v+i*32+16,v3);
+      vst1q_u16(v+i*32+24,v4);
     }
 
     i*=32; // catch any remaining elements with a normal loop
