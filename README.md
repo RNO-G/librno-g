@@ -1,2 +1,2 @@
 # librno-g
-libraries to interface with RNO-G hardware
+i/o and hardware access libraries for RNO-G
