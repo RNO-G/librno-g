@@ -152,7 +152,6 @@ static void andall16(uint16_t *v, uint16_t andme, int N)
   int i = 0;
 #if defined(__arm__) && !defined(NOVECTORIZE) 
 //we'll use ARM NEON intrinsics. Since usually this will be a multiple of 32, we'll use vandq_u16 unrolled by 4 
-
   int Niter = N/32; 
 
   if (Niter) 
@@ -267,22 +266,22 @@ int radiant_read_event(radiant_dev_t * bd, rno_g_header_t * hd, rno_g_waveform_t
     //right now I'm assuming it's the same for each channel
     int nrotate = 0;
 
-    for (int w = 0; w < RNO_G_NUM_WINDOWS; w++) 
+    for (int w = 0; w < RNO_G_RADIANT_NUM_WINDOWS; w++) 
     {
-      uint16_t val = wf->radiant_waveforms[ichan][RNO_G_WINDOW_SIZE*w];
+      uint16_t val = wf->radiant_waveforms[ichan][RNO_G_RADIANT_WINDOW_SIZE*w];
       if (val & 0x2000)//this is the start window
       {
-        hd->radiant_start_windows[ichan] = high_window ? w+RNO_G_NUM_WINDOWS: w; 
-        nrotate = w * RNO_G_WINDOW_SIZE; 
+        hd->radiant_start_windows[ichan] = high_window ? w+RNO_G_RADIANT_NUM_WINDOWS: w; 
+        nrotate = w * RNO_G_RADIANT_WINDOW_SIZE; 
         break; 
       }
       else if (val & 0x1000) //this is the stop window 
       {
         //figure out the number of windows we must have read... this might just be constant! 
         int num_windows =  nsamples >> 7; 
-        int start = (w-num_windows) % RNO_G_NUM_WINDOWS ;
-        hd->radiant_start_windows[ichan] = start + (high_window ? RNO_G_NUM_WINDOWS : 0);  
-        nrotate = start * RNO_G_WINDOW_SIZE; 
+        int start = (w-num_windows) % RNO_G_RADIANT_NUM_WINDOWS ;
+        hd->radiant_start_windows[ichan] = start + (high_window ? RNO_G_RADIANT_NUM_WINDOWS : 0);  
+        nrotate = start * RNO_G_RADIANT_WINDOW_SIZE; 
         break; 
       }
     }
@@ -299,8 +298,8 @@ int radiant_read_event(radiant_dev_t * bd, rno_g_header_t * hd, rno_g_waveform_t
     }
     else //only have to remove upper bits on first and last windows, which are now in the right place
     {
-      andall16(wf->radiant_waveforms[ichan], 0x0fff, RNO_G_WINDOW_SIZE); 
-      andall16(wf->radiant_waveforms[ichan] + (nsamples-RNO_G_WINDOW_SIZE), 0x0fff, RNO_G_WINDOW_SIZE); 
+      andall16(wf->radiant_waveforms[ichan], 0x0fff, RNO_G_RADIANT_WINDOW_SIZE); 
+      andall16(wf->radiant_waveforms[ichan] + (nsamples-RNO_G_RADIANT_WINDOW_SIZE), 0x0fff, RNO_G_RADIANT_WINDOW_SIZE); 
     }
   }
 

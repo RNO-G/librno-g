@@ -116,7 +116,7 @@ int rno_g_header_read(rno_g_file_handle_t h, rno_g_header_t *header)
 
 
  //WARNING: watch out for this struct changing! 
-#define N_BEFORE_DATA  ( offsetof(rno_g_waveform_t,reserved) + sizeof(((rno_g_waveform_t*) 0)->reserved)) 
+#define N_BEFORE_DATA  ( offsetof(rno_g_waveform_t,lt_nsamples) + sizeof(((rno_g_waveform_t*) 0)->lt_nsamples)) 
 
 //magic, version, checksum, then we dump the struct
 int rno_g_waveform_write(rno_g_file_handle_t h, const rno_g_waveform_t *wf)
@@ -130,8 +130,15 @@ int rno_g_waveform_write(rno_g_file_handle_t h, const rno_g_waveform_t *wf)
 
   for (int ichan = 0; ichan < RNO_G_NUM_RADIANT_CHANNELS; ichan++)
   {
-    wr += do_write(h, 2*wf->nsamples, wf->radiant_waveforms[ichan],&sum); 
+    // 2 since 16-bit data 
+    wr += do_write(h, 2*wf->radiant_nsamples, wf->radiant_waveforms[ichan],&sum); 
   }
+
+  for (int ichan = 0; ichan < RNO_G_NUM_LT_CHANNELS; ichan++)
+  {
+    wr += do_write(h, wf->lt_nsamples, wf->lt_waveforms[ichan],&sum); 
+  }
+
 
   do_write(h, sizeof(sum),&sum,0); 
 
@@ -165,7 +172,11 @@ int rno_g_waveform_read(rno_g_file_handle_t h, rno_g_waveform_t *wf)
         rd = do_read(h,N_BEFORE_DATA,wf,&sum); 
         for (ichan = 0; ichan < RNO_G_NUM_RADIANT_CHANNELS; ichan++)
         {
-          rd+= do_read(h,2*wf->nsamples, wf->radiant_waveforms[ichan], &sum);
+          rd+= do_read(h,2*wf->radiant_nsamples, wf->radiant_waveforms[ichan], &sum);
+        }
+         for (ichan = 0; ichan < RNO_G_NUM_LT_CHANNELS; ichan++)
+        {
+          rd+= do_read(h,wf->lt_nsamples, wf->lt_waveforms[ichan], &sum);
         }
         
         rdsum = do_read(h, sizeof(wanted_sum),&wanted_sum,0); 
