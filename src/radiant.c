@@ -233,7 +233,7 @@ int radiant_read_event(radiant_dev_t * bd, rno_g_header_t * hd, rno_g_waveform_t
   wf->run_number = bd->run; 
 
   int nsamples = (num_ev-12)/24; 
-  wf->nsamples = nsamples; 
+  wf->radiant_nsamples = nsamples; 
 
   //we will have 25 transactions, the status (which we ignore for now) , and then one for each channel;
   int Ns[1+RNO_G_NUM_RADIANT_CHANNELS]; 
@@ -265,12 +265,12 @@ int radiant_read_event(radiant_dev_t * bd, rno_g_header_t * hd, rno_g_waveform_t
     //right now I'm assuming it's the same for each channel
     int nrotate = 0;
 
-    for (int w = 0; w < RNO_G_RADIANT_NUM_WINDOWS; w++) 
+    for (int w = 0; w < RNO_G_NUM_RADIANT_WINDOWS; w++) 
     {
       uint16_t val = wf->radiant_waveforms[ichan][RNO_G_RADIANT_WINDOW_SIZE*w];
       if (val & 0x2000)//this is the start window
       {
-        hd->radiant_start_windows[ichan] = high_window ? w+RNO_G_RADIANT_NUM_WINDOWS: w; 
+        hd->radiant_start_windows[ichan] = high_window ? w+RNO_G_NUM_RADIANT_WINDOWS: w; 
         nrotate = w * RNO_G_RADIANT_WINDOW_SIZE; 
         break; 
       }
@@ -278,8 +278,8 @@ int radiant_read_event(radiant_dev_t * bd, rno_g_header_t * hd, rno_g_waveform_t
       {
         //figure out the number of windows we must have read... this might just be constant! 
         int num_windows =  nsamples >> 7; 
-        int start = (w-num_windows) % RNO_G_RADIANT_NUM_WINDOWS ;
-        hd->radiant_start_windows[ichan] = start + (high_window ? RNO_G_RADIANT_NUM_WINDOWS : 0);  
+        int start = (w-num_windows) % RNO_G_NUM_RADIANT_WINDOWS ;
+        hd->radiant_start_windows[ichan] = start + (high_window ? RNO_G_NUM_RADIANT_WINDOWS : 0);  
         nrotate = start * RNO_G_RADIANT_WINDOW_SIZE; 
         break; 
       }
