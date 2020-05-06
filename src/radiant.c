@@ -80,8 +80,8 @@ int radiant_read(radiant_dev_t * bd, uint16_t * navail, int nbufs, int * N, uint
   for (int i = 3; i < nxfers; i++)
   {
     xfers[i].tx_buf = 0; 
-    xfers[i].rx_buf = (uintptr_t) bufs[i]; 
-    xfers[i].len =  2*N[i]; 
+    xfers[i].rx_buf = (uintptr_t) bufs[i-3]; 
+    xfers[i].len =  2*N[i-3]; 
   }
 
   int ret =  ioctl(bd->spi_fd, SPI_IOC_MESSAGE(nxfers), xfers); 
@@ -334,6 +334,8 @@ radiant_dev_t * radiant_open(const char *spi_device, const char * uart_device)
 
   }
 
+  int spi_clock = 48000000; 
+  ioctl(spi_fd, SPI_IOC_WR_MAX_SPEED_HZ,&spi_clock); 
 
   dev = calloc(sizeof(radiant_dev_t),1); 
   dev->spi_fd = spi_fd; 
