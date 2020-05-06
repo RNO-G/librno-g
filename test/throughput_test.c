@@ -19,7 +19,7 @@ int main(int nargs, char ** args)
   int spi_clock = 48000000; 
   ioctl(fd, SPI_IOC_WR_MAX_SPEED_HZ,&spi_clock); 
 
-  int ntimes = 16; 
+  int ntimes = 25; 
   if (nargs > 1) ntimes = atoi(args[1]); 
 
 
@@ -45,7 +45,7 @@ int main(int nargs, char ** args)
 
   double dt = (end.tv_sec - start.tv_sec) + 1e-9 * (end.tv_nsec - start.tv_nsec); 
 
-  printf("Read %d bytes in %g seconds (%g MB/s)\n",  24*4096*ntimes, dt, 24*4096*ntimes/dt/(1 << 20)); 
+  printf("Read %d bytes (%d \"events\") in %g seconds (%g MB/s, %g Hz)\n",  24*4096*ntimes,ntimes, dt, 24*4096*ntimes/dt/(1 << 20), ntimes/dt); 
 
   close(fd); 
 
