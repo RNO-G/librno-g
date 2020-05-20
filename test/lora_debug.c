@@ -10,7 +10,7 @@
 #include <poll.h> 
 
 const int RX_GPIO = 20;
-const int TX_GPIO = 51;
+const int TX_GPIO = 115;
 
 
 
