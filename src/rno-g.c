@@ -34,7 +34,7 @@ static uint32_t cksum(uint32_t start_cksum, int N, const uint8_t *data)
 static int do_write(rno_g_file_handle_t h, int N, const void *data, uint32_t * sum) 
 {
 
-  if (cksum) *sum = cksum(*sum,N,data); 
+  if (sum) *sum = cksum(*sum,N,data); 
 
   switch  (h.type)
   {
@@ -61,7 +61,7 @@ static int do_read(rno_g_file_handle_t h, int N, void *data, uint32_t * sum)
       return 0; 
   }
 
-  if (cksum) *sum = cksum(*sum,rd,data); 
+  if (sum) *sum = cksum(*sum,rd,data); 
   return rd; 
 }
 
