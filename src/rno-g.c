@@ -164,7 +164,7 @@ int rno_g_waveform_read(rno_g_file_handle_t h, rno_g_waveform_t *wf)
   int rdsum;
   int ichan = 0; 
   rd = 0; 
-  // here we handle converting to the newest kind of header
+  // here we handle converting to the newest kind of waveform
   switch (hd.version) 
   {
     case WF_VER:
