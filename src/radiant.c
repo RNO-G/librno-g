@@ -1,11 +1,16 @@
 #include "radiant.h" 
+#include "cobs.h" 
 
+#include <time.h> 
 #include <linux/spi/spidev.h> 
 #include <sys/types.h> 
 #include <sys/ioctl.h> 
 #include <sys/file.h> 
 #include <stdlib.h> 
 #include <string.h> 
+#include <fcntl.h> 
+#include <termios.h> 
+#include <errno.h> 
 
 
 #if defined(__arm__) && !defined(NOVECTORIZE) 
@@ -27,6 +32,10 @@ struct radiant_dev
   int uart_fd; 
   int run; 
   int peek; // use peek form of read
+
+  // buffers for cobs writing (one per device) 
+  uint8_t reg_buf [258]; 
+  uint8_t reg_buf_encoded [260]; 
 }; 
 
 
@@ -309,7 +318,7 @@ radiant_dev_t * radiant_open(const char *spi_device, const char * uart_device)
 {
 
   radiant_dev_t * dev = 0; 
-  int locked, spi_fd = 0, uart_fd =0; 
+  int locked_spi, locked_uart, spi_fd = 0, uart_fd =0; 
 
   //open the device, if we can 
   spi_fd = open(spi_device, O_RDWR); 
@@ -318,29 +327,110 @@ radiant_dev_t * radiant_open(const char *spi_device, const char * uart_device)
     fprintf(stderr,"Could not open %s\n", spi_device); 
     return 0; 
   }
+  uart_fd = open(uart_device, O_RDWR); 
 
-  //advisory locks, so we don't accidentally open it twice (how does this work with symlinks?) 
-  locked = flock(spi_fd, LOCK_EX | LOCK_NB);
-  if (locked < 0) 
+  if (uart_fd < 0) 
   {
-    fprintf(stderr,"Could not get exclusive access to %s\n", spi_device); 
+    fprintf(stderr,"Could not open %s\n", uart_device); 
     close(spi_fd); 
     return 0; 
   }
 
-  if (uart_device) 
-  {
-    //TODO
 
+
+  //advisory locks, so we don't accidentally open it twice (how does this work with symlinks?) 
+  locked_spi = flock(spi_fd, LOCK_EX | LOCK_NB);
+  locked_uart = flock(uart_fd, LOCK_EX | LOCK_NB);
+  if (locked_spi < 0 || locked_uart < 0) 
+  {
+    if (locked_spi < 0) 
+      fprintf(stderr,"Could not get exclusive access to %s\n", spi_device); 
+    if (locked_uart < 0) 
+      fprintf(stderr,"Could not get exclusive access to %s\n", uart_device); 
+    close(spi_fd); 
+    close(uart_fd); 
+    return 0; 
   }
 
+
+  //now set up the SPI 
   int spi_clock = 48000000; 
   ioctl(spi_fd, SPI_IOC_WR_MAX_SPEED_HZ,&spi_clock); 
+  
+  //and set up the UART 
+  // SEE THIS NICE GUIDE HERE https://blog.mbedded.ninja/programming/operating-systems/linux/linux-serial-ports-using-c-cpp
+
+  struct termios tty; 
+
+
+  tcgetattr(uart_fd,  &tty); 
+
+  //clear parity bit 
+  tty.c_cflag &= ~PARENB; 
+  
+  //one stop bit
+  tty.c_cflag &= ~CSTOPB; 
+
+  //8 bits 
+  tty.c_cflag &= ~CSIZE; 
+  tty.c_cflag |= CS8; 
+
+  //no hw flow control 
+  tty.c_cflag &=~CRTSCTS; 
+
+  //turn on read/disable ctrl lines
+  tty.c_cflag |= CREAD | CLOCAL; 
+
+  //turn OFF canoncial mode
+  tty.c_lflag &= ~ICANON; 
+
+  //disable echo bits (probably already disabled?) 
+  tty.c_lflag &= ~ECHO; 
+  tty.c_lflag &= ~ECHOE; 
+  tty.c_lflag &= ~ECHONL;
+
+  //disable interpretation of signal chars
+  tty.c_lflag &= ~ISIG; 
+
+  //disable software flow control 
+  tty.c_iflag &= ~(IXON | IXOFF | IXANY); 
+
+  //disable special handling of input  bytes
+  tty.c_iflag &= ~(IGNBRK|BRKINT|PARMRK|ISTRIP|INLCR|INLCR|ICRNL); 
+
+  //disable any special output modes 
+  tty.c_oflag &= ~OPOST; 
+  tty.c_oflag &= ~ONLCR; 
+
+
+  //make it nonblocking
+  tty.c_cc[VTIME]=0; 
+  tty.c_cc[VMIN]=0; 
+
+  //baud rate 
+  cfsetispeed(&tty, B115200);
+  cfsetospeed(&tty, B115200);
+
+  //set the serial attrs 
+  if (0 != tcsetattr(uart_fd, TCSANOW, &tty))
+  {
+    fprintf(stderr,"Could not configure serial port %s :(. Got error %d: %s\n", uart_device, errno, strerror(errno)); 
+    close(uart_fd); 
+    close(spi_fd); 
+    return 0; 
+  }
+
+  //drain the port 
+  tcflush(uart_fd, TCIOFLUSH); 
+
+  //Write two 0s to make sure we're sycnrhonzied
+  uint16_t zero = 0; 
+  write(uart_fd,&zero,sizeof(zero)); 
+
 
   dev = calloc(sizeof(radiant_dev_t),1); 
   dev->spi_fd = spi_fd; 
-  dev->uart_fd = 0; 
-
+  dev->uart_fd = uart_fd; 
   return dev; 
 }
 
@@ -361,7 +451,154 @@ void radiant_close(radiant_dev_t * dev)
 }
 
 
+//Convenience method useful for cobs decoding 
+static int read_until_zero(radiant_dev_t * bd, double timeout) 
+{
+
+  int nread = 0; 
+
+  struct timespec start; 
+
+  if (timeout > 0) 
+  {
+    clock_gettime(CLOCK_MONOTONIC,&start); 
+  }
+
+  while (1) 
+  {
+    //read one byte at a time 
+    int this_read =  read(bd->uart_fd, bd->reg_buf_encoded + nread, 1); 
+    if (!this_read) 
+    {
+      if (timeout > 0) 
+      {
+        struct timespec now; 
+        clock_gettime(CLOCK_MONOTONIC,&now); 
+        double elapsed = now.tv_sec - start.tv_sec + 1e9 * (now.tv_nsec - start.tv_nsec); 
+
+        if (elapsed > timeout) 
+        {
+          return -nread; 
+        }
+      }
+
+      usleep(1000); //1 ms
+
+      continue; 
+    }
+    //did we get a zero? if so we did it! 
+    if (!bd->reg_buf_encoded[nread]) 
+    {
+      return nread+1; 
+    }
+    else
+    {
+      nread++; 
+    }
+  }
+
+  return -1; 
+}
 
 
 
+
+int radiant_set_mem(radiant_dev_t * bd, radiant_dest_t dest, uint32_t addr, uint8_t len, const uint8_t * bytes) 
+{
+  // set up unencoded packet 
+  //                //address[21:16]          // dest           //write
+  bd->reg_buf[0] = ((addr >> 16 ) & 0x1f) | ( (dest &1) <<6 ) | (1 << 7); 
+  bd->reg_buf[1] =  (addr >> 8) & 0xff; //addr [15:8]
+  bd->reg_buf[2] = (addr) & 0xff; 
+
+  //copy the data in 
+  memcpy(bd->reg_buf+3, bytes, len); 
+
+  int encoded_len = cobs_encode_buf(len+3, bd->reg_buf, sizeof(bd->reg_buf_encoded), bd->reg_buf_encoded); 
+  
+  //now write to serial 
+  int written = write(bd->uart_fd, bd->reg_buf_encoded,encoded_len); 
+
+  if (written != encoded_len) 
+  {
+    fprintf(stderr,"Wrote only %d bytes instead of %d in radiant_set_mem\n", written, encoded_len); 
+    return -1; 
+  }
+
+  uint8_t expected[4] = { bd->reg_buf[0], bd->reg_buf[1], bd->reg_buf[2], len}; 
+
+
+  //read until we get a 0
+  int rd = read_until_zero(bd, 0); 
+  int decoded_len = cobs_decode_buf(rd, bd->reg_buf_encoded, sizeof(bd->reg_buf), bd->reg_buf); 
+
+  if (!memcmp(expected, bd->reg_buf, sizeof(expected)))
+  {
+    int i = 0;
+    fprintf(stderr, "expected buf mismatch in radiant_set mem.\n"); 
+    fprintf(stderr, "  expected: "); 
+    for (i = 0; i < sizeof(expected); i++) fprintf(stderr," %02x ", expected[i]);
+    fprintf(stderr, "\n  got    : "); 
+    for (i = 0; i < decoded_len; i++) fprintf(stderr," %02x ", bd->reg_buf[i]);
+    return -decoded_len; 
+  }
+
+  return len; 
+}
+
+int radiant_get_mem(radiant_dev_t * bd, radiant_dest_t dest, uint32_t addr, uint8_t len, uint8_t * bytes) 
+{
+  // set up unencoded packet 
+  //                //address[21:16]          // dest          
+  bd->reg_buf[0] = ((addr >> 16 ) & 0x1f) | ( (dest &1) <<6 ) ; 
+  bd->reg_buf[1] =  (addr >> 8) & 0xff; //addr [15:8]
+  bd->reg_buf[2] = (addr) & 0xff; 
+  bd->reg_buf[3] = 4; 
+
+  int encoded_len = cobs_encode_buf(4, bd->reg_buf, sizeof(bd->reg_buf_encoded), bd->reg_buf_encoded); 
+  
+  //now write to serial 
+  int written = write(bd->uart_fd, bd->reg_buf_encoded,encoded_len); 
+
+  if (written != encoded_len) 
+  {
+    fprintf(stderr,"Wrote only %d bytes instead of %d in radiant_set_mem\n", written, encoded_len); 
+    return -1; 
+  }
+
+
+  uint8_t expected[3] = { bd->reg_buf[0], bd->reg_buf[1], bd->reg_buf[2]}; 
+
+  //read until we get a 0
+  int rd = read_until_zero(bd, 0); 
+  //decode 
+  int decoded_len = cobs_decode_buf(rd, bd->reg_buf_encoded, sizeof(bd->reg_buf), bd->reg_buf); 
+
+  if (decoded_len != len+3) 
+  {
+    fprintf(stderr, "Lenght mismatch. Got %d bytes, expected %d\n", decoded_len, len+3); 
+    return -1; 
+  }
+
+
+  if (!memcmp(expected, bd->reg_buf, sizeof(expected)))
+  {
+    int i = 0;
+    fprintf(stderr, "expected buf mismatch in radiant_get mem.\n"); 
+    fprintf(stderr, "  expected: "); 
+    for (i = 0; i < sizeof(expected); i++) fprintf(stderr," %02x ", expected[i]);
+    fprintf(stderr, "\n  got    : "); 
+    for (i = 0; i < decoded_len; i++) fprintf(stderr," %02x ", bd->reg_buf[i]);
+    return -decoded_len; 
+  }
+
+  //fill in the bytes 
+
+  for (int i = 0; i < len; i++) 
+  {
+    bytes[i] = bd->reg_buf[i+3]; 
+  }
+
+  return len; 
+}
 

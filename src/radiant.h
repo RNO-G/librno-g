@@ -52,6 +52,22 @@ int radiant_read_event(radiant_dev_t * bd, rno_g_header_t * hd, rno_g_waveform_t
 
 
 
+typedef enum radiant_dest
+{
+  DEST_FPGA = 0, 
+  DEST_MANAGER =1 
+} radiant_dest_t ; 
+
+/** Set address
+ *
+ * @param bd radiant board
+ * @param dest either the FPGA or the board manager 
+ * @param addr start addredss
+ * @param len the length to write (max 255...) 
+ * @param bytes the data to write 
+ **/ 
+int radiant_set_mem(radiant_dev_t *bd, radiant_dest_t dest, uint32_t addr, uint8_t len, const uint8_t * bytes); 
+int radiant_get_mem(radiant_dev_t* bd, radiant_dest_t dest, uint32_t addr, uint8_t len, uint8_t * bytes); 
 
 
 #endif
