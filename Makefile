@@ -49,10 +49,6 @@ test: $(addprefix $(BUILD_DIR)/test/, $(TESTS) )
 	echo -e "\n$(BOLD) $$passed/$$total tests passed$(NC)\n " 
 		
 
-
-		
-
-
 install: 
 
 install-daq: install 
@@ -67,10 +63,12 @@ $(BUILD_DIR):
 	mkdir -p $(BUILD_DIR)
 	mkdir -p $(BUILD_DIR)/test
 
-$(BUILD_DIR)/librno-g.so: $(BUILD_DIR)/rno-g.o
+CLIENT_OBJS=rno-g.o 
+$(BUILD_DIR)/librno-g.so: $(addprefix $(BUILD_DIR)/, $(CLIENT_OBJS))
 	cc -o $@ $(LDFLAGS) $^  $(LIBS) 
 
-$(BUILD_DIR)/libradiant.so: $(BUILD_DIR)/radiant.o $(BUILD_DIR)/cobs.o 
+DAQ_OBJS=radiant.o cobs.o 
+$(BUILD_DIR)/libradiant.so: $(addprefix $(BUILD_DIR)/, $(DAQ_OBJS))
 	cc -o $@ $(LDFLAGS) $^  $(LIBS) 
  
 $(BUILD_DIR)/rno-g.o: src/rno-g.c $(INCLUDES) | $(BUILD_DIR)
