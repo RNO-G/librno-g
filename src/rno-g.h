@@ -9,18 +9,20 @@
  * */ 
 
 
-
 #ifndef _RNO_G_H
 #define _RNO_G_H
-#ifdef __cplusplus__
+
+#ifdef __cplusplus
 extern "C"
 { 
 #endif
 
 
+//For int ttypes
 #include <stdint.h> 
-#include <stdio.h> 
-#include <zlib.h> 
+
+//for CHAR_BIT
+#include <limits.h>   
 
 #define RNO_G_MAX_RADIANT_NSAMPLES 2048
 #define RNO_G_NUM_RADIANT_CHANNELS 24 
@@ -30,6 +32,11 @@ extern "C"
 #define RNO_G_MAX_LT_NSAMPLES 512
 #define RNO_G_NUM_LT_CHANNELS 4 
 
+
+
+/** Forward declarations of file backends, because some may be conditionally compiled in the future */ 
+typedef struct gzFile_s * gzFile;
+typedef struct _IO_FILE FILE;
 
 /* File handles so that we can handle different compression schemes in the same way. 
  *
@@ -64,6 +71,30 @@ typedef struct rno_g_file_handle
 } rno_g_file_handle_t; 
 
 
+//convenience maker for rno_g_file_handle (useful for python wrapper too) 
+
+int rno_g_init_handle(rno_g_file_handle_t * h, const char * name, const char * mode); 
+int rno_g_close_handle(rno_g_file_handle_t * h); 
+
+
+typedef enum rno_g_trigger_type 
+{
+    RNO_G_TRIGGER_SOFT        = 1 << 0,  /**< This was a software trigger */
+    RNO_G_TRIGGER_EXT         = 1 << 1,  /**< This was an external trigger */
+    RNO_G_TRIGGER_RF_LT       = 1 << 2,  /**< This was an RF trigger from the LT board*/
+    RNO_G_TRIGGER_RF_RADIANT  = 1 << 3,  /**< This was an RF trigger from the RAdiant*/
+    RNO_G_TRIGGER_RF_FOLLOWUP = 1 << 4   /**< This is a ``followup" trigger*/
+
+      //this will be stored as a uint8_t, so can fit a few more 
+} rno_g_trigger_type_t ; 
+
+
+typedef enum rno_g_flags
+{
+    RNO_G_FLAG_GATE           =  1 << 0, /**< This occured during PPS gate */ 
+    RNO_G_READOUT_ERROR       =  1 << 1, /**< There was some kind of readout error*/ 
+    //this will be stored as a uint8_t, so can fit a few more 
+}rno_g_flags_t; 
 
 
  /** 
@@ -85,23 +116,11 @@ typedef struct rno_g_header
 
   uint8_t station_number; //!< The station number. 
 
-  /** Trigger type. Or-able */ 
-  enum 
-  {
-    RNO_G_TRIGGER_SOFT        = 1 << 0,  /**< This was a software trigger */
-    RNO_G_TRIGGER_EXT         = 1 << 1,  /**< This was an external trigger */
-    RNO_G_TRIGGER_RF_LT       = 1 << 2,  /**< This was an RF trigger from the LT board*/
-    RNO_G_TRIGGER_RF_RADIANT  = 1 << 3,  /**< This was an RF trigger from the RAdiant*/
-    RNO_G_TRIGGER_RF_FOLLOWUP = 1 << 4   /**< This is a ``followup" trigger*/
-    //room for some more? 
-  } trigger_type : CHAR_BIT; 
+  /** Trigger type. See rno_g_trigger_type_t  Or-able */ 
+  uint8_t trigger_type; 
 
-  /** Various flags for the event, orable */ 
-  enum 
-  {
-    RNO_G_FLAG_GATE           =  1 << 0, /**< This occured during PPS gate */ 
-    RNO_G_READOUT_ERROR       =  1 << 1, /**< There was some kind of readout error*/ 
-  } flags : CHAR_BIT; 
+  /** Various flags for the event. See rno_g_flags_t orable */ 
+  uint8_t flags; 
 
   uint8_t pretrigger_windows; //!< Number of pretrigger windows? 
   uint8_t  radiant_start_windows[RNO_G_NUM_RADIANT_CHANNELS]; //!<this encodes buffer number too 
@@ -133,7 +152,7 @@ int rno_g_waveform_read(rno_g_file_handle_t handle, rno_g_waveform_t * waveform)
 
 
 
-#ifdef __cplusplus__
+#ifdef __cplusplus
 }
 #endif
 #endif 

@@ -1,6 +1,8 @@
 #include "rno-g.h" 
 #include <stdio.h> 
 #include <stddef.h> 
+#include <zlib.h> 
+#include <string.h> 
 
 /* IO functions. 
  *
@@ -112,6 +114,7 @@ int rno_g_header_read(rno_g_file_handle_t h, rno_g_header_t *header)
     default: 
       fprintf(stderr,"Uknown header version %d\n", hd.version); 
   }
+  return 0; 
 }
 
 
@@ -192,5 +195,44 @@ int rno_g_waveform_read(rno_g_file_handle_t h, rno_g_waveform_t *wf)
     default: 
       fprintf(stderr,"Uknown waveform version %d\n", hd.version); 
   }
+  return 0; 
+}
+
+
+int rno_g_init_handle(rno_g_file_handle_t * h, const char * name, const char * mode) 
+{
+
+  //check for gz ending
+  char * dot = strrchr(name,'.'); 
+
+  if (!strcasecmp(dot, ".gz"))
+  {
+    h->type = RNO_G_GZIP; 
+    h->handle.gz = gzopen(name,mode); 
+    return h->handle.gz==0;
+  }
+
+  h->type = RNO_G_RAW; 
+  h->handle.raw = fopen(name,mode); 
+  return h->handle.raw == 0; 
+} 
+
+int rno_g_close_handle(rno_g_file_handle_t *h)  
+{
+  if (h->type == RNO_G_GZIP) 
+  {
+    if(h->handle.gz) 
+      return gzclose(h->handle.gz); 
+    else return 1; 
+  }
+
+  else if (h->type == RNO_G_RAW) 
+  {
+    if (h->handle.raw) 
+      return fclose(h->handle.raw); 
+    else return 1; 
+  }
+
+  return 1; 
 }
 
