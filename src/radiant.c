@@ -1,10 +1,11 @@
 #include "radiant.h" 
 #include "cobs.h" 
-
 #include <time.h> 
 #include <linux/spi/spidev.h> 
 #include <sys/types.h> 
+#include <stdio.h>
 #include <sys/ioctl.h> 
+#include <unistd.h> 
 #include <sys/file.h> 
 #include <stdlib.h> 
 #include <string.h> 
@@ -219,7 +220,7 @@ int radiant_read_event(radiant_dev_t * bd, rno_g_header_t * hd, rno_g_waveform_t
   //check magic 
   if (fwhd.magic!= 0x5244 )
   {
-    fprintf(stderr,"Bad magic :%g\n", fwhd.magic);
+    fprintf(stderr,"Bad magic :%d\n", fwhd.magic);
     return -0x5244; 
   }
 
@@ -311,6 +312,7 @@ int radiant_read_event(radiant_dev_t * bd, rno_g_header_t * hd, rno_g_waveform_t
     }
   }
 
+  return ret; 
 }
 
 
