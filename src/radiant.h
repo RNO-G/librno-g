@@ -4,6 +4,10 @@
 /** Radiant API */
 
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include "rno-g.h" 
 
 //opaque handle
@@ -68,6 +72,11 @@ typedef enum radiant_dest
  **/ 
 int radiant_set_mem(radiant_dev_t *bd, radiant_dest_t dest, uint32_t addr, uint8_t len, const uint8_t * bytes); 
 int radiant_get_mem(radiant_dev_t* bd, radiant_dest_t dest, uint32_t addr, uint8_t len, uint8_t * bytes); 
+
+
+#ifdef __cplusplus
+}
+#endif
 
 
 #endif
