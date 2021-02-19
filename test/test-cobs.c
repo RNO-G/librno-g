@@ -73,7 +73,7 @@ int main(int nargs, char ** args)
   int len_cb = cobs_decode(512, cb_decoded, buf_get_bytes, &cb_encoded_buf); 
 
 
-  printf("%d : %d %d: %d %d\n",sizeof(foo),buf_len, buf_len_cb, len, len_cb); 
+  printf("%lu : %d %d: %d %d\n",sizeof(foo),buf_len, buf_len_cb, len, len_cb); 
   print_buf(sizeof(foo),foo);
   print_buf(buf_len,encoded);
   print_buf(buf_len_cb,cb_encoded);
