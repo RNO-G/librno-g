@@ -1116,3 +1116,25 @@ int radiant_set_frequency(radiant_dev_t * bd, float freq_MHz, float * actual_fre
 }
 
 
+int radiant_set_attenuator(radiant_dev_t * bd, int channel, radiant_atten_t which, uint8_t value) 
+{
+  //figure out which quad 
+  int quad = channel / 4; 
+  int ch = channel % 4; 
+  uint8_t addr = (which == RADIANT_ATTEN_TRIG) + 2* ch; 
+  uint8_t bytes[4] = {value, addr,0,0}; // littlendian order
+  //clear LE 
+  bd->gpio_status[quad] &= ~QGPIO_BIT_ATT_LE; 
+  write_bm_gpio(bd, quad); 
+  radiant_set_mem(bd, DEST_MANAGER, BM_REG_SPIOUT_LSB, sizeof(bytes), bytes); 
+  bd->gpio_status[quad] |= QGPIO_BIT_ATT_LE; //set LE
+  write_bm_gpio(bd, quad); 
+  bd->gpio_status[quad] &= ~QGPIO_BIT_ATT_LE;  //clear LE 
+  write_bm_gpio(bd, quad); 
+
+  return 0; 
+}
+
+
+
+
