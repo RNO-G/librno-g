@@ -147,6 +147,7 @@ struct radiant_dev
   //the board manager date veesion
   date_version_t bm_dateversion; 
   date_version_t rad_dateversion; 
+  uint32_t cpldctrl; 
 
   // the gpio statuses. This is read on startup and (hopefully!) kept in sync so we don't have to keep reading it. 
   uint8_t gpio_status[7]; 
@@ -1101,7 +1102,7 @@ int radiant_set_frequency(radiant_dev_t * bd, float freq_MHz, float * actual_fre
 
     bd->gpio_status[BM_REG_SIGPIO_IDX] &= ~SGPIO_BIT_SIG_LE; //clear the latch
     write_bm_gpio(bd,BM_REG_SIGPIO_IDX); 
-    if (radiant_set_mem(bd,DEST_MANAGER, BM_REG_SPIOUT_MSB, sizeof(bytes), bytes))  
+    if (sizeof(bytes) != radiant_set_mem(bd,DEST_MANAGER, BM_REG_SPIOUT_MSB, sizeof(bytes), bytes))  
     {
       return 1; 
     }
