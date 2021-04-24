@@ -32,60 +32,104 @@ static uint8_t SPI_REG_RESET[2] = { 0x45,0x59 };
 //  maybe move this to API? 
 typedef enum
 {
-  BM_REG_IDENT = 0x0,
-  BM_REG_DATEVERSION = 0x4, 
-  BM_REG_STATUS = 0x8,
-  BM_REG_CONTROL = 0xc, 
-  BM_REG_ANAV10 = 0x10, 
-  BM_REG_ANAV18 = 0x14, 
-  BM_REG_ANAV25 = 0x18, 
-  BM_REG_ANALEFT = 0x1c, 
-  BM_REG_ANARIGHT = 0x20, 
-  BM_REG_SPIOUT = 0x24, 
-  BM_REG_GPIO_BASE = 0x40, 
-  BM_REG_GPIO_INCREMENT = 0x04, 
-  BM_REG_GPIO0 = 0x40, 
-  BM_REG_GPIO1 = 0x44, 
-  BM_REG_GPIO2 = 0x48, 
-  BM_REG_GPIO3 = 0x4c, 
-  BM_REG_GPIO4 = 0x50, 
-  BM_REG_GPIO5 = 0x54, 
-  BM_REG_SIGGPIO = 0x58, 
-  BM_REG_TDBIAS_BASE = 0x80, 
-  BM_REG_TDBIAS_INCREMENT = 0x04, 
-  BM_REG_TDBIAS0 = 0x80, 
-  BM_REG_TDBIAS1 = 0x84, 
-  BM_REG_TDBIAS2 = 0x88, 
-  BM_REG_TDBIAS3 = 0x8c, 
-  BM_REG_TDBIAS4 = 0x90, 
-  BM_REG_TDBIAS5 = 0x94, 
-  BM_REG_TDBIAS6 = 0x98, 
-  BM_REG_TDBIAS7 = 0x9c, 
-  BM_REG_TDBIAS8 = 0xa0, 
-  BM_REG_TDBIAS9 = 0xa4, 
-  BM_REG_TDBIAS10 = 0xa8, 
-  BM_REG_TDBIAS11 = 0xac, 
-  BM_REG_TDBIAS12 = 0xb0, 
-  BM_REG_TDBIAS13 = 0xb4, 
-  BM_REG_TDBIAS14 = 0xb8, 
-  BM_REG_TDBIAS15 = 0xbc, 
-  BM_REG_TDBIAS16 = 0xc0, 
-  BM_REG_TDBIAS17 = 0xc4, 
-  BM_REG_TDBIAS18 = 0xc8, 
-  BM_REG_TDBIAS19 = 0xcc, 
-  BM_REG_TDBIAS20 = 0xd0, 
-  BM_REG_TDBIAS21 = 0xd4, 
-  BM_REG_TDBIAS22 = 0xd8, 
-  BM_REG_TDBIAS26 = 0xdc, 
-  BM_REG_VPEDLEFT = 0xe0, 
-  BM_REG_VPEDRIGHT = 0xe4 
-}bm_reg_t; 
+  BM_REG_IDENT                      = 0x0,
+  BM_REG_DATEVERSION                = 0x4, 
+  BM_REG_STATUS                     = 0x8,
+  BM_REG_CONTROL                    = 0xc, 
+  BM_REG_ANAV10                     = 0x10, 
+  BM_REG_ANAV18                     = 0x14, 
+  BM_REG_ANAV25                     = 0x18, 
+  BM_REG_ANALEFT                    = 0x1c, 
+  BM_REG_ANARIGHT                   = 0x20, 
+  BM_REG_SPIOUT_LSB                 = 0x24, 
+  BM_REG_SPIOUT_MSB                 = 0x28, 
+  BM_REG_GPIO_BASE                  = 0x40, 
+  BM_REG_GPIO_INCR                  = 0x04,  //NOT AN ADDRESS
+  BM_REG_GPIO0                      = 0x40, 
+  BM_REG_GPIO1                      = 0x44, 
+  BM_REG_GPIO2                      = 0x48, 
+  BM_REG_GPIO3                      = 0x4c, 
+  BM_REG_GPIO4                      = 0x50, 
+  BM_REG_GPIO5                      = 0x54, 
+  BM_REG_SIGGPIO                    = 0x58, 
+  BM_REG_SIGPIO_IDX                 = 0x06,  //NOT AN ADRRESS
+  BM_REG_TDBIAS_BASE                = 0x80, 
+  BM_REG_TDBIAS_INCR                = 0x04,  //NOT AN ADDRESS
+  BM_REG_TDBIAS0                    = 0x80, 
+  BM_REG_TDBIAS1                    = 0x84, 
+  BM_REG_TDBIAS2                    = 0x88, 
+  BM_REG_TDBIAS3                    = 0x8c, 
+  BM_REG_TDBIAS4                    = 0x90, 
+  BM_REG_TDBIAS5                    = 0x94, 
+  BM_REG_TDBIAS6                    = 0x98, 
+  BM_REG_TDBIAS7                    = 0x9c, 
+  BM_REG_TDBIAS8                    = 0xa0, 
+  BM_REG_TDBIAS9                    = 0xa4, 
+  BM_REG_TDBIAS10                   = 0xa8, 
+  BM_REG_TDBIAS11                   = 0xac, 
+  BM_REG_TDBIAS12                   = 0xb0, 
+  BM_REG_TDBIAS13                   = 0xb4, 
+  BM_REG_TDBIAS14                   = 0xb8, 
+  BM_REG_TDBIAS15                   = 0xbc, 
+  BM_REG_TDBIAS16                   = 0xc0, 
+  BM_REG_TDBIAS17                   = 0xc4, 
+  BM_REG_TDBIAS18                   = 0xc8, 
+  BM_REG_TDBIAS19                   = 0xcc, 
+  BM_REG_TDBIAS20                   = 0xd0, 
+  BM_REG_TDBIAS21                   = 0xd4, 
+  BM_REG_TDBIAS22                   = 0xd8, 
+  BM_REG_TDBIAS26                   = 0xdc, 
+  BM_REG_VPEDLEFT                   = 0xe0, 
+  BM_REG_VPEDRIGHT                  = 0xe4 
+}e_bm_reg; 
+
+
+// FPGA REGISTERS
+typedef enum
+{
+  //ID_CTRL space
+  RAD_REG_IDENT                       = 0x0, 
+  RAD_REG_DATEVERSION                 = 0x4, 
+  RAD_REG_CPLD_CTRL                   = 0x8, 
+  RAD_REG_CHANNEL_DIS                 = 0xc, 
+  RAD_REG_PPSEL                       = 0x10, 
+  RAD_REG_RESET_MODE                  = 0x14, 
+  RAD_REG_LED                         = 0x18, 
+  RAD_REG_JTAG_LEFT                   = 0x1c, 
+  RAD_REG_JTAG_RIGHT                  = 0x20, 
+  RAD_REG_SPISS                       = 0x24, 
+  RAD_REG_DEVICEDNA                   = 0x2c, 
+  RAD_REG_SIMPLE_SPI                  = 0x30, // to 0x3f 
+  /// SPIDMA space
+  RAD_REG_SPIDMA_CONFIG               = 0x8000, 
+  RAD_REG_SPIDMA_CONTROL              = 0x8004, 
+  RAD_REG_SPIDMA_CURDESCR             = 0x8008, 
+  RAD_REG_SPIDMA_TXNCOUNT             = 0x800c, 
+  RAD_REG_SPIDMA_DESCR_BASE           = 0x8080, 
+  RAD_REG_SPIDMA_DESCR_INCR           = 0x4,  // NOT AN ADDRESS
+
+}e_fpga_reg; 
+
+
 
 
 static uint32_t ffffffff = 0xffffffff;
 // A lot of things seem to return this is thy're bad
 static uint8_t*  BM_BAD_READ = (uint8_t*) &ffffffff; 
 
+
+// this is the correct order, apparently :) 
+typedef struct
+__attribute__((packed))
+date_version
+{
+    unsigned rev :8  ; 
+    unsigned minor : 4; 
+    unsigned major : 4; 
+    unsigned day: 5;
+    unsigned month: 4; 
+    unsigned year: 7; 
+} date_version_t; 
 
 /** The radiant device structure */ 
 struct radiant_dev
@@ -95,13 +139,13 @@ struct radiant_dev
   int run; 
   int peek; // use peek form of read
 
-
   // buffers for cobs writing (one per device) 
   uint8_t reg_buf [258]; 
   uint8_t reg_buf_encoded [260]; 
 
   //the board manager date veesion
-  char bm_dateversion[4]; 
+  date_version_t bm_dateversion; 
+  date_version_t rad_dateversion; 
 
   // the gpio statuses. This is read on startup and (hopefully!) kept in sync so we don't have to keep reading it. 
   uint8_t gpio_status[7]; 
@@ -121,6 +165,7 @@ void radiant_set_read_mode(radiant_dev_t *bd, int peek)
   bd->peek = peek; 
 }
 
+/** ARE THESE STILL VALID??? */
 int radiant_clear(radiant_dev_t * bd) 
 {
   return 2 != write(bd->spi_fd, SPI_REG_CLEAR, 2); 
@@ -392,8 +437,8 @@ static int read_bm_gpios(radiant_dev_t * dev)
   // read in the GPIO status 
   for (int i = 0; i < 7; i++) 
   {
-    int gpioval; 
-    int nb = radiant_get_mem(dev,DEST_MANAGER, BM_REG_GPIO_BASE + BM_REG_GPIO_INCREMENT*i, sizeof(gpioval),  (uint8_t*) &gpioval); 
+    unsigned gpioval; 
+    int nb = radiant_get_mem(dev,DEST_MANAGER, BM_REG_GPIO_BASE + BM_REG_GPIO_INCR*i, sizeof(gpioval),  (uint8_t*) &gpioval); 
     if (nb!=4 || gpioval == 0xffffffff) 
     {
       fprintf(stderr, "Could not query Board Manager GPIO%d bits!\n",i); 
@@ -408,7 +453,7 @@ static int read_bm_gpios(radiant_dev_t * dev)
 static int write_bm_gpio(radiant_dev_t * dev, int which) 
 {
   int gpioval = dev->gpio_status[which]; 
-  return 4 == radiant_set_mem(dev, DEST_MANAGER, BM_REG_GPIO_BASE+BM_REG_GPIO_INCREMENT * which, sizeof(gpioval), (uint8_t*) &gpioval); 
+  return 4 == radiant_set_mem(dev, DEST_MANAGER, BM_REG_GPIO_BASE+BM_REG_GPIO_INCR* which, sizeof(gpioval), (uint8_t*) &gpioval); 
 }
  
 
@@ -433,7 +478,6 @@ radiant_dev_t * radiant_open(const char *spi_device, const char * uart_device)
     close(spi_fd); 
     return 0; 
   }
-
 
 
   //advisory locks, so we don't accidentally open it twice (how does this work with symlinks?) 
@@ -505,9 +549,9 @@ radiant_dev_t * radiant_open(const char *spi_device, const char * uart_device)
   tty.c_cc[VTIME]=0; 
   tty.c_cc[VMIN]=0; 
 
-  //baud rate 
-  cfsetispeed(&tty, B115200);
-  cfsetospeed(&tty, B115200);
+  //baud rate  
+  cfsetispeed(&tty, B1000000); //blazing fast! 
+  cfsetospeed(&tty, B1000000);
 
   //set the serial attrs 
   if (0 != tcsetattr(uart_fd, TCSANOW, &tty))
@@ -521,7 +565,7 @@ radiant_dev_t * radiant_open(const char *spi_device, const char * uart_device)
   //drain the port 
   tcflush(uart_fd, TCIOFLUSH); 
 
-  //Write two 0s to make sure we're sycnrhonzied
+  //Write two 0s to make sure we're synchronized
   uint16_t zero = 0; 
   write(uart_fd,&zero,sizeof(zero)); 
 
@@ -534,23 +578,43 @@ radiant_dev_t * radiant_open(const char *spi_device, const char * uart_device)
   char check_bm[4]; 
   int nb = radiant_get_mem(dev, DEST_MANAGER, BM_REG_IDENT, 4, (uint8_t*) check_bm); 
 
-  if (nb != 4 || memcmp(check_bm, "RDBM",4))
+  if (nb != 4 || memcmp(check_bm, "MBDR",4)) //little endian output
   {
-    fprintf(stderr, "RADIANT BOARD MANAGER DID NOT IDENTIFY PROPERLY. GOT \"%c%c%c%c\"\n", check_bm[0], check_bm[1], check_bm[2], check_bm[3]); 
+    fprintf(stderr, "RADIANT BOARD MANAGER DID NOT IDENTIFY PROPERLY. GOT \"%c%c%c%c\"\n", check_bm[3], check_bm[2], check_bm[1], check_bm[0]); 
     radiant_close(dev); 
     return 0; 
   }
   
+  char check_radiant[4]; 
+  nb = radiant_get_mem(dev, DEST_FPGA, RAD_REG_IDENT, 4, (uint8_t*) check_radiant); 
+
+  if (nb!=4 || memcmp(check_radiant,"TNDR",4))
+  {
+    fprintf(stderr, "RADIANT DID NOT IDENTIFY PROPERLY. GOT \"%c%c%c%c\"\n", check_radiant[3], check_radiant[2], check_radiant[1], check_radiant[0]); 
+    radiant_close(dev); 
+    return 0; 
+  }
+
   // read in the BM version information 
-  nb = radiant_get_mem(dev, DEST_MANAGER, BM_REG_DATEVERSION, 4, (uint8_t *) dev->bm_dateversion);
-  if (nb!=4 || !memcmp(BM_BAD_READ, dev->bm_dateversion,4)) 
+  nb = radiant_get_mem(dev, DEST_MANAGER, BM_REG_DATEVERSION, 4, (uint8_t *) &dev->bm_dateversion);
+  if (nb!=4 || !memcmp(BM_BAD_READ, &dev->bm_dateversion,4)) 
   {
     fprintf(stderr, "Could not read version from RADIANT Board Manager\n"); 
     radiant_close(dev); 
     return 0; 
   }
 
-  if (!read_bm_gpios(dev))
+  // read in the radiant version information 
+  nb = radiant_get_mem(dev, DEST_FPGA, RAD_REG_DATEVERSION, 4, (uint8_t *) &dev->rad_dateversion);
+  if (nb!=4 || !memcmp(BM_BAD_READ, &dev->rad_dateversion,4)) 
+  {
+    fprintf(stderr, "Could not read version from RADIANT Manager\n"); 
+    radiant_close(dev); 
+    return 0; 
+  }
+
+
+  if (read_bm_gpios(dev))
   {
     radiant_close(dev); 
     return 0; 
@@ -573,6 +637,18 @@ typedef enum
   QGPIO_BIT_LAB_EN_STARTUP = 128 
 } e_quad_bits; 
 
+typedef enum
+{
+  SGPIO_BIT_CAL_FIL0 = 1, 
+  SGPIO_BIT_SIG_LE = 2, 
+  SGPIO_BIT_CAL_FIL1 = 4, 
+  SGPIO_BIT_N_CAL_FIL1 = 8, 
+  SGPIO_BIT_CALPULSE  =16, 
+  SGPIO_BIT_N_CALPULSE = 32, 
+  SGPIO_BIT_SG_ENABLE = 64, 
+  SGPIO_BIT_N_SG_ENABLE= 128
+} e_sig_bits; 
+
 
 int radiant_dump(radiant_dev_t *dev, FILE * stream, int flags) 
 {
@@ -580,9 +656,12 @@ int radiant_dump(radiant_dev_t *dev, FILE * stream, int flags)
   if (!stream) stream =stdout ; 
 
 
-  fprintf(stream,"=====RADIANT DUMP of handle at 0x%p=====", dev); 
-  fprintf(stream,"    DATE_VERSION: %c%c%c%c\n", dev->bm_dateversion[0], dev->bm_dateversion[1], 
-                                                 dev->bm_dateversion[2], dev->bm_dateversion[3]); 
+  fprintf(stream,"=====RADIANT DUMP of handle at 0x%p======\n", dev); 
+  fprintf(stream,"    BM_DATE_VERSION: %u.%u.%u (%u/%u/%u) \n", dev->bm_dateversion.major, dev->bm_dateversion.minor, dev->bm_dateversion.rev, 
+                      dev->bm_dateversion.year, dev->bm_dateversion.month, dev->bm_dateversion.day ); 
+  fprintf(stream,"    RAD_DATE_VERSION: %u.%u.%u (%u/%u/%u) \n", dev->rad_dateversion.major, dev->rad_dateversion.minor, dev->rad_dateversion.rev, 
+                      dev->rad_dateversion.year, dev->rad_dateversion.month, dev->rad_dateversion.day ); 
+
 
   if (flags & RADIANT_DUMP_UPDATE_GPIOS || dev->paranoid_about_gpios) 
   {
@@ -593,13 +672,20 @@ int radiant_dump(radiant_dev_t *dev, FILE * stream, int flags)
   {
     fprintf(stream,
                  "    QUADGPIO%d:  SEL_CAL: %d, ATT_LE: %d, BIST: %d, LED: %s, TRIG_EN: %d,\n"
-                     "             LAB_EN: %d, TRIG_EN_STARTUP: %d, LAB_EN_STARTUP: %d\n", 
+                 "                 LAB_EN: %d, TRIG_EN_STARTUP: %d, LAB_EN_STARTUP: %d\n", 
                  i, !!(dev->gpio_status[i] & QGPIO_BIT_SEL_CAL), !!(dev->gpio_status[i] & QGPIO_BIT_ATT_LE) , 
                  !!(dev->gpio_status[i] & QGPIO_BIT_BIST), (dev->gpio_status[i] & QGPIO_BIT_LED) ? "GREEN" : "RED", 
                  !!(dev->gpio_status[i] & QGPIO_BIT_TRIG_EN), !!(dev->gpio_status[i] & QGPIO_BIT_LAB_EN),
                  !!(dev->gpio_status[i] & QGPIO_BIT_TRIG_EN_STARTUP), !!(dev->gpio_status[i] & QGPIO_BIT_LAB_EN_STARTUP)); 
   }
 
+  uint8_t sgpio_status = dev->gpio_status[6]; 
+  fprintf(stream, "    SIGGPIO: CAL_FIL0: %d, SIG_LE %d, CAL_FIL1: %d, N_CAL_FIL1: %d \n"
+                  "             CAL_PULSE: %d, N_CAL_PULSE: %d, SG_ENABLE: %d, N_SG_ENABLE: %d \n", 
+                  !!(sgpio_status & SGPIO_BIT_CAL_FIL0), !!(sgpio_status & SGPIO_BIT_SIG_LE), 
+                  !!(sgpio_status & SGPIO_BIT_CAL_FIL1), !!(sgpio_status & SGPIO_BIT_N_CAL_FIL1), 
+                  !!(sgpio_status & SGPIO_BIT_CALPULSE), !!(sgpio_status & SGPIO_BIT_N_CALPULSE), 
+                  !!(sgpio_status & SGPIO_BIT_SG_ENABLE),!!(sgpio_status & SGPIO_BIT_N_SG_ENABLE));
 
   return 0;
 }
@@ -695,19 +781,20 @@ int radiant_set_mem(radiant_dev_t * bd, radiant_dest_t dest, uint32_t addr, uint
     return -1; 
   }
 
-  uint8_t expected[4] = { bd->reg_buf[0], bd->reg_buf[1], bd->reg_buf[2], len}; 
+  uint8_t expected[3] = { bd->reg_buf[0], bd->reg_buf[1], bd->reg_buf[2]}; 
 
 
   //read until we get a 0
   int rd = read_until_zero(bd, 0); 
   int decoded_len = cobs_decode_buf(rd, bd->reg_buf_encoded, sizeof(bd->reg_buf), bd->reg_buf); 
+  int expected_len = sizeof(expected); 
 
-  if (!memcmp(expected, bd->reg_buf, sizeof(expected)))
+  if (memcmp(expected, bd->reg_buf, expected_len))
   {
     int i = 0;
     fprintf(stderr, "expected buf mismatch in radiant_set mem.\n"); 
     fprintf(stderr, "  expected: "); 
-    for (i = 0; i < sizeof(expected); i++) fprintf(stderr," %02x ", expected[i]);
+    for (i = 0; i < expected_len; i++) fprintf(stderr," %02x ", expected[i]);
     fprintf(stderr, "\n  got    : "); 
     for (i = 0; i < decoded_len; i++) fprintf(stderr," %02x ", bd->reg_buf[i]);
     return -decoded_len; 
@@ -723,7 +810,7 @@ int radiant_get_mem(radiant_dev_t * bd, radiant_dest_t dest, uint32_t addr, uint
   bd->reg_buf[0] = ((addr >> 16 ) & 0x1f) | ( (dest &1) <<6 ) ; 
   bd->reg_buf[1] =  (addr >> 8) & 0xff; //addr [15:8]
   bd->reg_buf[2] = (addr) & 0xff; 
-  bd->reg_buf[3] = 4; 
+  bd->reg_buf[3] = len-1; 
 
   int encoded_len = cobs_encode_buf(4, bd->reg_buf, sizeof(bd->reg_buf_encoded), bd->reg_buf_encoded); 
   
@@ -738,6 +825,7 @@ int radiant_get_mem(radiant_dev_t * bd, radiant_dest_t dest, uint32_t addr, uint
 
 
   uint8_t expected[3] = { bd->reg_buf[0], bd->reg_buf[1], bd->reg_buf[2]}; 
+  int expected_len = sizeof(expected); 
 
   //read until we get a 0
   int rd = read_until_zero(bd, 0); 
@@ -751,12 +839,12 @@ int radiant_get_mem(radiant_dev_t * bd, radiant_dest_t dest, uint32_t addr, uint
   }
 
 
-  if (!memcmp(expected, bd->reg_buf, sizeof(expected)))
+  if (memcmp(expected, bd->reg_buf, expected_len))
   {
     int i = 0;
     fprintf(stderr, "expected buf mismatch in radiant_get mem.\n"); 
     fprintf(stderr, "  expected: "); 
-    for (i = 0; i < sizeof(expected); i++) fprintf(stderr," %02x ", expected[i]);
+    for (i = 0; i < expected_len; i++) fprintf(stderr," %02x ", expected[i]);
     fprintf(stderr, "\n  got    : "); 
     for (i = 0; i < decoded_len; i++) fprintf(stderr," %02x ", bd->reg_buf[i]);
     return -decoded_len; 
@@ -796,7 +884,7 @@ int radiant_bm_set_ctrl(radiant_dev_t * bd, uint8_t ctrl)
 int radiant_bm_get_ctrl(radiant_dev_t * bd, uint8_t * ctrl) 
 {
   if (!bd || !ctrl) return -1; 
-  int ctrl_4bytes ; 
+  unsigned ctrl_4bytes ; 
   int nb = radiant_get_mem(bd, DEST_MANAGER, BM_REG_CONTROL, 4, (uint8_t*) &ctrl_4bytes); 
   if (nb == 4 && ctrl_4bytes != ffffffff) 
   {
