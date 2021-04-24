@@ -6,7 +6,6 @@
  *  Cosmin Deaconu 
  *  cozzyd@kicp.uchicago.edu 
  *
- *
  * */
 
 
@@ -174,7 +173,14 @@ typedef struct
   radiant_cal_pulse_type_t pulse_type; 
 } radiant_cal_config_t;  
 
+// Sets the calpulser band / pulse or sinewave
 int radiant_configure_cal(radiant_dev_t *bd, const radiant_cal_config_t * cfg ) ;
+
+//enables or disables the signal geenrator
+int radiant_enable_cal(radiant_dev_t* bd, int enable) ; 
+
+// sets the frequency of the sine wave
+int radiant_set_frequency(radiant_dev_t *bd, float freq_MHz, float * actual_freq_MHz); 
 
 
 typedef enum 
@@ -182,9 +188,12 @@ typedef enum
   RADIANT_ATTEN_TRIG, 
   RADIANT_ATTEN_SIG
 } radiant_atten_t; 
+
 int radiant_set_attenuator(radiant_dev_t *bd, int channel, radiant_atten_t which, uint8_t value); 
 
 
+
+//int radiant_configure_dma(radiant_dev_t *bd, 
 
 
 
@@ -203,7 +212,7 @@ typedef enum radiant_dest
  *
  * @param bd radiant board
  * @param dest either the FPGA or the board manager 
- * @param addr start addredss
+ * @param addr start addrress
  * @param len the length to write (max 255...) 
  * @param bytes the data to write 
  **/ 

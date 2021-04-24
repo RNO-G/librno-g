@@ -18,6 +18,7 @@
 #include <arm_neon.h> 
 #endif
 
+#include "adf4350.h" 
 
 
 //SPI reg map 
@@ -985,3 +986,133 @@ int radiant_disable_cal_mode(radiant_dev_t * bd, int quad)
   return write_bm_gpio(bd, quad); 
 
 }
+
+
+int radiant_configure_cal(radiant_dev_t *bd, const radiant_cal_config_t * cfg) 
+{
+  // clear the bits we might change
+  uint8_t cal_data  = bd->gpio_status[BM_REG_SIGPIO_IDX] & ~(SGPIO_BIT_CAL_FIL0 | SGPIO_BIT_N_CAL_FIL1 | SGPIO_BIT_CAL_FIL1 | SGPIO_BIT_CALPULSE | SGPIO_BIT_N_CALPULSE);  
+
+  switch (cfg->band) 
+  {
+    case  RADIANT_CAL_100_300: 
+      cal_data = SGPIO_BIT_CAL_FIL0 | SGPIO_BIT_N_CAL_FIL1; 
+      break;
+    case  RADIANT_CAL_50_100:
+      cal_data = SGPIO_BIT_N_CAL_FIL1; 
+      break; 
+    case RADIANT_CAL_600_PLUS: 
+      cal_data = SGPIO_BIT_CAL_FIL0 | SGPIO_BIT_CAL_FIL1; 
+      break;
+    case  RADIANT_CAL_300_600:
+      cal_data = SGPIO_BIT_CAL_FIL1; 
+      break; 
+    default:
+      fprintf(stderr,"UNKNOWN CALBAND: %d\n", cfg->band); 
+      return 1; 
+  }
+
+  if (cfg->pulse_type == RADIANT_CAL_PULSE)
+  {
+    cal_data |= SGPIO_BIT_CALPULSE; 
+  }
+  else
+  {
+    cal_data |= SGPIO_BIT_N_CALPULSE;  
+  }
+
+  bd->gpio_status[BM_REG_SIGPIO_IDX] = cal_data; 
+  return write_bm_gpio(bd, BM_REG_SIGPIO_IDX); 
+}
+
+int radiant_enable_cal(radiant_dev_t * bd, int enable) 
+{
+  //clear the bits we might change
+  uint8_t cal_data  = bd->gpio_status[BM_REG_SIGPIO_IDX] & ~(SGPIO_BIT_SG_ENABLE | SGPIO_BIT_N_SG_ENABLE);  
+  if (enable) 
+  {
+    cal_data |= SGPIO_BIT_SG_ENABLE ;
+  }
+  else
+  {
+    cal_data |= SGPIO_BIT_N_SG_ENABLE ;
+  }
+
+  bd->gpio_status[BM_REG_SIGPIO_IDX] = cal_data; 
+  return write_bm_gpio(bd, 6); 
+}
+
+static adf4350_dev adf4351; 
+static int already_setup_adf4351 = 0; 
+static adf4350_init_param adf4351_param =
+{ 
+    
+    //device settings 
+    .clkin = 10000000,  //10 MHz
+    .channel_spacing = 1000,  // 1 kHz????
+    .power_up_frequency = 150000000, //150 MHz
+    .reference_div_factor=  0, // let it decide
+    .reference_doubler_enable = 0, 
+    .reference_div2_enable = 0, 
+    //r2
+    .phase_detector_polarity_positive_enable = 1, 
+    .lock_detect_precision_6ns_enable = 0, 
+    .lock_detect_function_integer_n_enable = 0, //this will be set automagically 
+    .charge_pump_current = 2500, //??!
+    .muxout_select = 0, 
+    .low_spur_mode_enable = 0, 
+    //r3
+    .cycle_slip_reduction_enable = 0, 
+    .charge_cancellation_enable = 0,
+    .anti_backlash_3ns_enable = 0, 
+    .band_select_clock_mode_high_enable = 0, 
+    .clk_divider_12bit = 150 , //?!?? 
+    .clk_divider_mode = 0, 
+    //r4
+    .aux_output_enable = 0, 
+    .aux_output_fundamental_enable = 0, 
+    .mute_till_lock_enable =0,
+    .output_power  = 3, 
+    .aux_output_power = 0,
+};
+
+
+
+int radiant_set_frequency(radiant_dev_t * bd, float freq_MHz, float * actual_freq_MHz) 
+{
+
+  if (!already_setup_adf4351) 
+  {
+    adf4350_setup(&adf4351, adf4351_param ); 
+    already_setup_adf4351 = 1; 
+  }
+
+  int64_t actual = adf4350_set_freq(&adf4351, freq_MHz * 1e6); 
+  if (actual_freq_MHz) *actual_freq_MHz = actual/1e6; 
+
+  //now set the registers.... 
+  for (int ireg = 5; ireg>=0; ireg--) 
+  {
+    uint32_t reg = adf4351.regs[ireg] | ireg; 
+
+    //this is probably the same... since we're little endian? 
+    uint8_t bytes[4] = { reg & 0xff, (reg >> 8) & 0xff, (reg >> 16) & 0xff, (reg > 24) & 0xff}; 
+//    printf("reg%d = %u\n",ireg, reg);  // | ireg is important... to actualy write! 
+
+    bd->gpio_status[BM_REG_SIGPIO_IDX] &= ~SGPIO_BIT_SIG_LE; //clear the latch
+    write_bm_gpio(bd,BM_REG_SIGPIO_IDX); 
+    if (radiant_set_mem(bd,DEST_MANAGER, BM_REG_SPIOUT_MSB, sizeof(bytes), bytes))  
+    {
+      return 1; 
+    }
+    //set the latch
+    bd->gpio_status[BM_REG_SIGPIO_IDX] |= SGPIO_BIT_SIG_LE; //set the latch
+    write_bm_gpio(bd,BM_REG_SIGPIO_IDX); 
+    bd->gpio_status[BM_REG_SIGPIO_IDX] &= ~SGPIO_BIT_SIG_LE; //clear the latch
+    write_bm_gpio(bd,BM_REG_SIGPIO_IDX); 
+  }
+
+  return 0; 
+}
+
+

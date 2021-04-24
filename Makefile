@@ -1,7 +1,7 @@
 BUILD_DIR=build
 PREFIX=/rno-g
-CFLAGS=-fPIC -Os -Wall 
-CXXFLAGS=-fPIC -Os -Wall 
+CFLAGS=-fPIC -Os -Wall -Wextra -g
+CXXFLAGS=-fPIC -Os -Wall -Wextra -g
 
 # are we on the BBB? 
 ifeq ($(shell uname -m),armv7l) 
@@ -12,7 +12,7 @@ endif
 LDFLAGS=-shared 
 LIBS=-lz
 INCLUDES=src/rno-g.h
-DAQ_INCLUDES=src/radiant.h src/cobs.h 
+DAQ_INCLUDES=src/radiant.h src/cobs.h src/adf4350.h
 PYBIND_INCLUDES=$(shell python3 -m pybind11 --includes) 
 
 .PHONY: client daq clean install install-daq client-py daq-py install-py install-daq-py 
@@ -78,7 +78,7 @@ $(BUILD_DIR)/librno-g.so: $(addprefix $(BUILD_DIR)/, $(CLIENT_OBJS))
 	@echo Linking $@
 	@cc -o $@ $(LDFLAGS) $^  $(LIBS) 
 
-DAQ_OBJS=radiant.o cobs.o 
+DAQ_OBJS=radiant.o cobs.o adf4350.o 
 $(BUILD_DIR)/libradiant.so: $(addprefix $(BUILD_DIR)/, $(DAQ_OBJS))
 	@echo Linking $@
 	@cc -o $@ $(LDFLAGS) $^  $(LIBS) 
