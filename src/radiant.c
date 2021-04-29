@@ -610,10 +610,32 @@ radiant_dev_t * radiant_open(const char *spi_device, const char * uart_device)
   nb = radiant_get_mem(dev, DEST_FPGA, RAD_REG_DATEVERSION, 4, (uint8_t *) &dev->rad_dateversion);
   if (nb!=4 || !memcmp(BM_BAD_READ, &dev->rad_dateversion,4)) 
   {
-    fprintf(stderr, "Could not read version from RADIANT Manager\n"); 
+    fprintf(stderr, "Could not read version from RADIANT\n"); 
     radiant_close(dev); 
     return 0; 
   }
+
+  //read in the radiant CPLD_CTRL, check the programmed bits 
+  nb = radiant_get_mem(dev, DEST_FPGA, RAD_REG_CPLD_CTRL, 4, (uint8_t*) &dev->cpldctrl); 
+  {
+    if (nb !=4 || !memcmp(BM_BAD_READ, &dev->cpldctrl,4))
+    {
+
+      fprintf(stderr, "Could not read cpldctrl from RADIANT\n"); 
+      radiant_close(dev); 
+      return 0; 
+    }
+  }
+
+  uint32_t check_bits = (1 << 31) | (1 <<15); 
+
+  if ((dev->cpldctrl & check_bits)  != check_bits) 
+  {
+    fprintf(stderr, "CPLD_CTRL programmed bits not set! Check programming?\n"); 
+    radiant_close(dev); 
+    return 0; 
+  }
+
 
 
   if (read_bm_gpios(dev))
@@ -688,6 +710,9 @@ int radiant_dump(radiant_dev_t *dev, FILE * stream, int flags)
                   !!(sgpio_status & SGPIO_BIT_CAL_FIL1), !!(sgpio_status & SGPIO_BIT_N_CAL_FIL1), 
                   !!(sgpio_status & SGPIO_BIT_CALPULSE), !!(sgpio_status & SGPIO_BIT_N_CALPULSE), 
                   !!(sgpio_status & SGPIO_BIT_SG_ENABLE),!!(sgpio_status & SGPIO_BIT_N_SG_ENABLE));
+
+
+  fprintf(stream, "    CPLDCTRL: %x\n", dev->cpldctrl); 
 
   return 0;
 }

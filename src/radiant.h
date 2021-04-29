@@ -153,6 +153,10 @@ int radiant_bm_get_ctrl(radiant_dev_t *bd, uint8_t *ctrl);
 int radiant_enable_cal_mode(radiant_dev_t * bd, int quad); 
 int radiant_disable_cal_mode(radiant_dev_t * bd, int quad); 
 
+
+
+/** WARNING: These calibration methods are untested. 
+ * It is probably better to use the radsig-cli until these are tested */ 
 typedef enum
 {
   RADIANT_CAL_50_100, 
@@ -176,11 +180,13 @@ typedef struct
 // Sets the calpulser band / pulse or sinewave
 int radiant_configure_cal(radiant_dev_t *bd, const radiant_cal_config_t * cfg ) ;
 
-//enables or disables the signal geenrator
+//enables or disables the signal generator
 int radiant_enable_cal(radiant_dev_t* bd, int enable) ; 
 
 // sets the frequency of the sine wave
 int radiant_set_frequency(radiant_dev_t *bd, float freq_MHz, float * actual_freq_MHz); 
+
+/**** END WARNING*****/
 
 
 typedef enum 
@@ -188,9 +194,7 @@ typedef enum
   RADIANT_ATTEN_TRIG, 
   RADIANT_ATTEN_SIG
 } radiant_atten_t; 
-
 int radiant_set_attenuator(radiant_dev_t *bd, int channel, radiant_atten_t which, uint8_t value); 
-
 
 
 //int radiant_configure_dma(radiant_dev_t *bd, 
