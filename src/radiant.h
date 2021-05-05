@@ -197,7 +197,26 @@ typedef enum
 int radiant_set_attenuator(radiant_dev_t *bd, int channel, radiant_atten_t which, uint8_t value); 
 
 
-//int radiant_configure_dma(radiant_dev_t *bd, 
+
+typedef struct
+{
+  uint8_t dma_enable :1; 
+  uint8_t dma_busy :1; 
+  uint8_t ext_dma_req_enable :1; 
+  uint8_t dma_direction :1 ; 
+  uint8_t reserved :1; 
+  uint8_t byte_mode :1; 
+  uint8_t byte_target_in_byte_mode :2; 
+  uint8_t enable_spi_receive : 1; 
+  uint8_t cycle_delay : 7; 
+  uint16_t tx_full_flag_threshold : 11; 
+  uint8_t reserved2 : 4; 
+  uint8_t tx_full_flag_value : 1; 
+  uint8_t tx_full_flag_enable : 1; 
+} radiant_dma_config_t; 
+
+int radiant_get_dma_config(radiant_dev_t * bd, radiant_dma_config_t * cfg) ; 
+int radiant_configure_dma(radiant_dev_t *bd, const radiant_dma_config * cfg);  
 
 
 
