@@ -34,19 +34,38 @@ typedef struct radiant_dev radiant_dev_t;
  *                    with the RADIANT (e.g. /dev/spi/0.0) 
  * @param uart_device The device name of the UART device used for communcating with 
  *                    the RADIANT board manager (e.g. /dev/ttyO5) 
+ * @param trigger_gpio The gpio we wait on to tell if we have a trigger. Use 0 or negative to not support (I hope there is no GPIO 0?). 
  * @returns an opaque handle, or NULL if something failed (probably accompanied by 
  *                    nasty log messages). 
  *
  */
-radiant_dev_t * radiant_open (const char * spi_device, const char * uart_device); 
+radiant_dev_t * radiant_open (const char * spi_device, const char * uart_device, int trigger_gpio); 
 
+
+/* Sets a callback on the trigger gpio interrupt. Note 
+ * that this implies spawning a separate thread, so you want to be careful in your callback here. 
+ * Set callback to NULL to unset.  For a blocking interface, use radiant_poll_trigger_ready (which is incompatible with a callback since they will poll on the same fdset) 
+ *
+ **/ 
+int radiant_set_trigger_ready_callback(radiant_dev_t *bd, void (*callback)(radiant_dev_t *, void *), void * aux);  
+
+/** THIS IS MUTUALLY EXCLUSIVE WITH radiant_set_gpio_callback, if a callback has been set this will fail with EBUSY.
+ *
+ * This sets up a poll on the interrupt gpio and returns when done (or interrupted by a signal handler). 
+ *
+ *
+ * @param bd  radiant handle
+ * @parame timeout timeout for poll (negative for infinite) in ms 
+ * @return Returns negative on error, 1 if an interrupt did happen, 0 if poll ended for some other reason (e.g. signal or timeout expired). 
+ *
+ * */ 
+int radiant_poll_trigger_ready(radiant_dev_t*bd, int timeout_ms); 
 
 
 /** Dump some debug information to stream*/
-
 typedef enum 
 {
-  RADIANT_DUMP_UPDATE_GPIOS  = 1  /// update the gpios (instead of assuming they're in sync... 
+  RADIANT_DUMP_UPDATE_GPIOS  = 1  /// update the gpios (instead of assuming they're in sync)... 
 
 }e_radiant_dump_flags; 
 
@@ -89,6 +108,7 @@ int radiant_check_avail(radiant_dev_t * bd);
  * @returns 0 on success, 1 if nothing available, or negative on error
  */
 int radiant_read_event(radiant_dev_t * bd, rno_g_header_t * hd, rno_g_waveform_t *wf); 
+
 
 
 
@@ -210,14 +230,23 @@ typedef struct
   uint8_t enable_spi_receive : 1; 
   uint8_t cycle_delay : 7; 
   uint16_t tx_full_flag_threshold : 11; 
-  uint8_t reserved2 : 4; 
+  uint8_t reserved2 : 3; 
   uint8_t tx_full_flag_value : 1; 
   uint8_t tx_full_flag_enable : 1; 
 } radiant_dma_config_t; 
 
-int radiant_get_dma_config(radiant_dev_t * bd, radiant_dma_config_t * cfg) ; 
-int radiant_configure_dma(radiant_dev_t *bd, const radiant_dma_config * cfg);  
+typedef enum 
+{
+  RADIANT_DMA_EVENT_MODE, 
+  RADIANT_DMA_CAL_MODE, 
+  RADIANT_DMA_CPLD_MODE, 
+  RADIANT_DMA_LAB4D_MODE, 
+  RADIANT_DMA_CAL_WRITE_MODE
+} radiant_dma_mode_preset_t; 
+int radiant_fill_dma_config(radiant_dma_config_t *cfg, radiant_dma_mode_preset_t preset); 
 
+int radiant_get_dma_config(radiant_dev_t * bd, radiant_dma_config_t * cfg) ; 
+int radiant_configure_dma(radiant_dev_t *bd, const radiant_dma_config_t * cfg);  
 
 
 
@@ -229,6 +258,7 @@ typedef enum radiant_dest
   DEST_FPGA = 0, 
   DEST_MANAGER =1 
 } radiant_dest_t ; 
+
 
 
 /** low-level radiant UART methods
@@ -260,14 +290,14 @@ int radiant_read(radiant_dev_t * bd, uint16_t * num_avail_bytes,
                  uint16_t ** buffers);
 
 
-/** change betweeen peek and consume read modes */ 
+/*** I think these are all deprecated
+// change betweeen peek and consume read modes  
 void radiant_set_read_mode(radiant_dev_t *bd, int peek); 
 
 int radiant_clear(radiant_dev_t *bd);
 int radiant_reset(radiant_dev_t *bd); 
 int radiant_rewind(radiant_dev_t *bd); 
-
-
+****/ 
 
 
 #ifdef __cplusplus

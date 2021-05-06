@@ -12,6 +12,9 @@
 #include <fcntl.h> 
 #include <termios.h> 
 #include <errno.h> 
+#include <pthread.h>
+#include <poll.h>
+#include <signal.h>
 
 
 #if defined(__arm__) && !defined(NOVECTORIZE) 
@@ -21,13 +24,13 @@
 #include "adf4350.h" 
 
 
-//SPI reg map 
-// two-byte commands, split into  MSB, LSB so I don't have to think about it as much
+////SPI reg map  (DEPRECATED!!!) 
+//// two-byte commands, split into  MSB, LSB so I don't have to think about it as much
 static uint8_t SPI_REG_READ[2] = { 0x52,0x44 }; 
 static uint8_t SPI_REG_READ_PEEK[2] = { 0x50,0x4b }; 
-static uint8_t SPI_REG_REWIND[2] = { 0x53,0x54 }; 
-static uint8_t SPI_REG_CLEAR[2] = { 0x43,0x4c }; 
-static uint8_t SPI_REG_RESET[2] = { 0x45,0x59 }; 
+//static uint8_t SPI_REG_REWIND[2] = { 0x53,0x54 }; 
+//static uint8_t SPI_REG_CLEAR[2] = { 0x43,0x4c }; 
+//static uint8_t SPI_REG_RESET[2] = { 0x45,0x59 }; 
 
 // BOARD MANAGER REGISTERS
 //  maybe move this to API? 
@@ -137,6 +140,7 @@ struct radiant_dev
 {
   int spi_fd; 
   int uart_fd; 
+  int interrupt_fd; 
   int run; 
   int peek; // use peek form of read
 
@@ -152,10 +156,78 @@ struct radiant_dev
   // the gpio statuses. This is read on startup and (hopefully!) kept in sync so we don't have to keep reading it. 
   uint8_t gpio_status[7]; 
   int paranoid_about_gpios; //way to make us always check
+
+  pthread_t interrupt_thread; 
+  void * interrupt_aux; 
+  void (*interrupt_callback)(radiant_dev_t*, void*); 
+  volatile int interrupt_thread_stop; 
+
+  struct pollfd interrupt_fdset; 
 }; 
 
 
+static void* radiant_interrupt_thread_func(void * v) 
+{
+  radiant_dev_t * bd = (radiant_dev_t*) v; 
 
+  while(!bd->interrupt_thread_stop) 
+  {
+    poll(&bd->interrupt_fdset, 1, -1); 
+
+    if (bd->interrupt_fdset.revents & POLLPRI) 
+    {
+      bd->interrupt_callback(bd, bd->interrupt_aux); 
+    }
+  }
+  return 0; 
+}
+
+int radiant_poll_trigger_ready(radiant_dev_t *bd, int timeout) 
+{
+  if (!bd->interrupt_fd) return EIO; 
+  if (bd->interrupt_callback) return EBUSY; 
+
+  int rc= poll(&bd->interrupt_fdset,1,timeout); 
+  if (rc && bd->interrupt_fdset.revents & POLLPRI) 
+  {
+    return 1; 
+  }
+  if (rc == 0) return 0; 
+
+  return -1; 
+}
+
+
+
+int radiant_set_trigger_ready_callback(radiant_dev_t * bd, void (*callback)(radiant_dev_t *, void*), void * aux) 
+{
+
+  //No file descriptor to wait on. return -1; 
+  if (!bd->interrupt_fd) 
+  {
+    return EIO; 
+  }
+
+  //if we had a previous call back, stop the thread
+
+  if (bd->interrupt_callback) 
+  {
+    bd->interrupt_thread_stop = 1; 
+    pthread_kill(bd->interrupt_thread,SIGUSR1); 
+    pthread_join(bd->interrupt_thread,0); 
+  }
+  
+  bd->interrupt_callback = callback; 
+  bd->interrupt_aux = aux; 
+
+  //If callback is not null, start a thread
+  if (callback) 
+  {
+    return  pthread_create(&bd->interrupt_thread,0,radiant_interrupt_thread_func, bd); 
+  }
+
+  return 0;
+}
 
 void radiant_set_run_number(radiant_dev_t * bd, int run) 
 {
@@ -168,20 +240,20 @@ void radiant_set_read_mode(radiant_dev_t *bd, int peek)
 }
 
 /** ARE THESE STILL VALID??? */
-int radiant_clear(radiant_dev_t * bd) 
-{
-  return 2 != write(bd->spi_fd, SPI_REG_CLEAR, 2); 
-}
-
-int radiant_reset(radiant_dev_t * bd) 
-{
-  return 2 != write(bd->spi_fd, SPI_REG_RESET, 2); 
-}
-
-int radiant_rewind(radiant_dev_t * bd) 
-{
-  return 2 != write(bd->spi_fd, SPI_REG_REWIND, 2); 
-}
+///int radiant_clear(radiant_dev_t * bd) 
+///{
+///  return 2 != write(bd->spi_fd, SPI_REG_CLEAR, 2); 
+///}
+///
+///int radiant_reset(radiant_dev_t * bd) 
+///{
+///  return 2 != write(bd->spi_fd, SPI_REG_RESET, 2); 
+///}
+///
+///int radiant_rewind(radiant_dev_t * bd) 
+///{
+///  return 2 != write(bd->spi_fd, SPI_REG_REWIND, 2); 
+///}
 
 int radiant_read(radiant_dev_t * bd, uint16_t * navail, int nbufs, int * N, uint16_t **bufs)
 {
@@ -459,7 +531,7 @@ static int write_bm_gpio(radiant_dev_t * dev, int which)
 }
  
 
-radiant_dev_t * radiant_open(const char *spi_device, const char * uart_device) 
+radiant_dev_t * radiant_open(const char *spi_device, const char * uart_device, int trig_gpio) 
 {
 
   radiant_dev_t * dev = 0; 
@@ -645,6 +717,53 @@ radiant_dev_t * radiant_open(const char *spi_device, const char * uart_device)
 
   }
 
+
+  //Set up the trigger interrupt fd and fdset 
+  if (trig_gpio > 0) 
+  {
+    char buf[512]; 
+    //check if it has been exported already
+    sprintf(buf, "/sys/class/gpio/gpio%d", trig_gpio); 
+
+    if (access(buf, F_OK))
+    {
+      //export the GPIO, lazy programming
+      sprintf(buf,"echo %d > /sys/class/gpio/export", trig_gpio); 
+      system(buf); 
+    }
+
+    
+    //set the edge to rising 
+    sprintf(buf, "/sys/class/gpio%d/edge", trig_gpio); 
+    int edge_fd = open(buf, O_RDWR); 
+
+    if (!edge_fd) 
+    {
+      fprintf(stderr, "Could not open %s for writing, trig gpio won't be set up\n", buf); 
+    }
+    else
+    {
+      write(edge_fd,"rising",strlen("rising")); 
+      close(edge_fd); 
+
+      sprintf(buf,"/sys/class/gpio/gpio%d/value", trig_gpio); 
+      dev->interrupt_fd = open(buf,O_RDWR); 
+
+      if (dev->interrupt_fd) 
+      {
+        memset(&dev->interrupt_fdset,0,sizeof(dev->interrupt_fdset)); 
+        dev->interrupt_fdset.fd = dev->interrupt_fd; 
+        dev->interrupt_fdset.events = POLLPRI; 
+      }
+      else
+      {
+        fprintf(stderr, "Could not open %s for writing, trig gpio won't be set up\n", buf); 
+      }
+    }
+  }
+
+
+
   return dev; 
 }
 
@@ -712,7 +831,16 @@ int radiant_dump(radiant_dev_t *dev, FILE * stream, int flags)
                   !!(sgpio_status & SGPIO_BIT_SG_ENABLE),!!(sgpio_status & SGPIO_BIT_N_SG_ENABLE));
 
 
-  fprintf(stream, "    CPLDCTRL: %x\n", dev->cpldctrl); 
+  fprintf(stream, "    CPLDCTRL (cached): %x\n", dev->cpldctrl); 
+
+  radiant_dma_config_t dma_cfg; 
+  radiant_get_dma_config(dev, &dma_cfg);  
+
+  fprintf(stream, "    DMACONFIG:  dma_enable: %d, dma_busy; %d, ext_dma_req_enable: %d, dma_direction: %d\n", dma_cfg.dma_enable, dma_cfg.dma_busy, dma_cfg.ext_dma_req_enable, dma_cfg.dma_direction); 
+  fprintf(stream, "                byte_mode: %d, byte_target; %d, enable_spi_receive: %d, cycle_delay: %d\n", dma_cfg.byte_mode, dma_cfg.byte_target_in_byte_mode, dma_cfg.enable_spi_receive, dma_cfg.cycle_delay); 
+  fprintf(stream, "                tx_full_flag_thresh: %d, tx_full_flag_value; %d, tx_ful_flag_enable: %d\n", dma_cfg.tx_full_flag_threshold, dma_cfg.tx_full_flag_value, dma_cfg.tx_full_flag_enable); 
+
+
 
   return 0;
 }
@@ -1161,6 +1289,51 @@ int radiant_set_attenuator(radiant_dev_t * bd, int channel, radiant_atten_t whic
   return 0; 
 }
 
+
+int radiant_fill_dma_config(radiant_dma_config_t * cfg, radiant_dma_mode_preset_t preset) 
+{
+  //zero out
+  memset(cfg,0,sizeof(radiant_dma_config_t)); 
+
+  switch(preset)
+  {
+    case RADIANT_DMA_EVENT_MODE: 
+      cfg->ext_dma_req_enable = 1; 
+      __attribute__((fallthrough)); 
+    case RADIANT_DMA_CAL_MODE: 
+      cfg->tx_full_flag_enable = 1;
+      cfg->tx_full_flag_threshold=512; 
+      cfg->dma_enable =1 ;
+      return 0;
+    case RADIANT_DMA_LAB4D_MODE:
+      cfg->cycle_delay=12; 
+      __attribute__((fallthrough)); 
+    case RADIANT_DMA_CAL_WRITE_MODE: 
+      cfg->dma_enable=1; 
+      cfg->dma_direction=1; 
+      cfg->enable_spi_receive=1; 
+      return 0; 
+    case RADIANT_DMA_CPLD_MODE:
+      cfg->dma_enable=1; 
+      cfg->dma_direction=1; 
+      cfg->byte_mode=1; 
+      cfg->enable_spi_receive=1; 
+      cfg->cycle_delay=2; 
+      return 0; 
+    default: 
+      return -1; 
+  }
+}
+
+int radiant_get_dma_config(radiant_dev_t *bd, radiant_dma_config_t *cfg) 
+{
+  return 4!=radiant_get_mem(bd, DEST_FPGA, RAD_REG_SPIDMA_CONFIG, 4 , (uint8_t*) cfg); 
+}
+
+int radiant_configure_dma(radiant_dev_t *bd, const radiant_dma_config_t *cfg) 
+{
+  return 4!=radiant_set_mem(bd, DEST_FPGA, RAD_REG_SPIDMA_CONFIG, 4 , (uint8_t*) cfg); 
+}
 
 
 
