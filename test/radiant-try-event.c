@@ -1,5 +1,6 @@
 #include "radiant.h" 
 #include <stdio.h>
+#include <string.h> 
 #include <unistd.h> 
 
 
@@ -43,8 +44,10 @@ int main(void)
   radiant_dump(rad,stdout,0); 
   radiant_force_trigger(rad,1); 
 
-  rno_g_header_t hd = {0}; 
-  rno_g_waveform_t wf = {0}; 
+  rno_g_header_t hd;
+  rno_g_waveform_t wf; 
+  memset(&hd,0xab,sizeof(hd));
+  memset(&wf,0xab,sizeof(wf));
 //  int pollret = radiant_poll_trigger_ready(rad, 500); 
  // printf("pollret is %d\n", pollret); 
   sleep(1); 
@@ -60,6 +63,9 @@ int main(void)
   rno_g_header_dump(stdout, &hd);
   rno_g_waveform_dump(stdout, &wf);
 
+  printf("At end\n"); 
+  radiant_dump(rad,stdout,0); 
+ 
 
   radiant_close(rad); 
 

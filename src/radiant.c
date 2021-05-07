@@ -274,18 +274,55 @@ void radiant_set_read_mode(radiant_dev_t *bd, int peek)
 int radiant_read(radiant_dev_t * bd, int nbufs, uint16_t * N, uint8_t **bufs)
 {
   uint16_t nxfers = (nbufs) & 0x1ff;  // only up to 511 transfers are supported . This also prevents a potential stack overflow.  
-
+#ifdef RADIANT_SET_DBG
+  printf("DBG: radiant_read (nxfers=%d)\n", nxfers); 
+  for (int i = 0; i < nbufs; i++) 
+  {
+  }
+#endif
   struct spi_ioc_transfer xfers[nxfers] ; 
   memset(xfers,0,sizeof(struct spi_ioc_transfer) * nxfers);
 
+  const int cs_change = 0; 
   for (int i = 0; i < nxfers; i++)
   {
+    printf("DBG:   xfer_%d: len=%d, rx_buf=0x%p, tx_buf=0,cs_change=%d\n", i, N[i], bufs[i], cs_change); 
     xfers[i].tx_buf = 0; 
+    xfers[i].cs_change = cs_change; 
     xfers[i].rx_buf = (uintptr_t) bufs[i]; 
     xfers[i].len =  N[i]; 
   }
 
   int ret =  ioctl(bd->spi_fd, SPI_IOC_MESSAGE(nxfers), xfers); 
+#ifdef RADIANT_SET_DBG
+  printf("DBG: ioctl(%d,%d,0x%p) = %d", bd->spi_fd, SPI_IOC_MESSAGE(nxfers), xfers, ret); 
+
+  int itx = 0; 
+  uint32_t i_in_tx = 0; 
+  for (int i = 0; i < ret; i++) 
+  {
+
+    if (i_in_tx > xfers[itx].len)
+    {
+      i_in_tx=0; 
+      itx++; 
+    }
+
+    if (i_in_tx==0) 
+    {
+      printf("\nDBG: TX%03d:", itx); 
+    } 
+
+    if (i_in_tx % 80 == 0) printf("\nDBG:      "); 
+    uint8_t* buf = bufs[itx]; 
+    printf(" 0x%x", buf[i_in_tx++]); 
+  }
+  printf("\n"); 
+#endif
+  if (ret < 0) 
+  {
+    printf("!! ioctl in radiant_read returned %d, errno: %d: %s\n", ret, errno, strerror(errno)); 
+  }
 
   return ret; 
 }
@@ -432,14 +469,15 @@ int radiant_read_event(radiant_dev_t * bd, rno_g_header_t * hd, rno_g_waveform_t
     {
       Ns[iactual] = 2*nsamples; 
       bufs[iactual] = (uint8_t*) wf->radiant_waveforms[i]; 
+      ret = radiant_read(bd, 1, &Ns[iactual],&bufs[iactual]); 
       iactual++; 
     }
   }
 
-  int nactual = iactual; 
+  // Doh, default max bufsiz is too small for spidev . Need to make it bigger with modprobe option 
+//  int nactual = iactual; 
+  //ret = radiant_read(bd, nactual, Ns,bufs); 
 
-  // the monster read call. We can break this up per channel if it becomes problematic.  
-  ret = radiant_read(bd, nactual, Ns,bufs); 
         
   
   //now let's figure out the buffer number, start bytes, rotate, and remove the high bytes. 
@@ -842,16 +880,20 @@ int radiant_dump(radiant_dev_t *dev, FILE * stream, int flags)
 
   fprintf(stream, "    CPLDCTRL (cached): %x\n", dev->cpldctrl); 
 
+  uint8_t cont[4]; 
+  radiant_get_mem(dev, DEST_FPGA, RAD_REG_LAB_CTRL_CONTROL,4,cont); 
+  fprintf(stream, "    LAB4D_CONTROLLER_CONTROL: %x %x %x %x \n", cont[3], cont[2], cont[1], cont[0]); 
+
+
   radiant_dma_config_t dma_cfg; 
   radiant_get_dma_config(dev, &dma_cfg);  
 
   fprintf(stream, "    DMACONFIG:  dma_enable: %d, dma_busy; %d, ext_dma_req_enable: %d, dma_direction: %d\n", dma_cfg.dma_enable, dma_cfg.dma_busy, dma_cfg.ext_dma_req_enable, dma_cfg.dma_direction); 
   fprintf(stream, "                byte_mode: %d, byte_target; %d, enable_spi_receive: %d, cycle_delay: %d\n", dma_cfg.byte_mode, dma_cfg.byte_target_in_byte_mode, dma_cfg.enable_spi_receive, dma_cfg.cycle_delay); 
   fprintf(stream, "                tx_full_flag_thresh: %d, tx_full_flag_value; %d, tx_ful_flag_enable: %d\n", dma_cfg.tx_full_flag_threshold, dma_cfg.tx_full_flag_value, dma_cfg.tx_full_flag_enable); 
-
-  uint8_t cont[4]; 
-  radiant_get_mem(dev, DEST_FPGA, RAD_REG_LAB_CTRL_CONTROL,4,cont); 
-  fprintf(stream, "    LAB4D_CONTROLLER_CONTROL: %x %x %x %x \n", cont[3], cont[2], cont[1], cont[0]); 
+  uint32_t curr_descr; 
+  radiant_get_mem(dev, DEST_FPGA, RAD_REG_SPIDMA_CURDESCR,4, (uint8_t*) &curr_descr); 
+  fprintf(stream, "    DMA_CURR_DESCR:  %d\n", curr_descr); 
 
   for (int i = 0; i < 32; i++) 
   {
