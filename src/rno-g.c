@@ -57,8 +57,10 @@ static int do_read(rno_g_file_handle_t h, int N, void *data, uint32_t * sum)
   {
     case RNO_G_RAW: 
       rd = fread(data,N,1,h.handle.raw); 
+      break;
     case RNO_G_GZIP: 
       rd = gzread(h.handle.gz, data,N); 
+      break;
     default: 
       return 0; 
   }
