@@ -1405,11 +1405,8 @@ int radiant_dma_setup_event(radiant_dev_t*bd, uint32_t mask, uint16_t nsamp)
   bd->readout_nsamp = nsamp; 
   
   // ?!?? ?? !?? 
-  radiant_dma_config_t dma_cfg = {.dma_enable=1, .dma_busy=1}; 
-  radiant_configure_dma(bd, &dma_cfg); 
 
-  //set up the descriptors
-  //TODO: do we need to clear them first? 
+  
 
   int idesc = 0; 
   //set the first one for the event fifo. this looks like the right place 
@@ -1434,6 +1431,7 @@ int radiant_dma_setup_event(radiant_dev_t*bd, uint32_t mask, uint16_t nsamp)
  // desc.length = RAD_REG_SCALER_SIZE; 
  // desc.last = 1; 
 //  radiant_dma_set_descriptor(bd, idesc++, desc); 
+  radiant_dma_config_t dma_cfg; 
   radiant_fill_dma_config(&dma_cfg, RADIANT_DMA_EVENT_MODE); 
   radiant_configure_dma(bd, &dma_cfg); //this should probably already have been done but whatever... 
   return 0; 

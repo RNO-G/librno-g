@@ -15,6 +15,13 @@ int main(void)
   radiant_labs_stop(rad); 
   printf("After stop\n"); 
   radiant_dump(rad,stdout,0); 
+
+
+  radiant_dma_config_t dma_cfg = {.dma_enable=1, .dma_busy=1}; 
+  radiant_configure_dma(rad, &dma_cfg); 
+  printf("After cargo culting dma_cfg to 0x3\n"); 
+  radiant_dump(rad,stdout,0); 
+
   radiant_dma_ctrl_t engine_reset = {.engine_reset=1}; 
   radiant_dma_control(rad, engine_reset); 
   usleep(10000);//??
