@@ -1,7 +1,9 @@
 BUILD_DIR=build
 PREFIX=/rno-g
-CFLAGS=-fPIC -Os -Wall -Wextra -g
-CXXFLAGS=-fPIC -Os -Wall -Wextra -g
+CFLAGS=-fPIC -Og -Wall -Wextra -g
+CXXFLAGS+=-fPIC -Og -Wall -Wextra -g
+
+CFLAGS+=-DRADIANT_SET_DBG
 
 # are we on the BBB? 
 ifeq ($(shell uname -m),armv7l) 
@@ -10,7 +12,7 @@ CFLAGS+=-DON_BBB
 endif
 
 LDFLAGS=-shared 
-LIBS=-lz
+LIBS=-lz -pthread
 INCLUDES=src/rno-g.h
 DAQ_INCLUDES=src/radiant.h src/cobs.h src/adf4350.h
 PYBIND_INCLUDES=$(shell python3 -m pybind11 --includes) 

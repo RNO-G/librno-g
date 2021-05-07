@@ -96,6 +96,10 @@ void radiant_set_run_number(radiant_dev_t * bd, int run);
  **/ 
 int radiant_check_avail(radiant_dev_t * bd); 
 
+int radiant_labs_start(radiant_dev_t*bd); 
+int radiant_labs_clear(radiant_dev_t*bd); 
+int radiant_labs_stop(radiant_dev_t*bd); 
+
 /** 
  * High-level read event interface (if there's anything to read). 
  * Note that this optimistically tries to read the header without first checking 
@@ -109,6 +113,8 @@ int radiant_check_avail(radiant_dev_t * bd);
  */
 int radiant_read_event(radiant_dev_t * bd, rno_g_header_t * hd, rno_g_waveform_t *wf); 
 
+/* Send a force trigger */ 
+int radiant_force_trigger(radiant_dev_t *bd, uint8_t howmany); 
 
 
 
@@ -248,7 +254,32 @@ int radiant_fill_dma_config(radiant_dma_config_t *cfg, radiant_dma_mode_preset_t
 int radiant_get_dma_config(radiant_dev_t * bd, radiant_dma_config_t * cfg) ; 
 int radiant_configure_dma(radiant_dev_t *bd, const radiant_dma_config_t * cfg);  
 
+typedef struct 
+{
+  uint8_t tx_reset : 1; 
+  uint8_t rx_reset : 1; 
+  uint8_t engine_reset : 1; 
+  uint8_t dma_req: 1; 
+  uint8_t padding: 4;
+}radiant_dma_ctrl_t; 
 
+
+int radiant_dma_control(radiant_dev_t *bd, radiant_dma_ctrl_t ctrl); 
+
+
+typedef struct
+{
+  uint32_t addr; 
+  uint16_t length;
+  uint8_t incr ;
+  uint8_t last ;
+}radiant_dma_desc_t; 
+/** Low-level Radiant DMA  descriptor setup */ 
+int radiant_dma_set_descriptor(radiant_dev_t *bd, uint8_t idescr,radiant_dma_desc_t desc); 
+
+
+/** Sets up Radiant DMA for event reading with the appropriate channel_mask */
+int radiant_dma_setup_event(radiant_dev_t *bd, uint32_t channel_mask, uint16_t nsamp); 
 
 
 
@@ -275,29 +306,18 @@ int radiant_get_mem(radiant_dev_t* bd, radiant_dest_t dest, uint32_t addr, uint8
 
 
 /** 
- * low-level radiant read command via SPI bus.
+ * low-level radiant read command via SPI bus. this assumes that the descriptors have already been set up correctly.
+ * Up to 511 read buffers can be supported in the same transaction , anything greater is truncated
  *
  * @param  bd device handle
- * @param  num_avail_bytes  if non-zero, number of available bytes will be written to this memory location
  * @param  n_read_buffers   the number of buffers to read (this does NOT check navail so could write garbage). 
- * @param  read_n_words  pointer to array of number of words to read into each buffer
+ * @param  read_n_words  pointer to array of number of BYTES to read into each buffer
  * @param  buffers  array of pointers to buffers 
  * @returns whatever the ioctl returns
  * */ 
-int radiant_read(radiant_dev_t * bd, uint16_t * num_avail_bytes, 
-                 int n_read_buffers, 
-                 int *  read_n_words, 
-                 uint16_t ** buffers);
+int radiant_read(radiant_dev_t * bd, int n_read_buffers, uint16_t *  read_n_words, uint8_t ** buffers);
 
 
-/*** I think these are all deprecated
-// change betweeen peek and consume read modes  
-void radiant_set_read_mode(radiant_dev_t *bd, int peek); 
-
-int radiant_clear(radiant_dev_t *bd);
-int radiant_reset(radiant_dev_t *bd); 
-int radiant_rewind(radiant_dev_t *bd); 
-****/ 
 
 
 #ifdef __cplusplus
