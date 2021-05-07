@@ -50,6 +50,7 @@ static int do_write(rno_g_file_handle_t h, int N, const void *data, uint32_t * s
 }
 
 
+
 static int do_read(rno_g_file_handle_t h, int N, void *data, uint32_t * sum) 
 {
   int rd = 0;
@@ -70,6 +71,7 @@ static int do_read(rno_g_file_handle_t h, int N, void *data, uint32_t * sum)
 }
 
 
+
 //magic, version, checksum, then we dump the struct
 int rno_g_header_write(rno_g_file_handle_t h, const rno_g_header_t*header)
 {
@@ -80,6 +82,16 @@ int rno_g_header_write(rno_g_file_handle_t h, const rno_g_header_t*header)
   int wr = do_write(h, N, header, &sum); 
   do_write(h,sizeof(sum), &sum,0); 
   return wr; 
+}
+
+
+int rno_g_header_dump(FILE *f, const rno_g_header_t *header) 
+{
+  //TODO 
+  int ret = 0;
+  ret+=fprintf(f,"RUN %d, EVENT %d\n", header->event_number, header->run_number); 
+  ret+=fprintf(f, "   PPS_COUNT: %d, STATION: %d\n", header->pps_count, header->station_number);
+  return ret; 
 }
 
 int rno_g_header_read(rno_g_file_handle_t h, rno_g_header_t *header)
@@ -236,5 +248,20 @@ int rno_g_close_handle(rno_g_file_handle_t *h)
   }
 
   return 1; 
+}
+
+int rno_g_waveform_dump(FILE * f, const rno_g_waveform_t * waveform) 
+{
+  //TODO 
+  int ret=0;
+  for (int i = 0; i < RNO_G_NUM_RADIANT_CHANNELS; i++) 
+  {
+    for (int j = 0; j < waveform->radiant_nsamples; j++) 
+    {
+      ret+=fprintf(f, "%hd%c", waveform->radiant_waveforms[i][j], j == waveform->radiant_nsamples-1?'\n':','); 
+    }
+  }
+
+  return ret; 
 }
 

@@ -129,6 +129,9 @@ typedef struct rno_g_header
 
 } rno_g_header_t; 
 
+//write in ascii format 
+int rno_g_header_dump(FILE*f, const rno_g_header_t * header);
+//write in binary format
 int rno_g_header_write(rno_g_file_handle_t handle, const rno_g_header_t * header);
 int rno_g_header_read(rno_g_file_handle_t handle, rno_g_header_t * header);
 
@@ -138,11 +141,14 @@ typedef struct rno_g_waveform
   uint32_t run_number;   //!< For matching
   uint16_t radiant_nsamples; //!< Number of samples per channel for RADIANT
   uint16_t lt_nsamples; //!< Number of samples per channel for RADIANT
-  uint16_t radiant_waveforms[RNO_G_NUM_RADIANT_CHANNELS][RNO_G_MAX_RADIANT_NSAMPLES]; //unrolled. 
+  int16_t radiant_waveforms[RNO_G_NUM_RADIANT_CHANNELS][RNO_G_MAX_RADIANT_NSAMPLES]; //unrolled. 
   uint8_t lt_waveforms[RNO_G_NUM_LT_CHANNELS][RNO_G_MAX_LT_NSAMPLES]; // 8-bit digitizer 
 } rno_g_waveform_t; 
 
 
+//write in ascii format (e.g. for stdout) 
+int rno_g_waveform_dump(FILE *f, const rno_g_waveform_t * waveform);
+// write in binary format 
 int rno_g_waveform_write(rno_g_file_handle_t handle, const rno_g_waveform_t * waveform);
 int rno_g_waveform_read(rno_g_file_handle_t handle, rno_g_waveform_t * waveform);
 
