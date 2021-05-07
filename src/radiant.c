@@ -1370,7 +1370,8 @@ int radiant_configure_dma(radiant_dev_t *bd, const radiant_dma_config_t *cfg)
 
 int radiant_dma_control(radiant_dev_t *bd, const radiant_dma_ctrl_t ctrl) 
 {
-  return 1!=radiant_set_mem(bd, DEST_FPGA, RAD_REG_SPIDMA_CONTROL, 1 , (uint8_t*) &ctrl); 
+  uint8_t bytes[4] = {*((uint8_t*) &ctrl),0,0,0}; 
+  return 4!=radiant_set_mem(bd, DEST_FPGA, RAD_REG_SPIDMA_CONTROL, 4 , bytes); 
 }
 
 
@@ -1474,9 +1475,9 @@ int radiant_labs_start(radiant_dev_t *dev)
   radiant_get_mem(dev, DEST_FPGA, RAD_REG_LAB_CTRL_CONTROL,4,ctrl); 
   while (!(ctrl[0] & 4) ) // @???!?? 
   {
-    printf("%x %x %x %x\n", ctrl[0],ctrl[1],ctrl[2],ctrl[3]); 
+//    printf("%x %x %x %x\n", ctrl[0],ctrl[1],ctrl[2],ctrl[3]); 
     ctrl[0] |= 2;  
-    printf("%x %x %x %x\n", ctrl[0],ctrl[1],ctrl[2],ctrl[3]); 
+//    printf("%x %x %x %x\n", ctrl[0],ctrl[1],ctrl[2],ctrl[3]); 
     radiant_set_mem(dev, DEST_FPGA, RAD_REG_LAB_CTRL_CONTROL,4,ctrl); 
     radiant_get_mem(dev, DEST_FPGA, RAD_REG_LAB_CTRL_CONTROL,4,ctrl); 
   }
