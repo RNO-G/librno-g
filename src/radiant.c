@@ -281,9 +281,6 @@ int radiant_read(radiant_dev_t * bd, int nbufs, uint16_t * N, uint8_t **bufs)
   uint16_t nxfers = (nbufs) & 0x1ff;  // only up to 511 transfers are supported . This also prevents a potential stack overflow.  
 #ifdef RADIANT_SET_DBG
   printf("DBG: radiant_read (nxfers=%d)\n", nxfers); 
-  for (int i = 0; i < nbufs; i++) 
-  {
-  }
 #endif
   struct spi_ioc_transfer xfers[nxfers] ; 
   memset(xfers,0,sizeof(struct spi_ioc_transfer) * nxfers);
@@ -291,16 +288,27 @@ int radiant_read(radiant_dev_t * bd, int nbufs, uint16_t * N, uint8_t **bufs)
   const int cs_change = 0; 
   for (int i = 0; i < nxfers; i++)
   {
+#ifdef RADIANT_SET_DBG
     printf("DBG:   xfer_%d: len=%d, rx_buf=0x%p, tx_buf=0,cs_change=%d\n", i, N[i], bufs[i], cs_change); 
+#endif
     xfers[i].tx_buf = 0; 
     xfers[i].cs_change = cs_change; 
     xfers[i].rx_buf = (uintptr_t) bufs[i]; 
     xfers[i].len =  N[i]; 
   }
 
+#ifdef RADIANT_SET_DBG
+  struct timespec start; 
+  struct timespec stop; 
+  clock_gettime(CLOCK_REALTIME,&start); 
+#endif
+
   int ret =  ioctl(bd->spi_fd, SPI_IOC_MESSAGE(nxfers), xfers); 
 #ifdef RADIANT_SET_DBG
-  printf("DBG: ioctl(%d,%d,0x%p) = %d", bd->spi_fd, SPI_IOC_MESSAGE(nxfers), xfers, ret); 
+  clock_gettime(CLOCK_REALTIME,&stop); 
+  double elapsed = stop.tv_sec - start.tv_sec + 1e-9*(stop.tv_nsec - start.tv_nsec); 
+  double MBps = ret / elapsed / (1024*1024); 
+  printf("DBG: ioctl(%d,%d,0x%p) = %d, %g seconds, %g MByte/s", bd->spi_fd, SPI_IOC_MESSAGE(nxfers), xfers, ret, elapsed, MBps); 
 
   int itx = 0; 
   uint32_t i_in_tx = 0; 
@@ -364,7 +372,8 @@ static void roll16(uint16_t * v, int shift, int N)  //using
     while(1) 
     {
       k = j + shift; 
-      if (k >= N) k-=N; 
+      while (k >= N) k-=N; 
+      while (k < 0) k+=N; 
       if (i==k) break;
       v[j]=v[k]; 
       j=k; 
@@ -419,19 +428,36 @@ static void andall16(uint16_t *v, uint16_t andme, int N)
 int radiant_read_event(radiant_dev_t * bd, rno_g_header_t * hd, rno_g_waveform_t *wf) 
 {
 
+
   struct fw_event_header fwhd; 
-  uint8_t * hd_buf = (uint8_t*) &fwhd; 
-  uint16_t N =sizeof(fwhd); 
+ 
 
+  uint16_t Ns[1+RNO_G_NUM_RADIANT_CHANNELS]; 
+  uint8_t* bufs[1+RNO_G_NUM_RADIANT_CHANNELS]; 
 
-  //Read the event metadata. In principle we should know the
-  //size of everything ahead of time so we can just read everything
-  //in the same syscall, but we can break it up a bit for now I guess. 
-  // This also will check if anything is actualy available (slightly less efficiently, but that's ok) 
-  int ret = radiant_read(bd,1,&N,&hd_buf); 
-  if (ret!=N) return ret; 
+  Ns[0] = sizeof(fwhd); 
+  bufs[0] = (uint8_t*) &fwhd; 
 
+  int nsamples = bd->readout_nsamp; 
+  int iactual = 0;
+  for (int i = 0; i < RNO_G_NUM_RADIANT_CHANNELS; i++) 
+  {
+    if (bd->readout_mask & (1 << i))
+    {
+      Ns[1+iactual] = 2*nsamples; 
+      bufs[1+iactual] = (uint8_t*) wf->radiant_waveforms[i]; 
+    //  ret = radiant_read(bd, 1, &Ns[iactual],&bufs[iactual]); 
+      iactual++; 
+    }
+  }
 
+  // Doh, default max bufsiz is too small for spidev . Need to make it bigger with modprobe option 
+  int nactual = iactual; 
+  int ret = radiant_read(bd, 1+nactual, Ns,bufs); 
+
+ // Start filling in the metadata 
+ // THIS IS BROKEN RIGHT NOW, I THINK I HAVE THE LAYOUT WRONG
+ 
   /*
   //check magic 
   if (fwhd.magic!= 0x4452 )
@@ -442,7 +468,6 @@ int radiant_read_event(radiant_dev_t * bd, rno_g_header_t * hd, rno_g_waveform_t
   */
 
 
-  // Start filling in the metadata 
   memset(hd,0,sizeof(*hd)); 
   hd->event_number |= (fwhd.counter[1]);
   hd->event_number |= (fwhd.counter[0]) << 16;
@@ -459,30 +484,9 @@ int radiant_read_event(radiant_dev_t * bd, rno_g_header_t * hd, rno_g_waveform_t
   wf->event_number = hd->event_number; 
   wf->run_number = bd->run; 
 
-  int nsamples = bd->readout_nsamp; 
   wf->radiant_nsamples = nsamples;
 
-  //we will have up to transactions, the status (which we ignore for now) , and then one for each channel;
   
-
-  uint16_t Ns[RNO_G_NUM_RADIANT_CHANNELS]; 
-  uint8_t* bufs[RNO_G_NUM_RADIANT_CHANNELS]; 
-  int iactual = 0;
-  for (int i = 0; i < RNO_G_NUM_RADIANT_CHANNELS; i++) 
-  {
-    if (bd->readout_mask & (1 << i))
-    {
-      Ns[iactual] = 2*nsamples; 
-      bufs[iactual] = (uint8_t*) wf->radiant_waveforms[i]; 
-      ret = radiant_read(bd, 1, &Ns[iactual],&bufs[iactual]); 
-      iactual++; 
-    }
-  }
-
-  // Doh, default max bufsiz is too small for spidev . Need to make it bigger with modprobe option 
-//  int nactual = iactual; 
-  //ret = radiant_read(bd, nactual, Ns,bufs); 
-
         
   
   //now let's figure out the buffer number, start bytes, rotate, and remove the high bytes. 
@@ -633,7 +637,7 @@ radiant_dev_t * radiant_open(const char *spi_device, const char * uart_device, i
   ioctl(spi_fd, SPI_IOC_WR_MAX_SPEED_HZ,&spi_clock); 
 
   uint8_t mode = 0; 
-  uint8_t bits_per_word = 8; 
+  uint8_t bits_per_word = 32; 
   ioctl(spi_fd, SPI_IOC_WR_MODE,&mode); 
   ioctl(spi_fd, SPI_IOC_WR_BITS_PER_WORD,&bits_per_word); 
   
