@@ -103,8 +103,12 @@ typedef enum
   /// SPIDMA space
   RAD_REG_SPIDMA_CONFIG               = 0x8000, 
   RAD_REG_SPIDMA_CONTROL              = 0x8004, 
-  RAD_REG_SPIDMA_CURDESCR             = 0x8008, 
-  RAD_REG_SPIDMA_TXNCOUNT             = 0x800c, 
+  RAD_REG_SPIDMA_CUR_DESCR_NUM        = 0x8008, 
+  RAD_REG_SPIDMA_TXN_COUNT            = 0x800c, 
+  RAD_REG_SPIDMA_CUR_DESCR_VAL        = 0x8010, 
+  RAD_REG_SPIDMA_CUR_DESCR_COUNT      = 0x8014, 
+  RAD_REG_SPIDMA_TXFIFOCNT            = 0x8018, 
+  RAD_REG_SPIDMA_SPICC_COUNT          = 0x801c, 
   RAD_REG_SPIDMA_DESCR_BASE           = 0x8080, 
   RAD_REG_SPIDMA_DESCR_INCR           = 0x4,  // NOT AN ADDRESS
 
@@ -189,6 +193,7 @@ struct radiant_dev
 
   uint32_t readout_mask; 
   uint32_t readout_nsamp; 
+  int cleanup_spi_gpio; 
 }; 
 
 
@@ -302,7 +307,7 @@ int radiant_read(radiant_dev_t * bd, int nbufs, uint16_t * N, uint8_t **bufs)
   for (int i = 0; i < ret; i++) 
   {
 
-    if (i_in_tx > xfers[itx].len)
+    if (i_in_tx >= xfers[itx].len)
     {
       i_in_tx=0; 
       itx++; 
@@ -567,7 +572,25 @@ static int write_bm_gpio(radiant_dev_t * dev, int which)
 }
  
 
-radiant_dev_t * radiant_open(const char *spi_device, const char * uart_device, int trig_gpio) 
+static int export_gpio_if_not_exported(int gpionum) 
+{
+    char buf[128]; 
+    sprintf(buf, "/sys/class/gpio/gpio%d", gpionum); 
+    if (access(buf, F_OK))
+    {
+          //export the GPIO, lazy programming  
+          char cmdbuf[128]; 
+          sprintf(cmdbuf,"echo %d > /sys/class/gpio/export", gpionum); 
+          system(cmdbuf); 
+          usleep(10000); //wait to make sure it come up 
+
+          return access(buf, F_OK); 
+    }
+    return 0; 
+}
+
+
+radiant_dev_t * radiant_open(const char *spi_device, const char * uart_device, int trig_gpio, int spi_en_gpio) 
 {
 
   radiant_dev_t * dev = 0; 
@@ -608,6 +631,11 @@ radiant_dev_t * radiant_open(const char *spi_device, const char * uart_device, i
   //now set up the SPI 
   int spi_clock = 48000000; 
   ioctl(spi_fd, SPI_IOC_WR_MAX_SPEED_HZ,&spi_clock); 
+
+  uint8_t mode = 0; 
+  uint8_t bits_per_word = 8; 
+  ioctl(spi_fd, SPI_IOC_WR_MODE,&mode); 
+  ioctl(spi_fd, SPI_IOC_WR_BITS_PER_WORD,&bits_per_word); 
   
   //and set up the UART 
   // SEE THIS NICE GUIDE HERE https://blog.mbedded.ninja/programming/operating-systems/linux/linux-serial-ports-using-c-cpp
@@ -758,17 +786,8 @@ radiant_dev_t * radiant_open(const char *spi_device, const char * uart_device, i
   if (trig_gpio > 0) 
   {
     char buf[512]; 
-    //check if it has been exported already
-    sprintf(buf, "/sys/class/gpio/gpio%d", trig_gpio); 
-
-    if (access(buf, F_OK))
-    {
-      //export the GPIO, lazy programming
-      sprintf(buf,"echo %d > /sys/class/gpio/export", trig_gpio); 
-      system(buf); 
-    }
-
-    
+    export_gpio_if_not_exported(trig_gpio); 
+   
     //set the edge to rising 
     sprintf(buf, "/sys/class/gpio/gpio%d/edge", trig_gpio); 
     int edge_fd = open(buf, O_RDWR); 
@@ -806,6 +825,27 @@ radiant_dev_t * radiant_open(const char *spi_device, const char * uart_device, i
       }
     }
   }
+
+  if (spi_en_gpio) 
+  {
+    char buf[512]; 
+    int gpionum = abs(spi_en_gpio); 
+    export_gpio_if_not_exported(gpionum); 
+
+    //make sure it's NOT active low 
+    sprintf(buf,"echo 0 > /sys/class/gpio/gpio%d/active_low", gpionum); 
+    system(buf); 
+
+    //make sure it's an output
+    sprintf(buf,"echo out > /sys/class/gpio/gpio%d/direction", gpionum); 
+    system(buf);
+
+    //make sure it has the right value
+    sprintf(buf,"echo %d > /sys/class/gpio/gpio%d/value", spi_en_gpio < 0 ? 0 : 1, gpionum); 
+    system(buf);
+    dev->cleanup_spi_gpio = gpionum; 
+  }
+  else dev->cleanup_spi_gpio = 0; 
 
 
   dev->readout_mask = 0xffffff; 
@@ -891,9 +931,19 @@ int radiant_dump(radiant_dev_t *dev, FILE * stream, int flags)
   fprintf(stream, "    DMACONFIG:  dma_enable: %d, dma_busy; %d, ext_dma_req_enable: %d, dma_direction: %d\n", dma_cfg.dma_enable, dma_cfg.dma_busy, dma_cfg.ext_dma_req_enable, dma_cfg.dma_direction); 
   fprintf(stream, "                byte_mode: %d, byte_target; %d, enable_spi_receive: %d, cycle_delay: %d\n", dma_cfg.byte_mode, dma_cfg.byte_target_in_byte_mode, dma_cfg.enable_spi_receive, dma_cfg.cycle_delay); 
   fprintf(stream, "                tx_full_flag_thresh: %d, tx_full_flag_value; %d, tx_ful_flag_enable: %d\n", dma_cfg.tx_full_flag_threshold, dma_cfg.tx_full_flag_value, dma_cfg.tx_full_flag_enable); 
-  uint32_t curr_descr; 
-  radiant_get_mem(dev, DEST_FPGA, RAD_REG_SPIDMA_CURDESCR,4, (uint8_t*) &curr_descr); 
-  fprintf(stream, "    DMA_CURR_DESCR:  %d\n", curr_descr); 
+  uint32_t curr_descr_num, curr_descr_val, curr_descr_count, txn_count, txfifo_count, spicc_count ; 
+  radiant_get_mem(dev, DEST_FPGA, RAD_REG_SPIDMA_CUR_DESCR_NUM,4, (uint8_t*) &curr_descr_num); 
+  radiant_get_mem(dev, DEST_FPGA, RAD_REG_SPIDMA_TXN_COUNT,4, (uint8_t*) &txn_count); 
+  radiant_get_mem(dev, DEST_FPGA, RAD_REG_SPIDMA_CUR_DESCR_COUNT,4, (uint8_t*) &curr_descr_count); 
+  radiant_get_mem(dev, DEST_FPGA, RAD_REG_SPIDMA_CUR_DESCR_VAL,4, (uint8_t*) &curr_descr_val); 
+  radiant_get_mem(dev, DEST_FPGA, RAD_REG_SPIDMA_TXFIFOCNT,4, (uint8_t*) &txfifo_count); 
+  radiant_get_mem(dev, DEST_FPGA, RAD_REG_SPIDMA_SPICC_COUNT,4, (uint8_t*) &spicc_count); 
+  fprintf(stream, "    DMA_CUR_DESCR_NUM  (0x%x): %u\n",RAD_REG_SPIDMA_CUR_DESCR_NUM, curr_descr_num); 
+  fprintf(stream, "    DMA_CUR_DESCR_VAL  (0x%x): 0x%x\n",RAD_REG_SPIDMA_CUR_DESCR_VAL, curr_descr_val); 
+  fprintf(stream, "    DMA_CUR_DESCR_COUNT(0x%x): %u\n", RAD_REG_SPIDMA_CUR_DESCR_COUNT, curr_descr_count); 
+  fprintf(stream, "    DMA_TXN_COUNT      (0x%x): %u\n", RAD_REG_SPIDMA_TXN_COUNT, txn_count); 
+  fprintf(stream, "    DMA_TXFIFO_COUNT:  (0x%x): %u\n", RAD_REG_SPIDMA_TXFIFOCNT, txfifo_count); 
+  fprintf(stream, "    DMA_SPI_CC_COUNT:  (0x%x): %u\n", RAD_REG_SPIDMA_SPICC_COUNT, spicc_count); 
 
   for (int i = 0; i < 32; i++) 
   {
@@ -924,6 +974,13 @@ void radiant_close(radiant_dev_t * dev)
   {
     flock(dev->interrupt_fd,LOCK_UN); 
     close (dev->interrupt_fd); 
+  }
+
+  if (dev->cleanup_spi_gpio) 
+  {
+    char buf[128]; 
+    sprintf(buf,"echo in > /sys/class/gpio/gpio%d/direction", dev->cleanup_spi_gpio); 
+    system(buf); 
   }
 
   free(dev); 
@@ -1461,7 +1518,7 @@ int radiant_dma_setup_event(radiant_dev_t*bd, uint32_t mask, uint16_t nsamp)
   {
     if (mask & (1 << i)) 
     {
-      radiant_dma_desc_t this_desc = {.addr=RAD_REG_LAB_RAM_BASE+i*RAD_REG_LAB_RAM_INCR, .incr=1, .length=2*nsamp}; 
+      radiant_dma_desc_t this_desc = {.addr=RAD_REG_LAB_RAM_BASE+i*RAD_REG_LAB_RAM_INCR, .incr=0, .length=2*nsamp}; 
       desc.addr = RAD_REG_LAB_RAM_BASE  + RAD_REG_LAB_RAM_INCR*i; 
       if (i == last) this_desc.last = 1; 
       radiant_dma_set_descriptor(bd, idesc++, this_desc); 

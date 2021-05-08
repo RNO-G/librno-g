@@ -35,11 +35,12 @@ typedef struct radiant_dev radiant_dev_t;
  * @param uart_device The device name of the UART device used for communcating with 
  *                    the RADIANT board manager (e.g. /dev/ttyO5) 
  * @param trigger_gpio The gpio we wait on to tell if we have a trigger. Use 0 or negative to not support (I hope there is no GPIO 0?). 
+ * @param spi_enable_gpio. If zero ignored. If positive, will be pulled up, if negative, will be pulled down. 
  * @returns an opaque handle, or NULL if something failed (probably accompanied by 
  *                    nasty log messages). 
  *
  */
-radiant_dev_t * radiant_open (const char * spi_device, const char * uart_device, int trigger_gpio); 
+radiant_dev_t * radiant_open (const char * spi_device, const char * uart_device, int trigger_gpio, int spi_enable_gpio); 
 
 
 /* Sets a callback on the trigger gpio interrupt. Note 
@@ -311,11 +312,11 @@ int radiant_get_mem(radiant_dev_t* bd, radiant_dest_t dest, uint32_t addr, uint8
  *
  * @param  bd device handle
  * @param  n_read_buffers   the number of buffers to read (this does NOT check navail so could write garbage). 
- * @param  read_n_words  pointer to array of number of BYTES to read into each buffer
+ * @param  read_n_bytes  pointer to array of number of BYTES to read into each buffer
  * @param  buffers  array of pointers to buffers 
  * @returns whatever the ioctl returns
  * */ 
-int radiant_read(radiant_dev_t * bd, int n_read_buffers, uint16_t *  read_n_words, uint8_t ** buffers);
+int radiant_read(radiant_dev_t * bd, int n_read_buffers, uint16_t *  read_n_bytes, uint8_t ** buffers);
 
 
 

@@ -8,7 +8,7 @@
 
 int main(void) 
 {
-  radiant_dev_t * rad = radiant_open("/dev/spi/0.0", "/dev/ttyRadiant", 46); //not sure if right gpio yet 
+  radiant_dev_t * rad = radiant_open("/dev/spi/0.0", "/dev/ttyRadiant", 46, -61); //not sure if right gpio yet 
   if (!rad) return 1; 
 
   printf("At start\n"); 
