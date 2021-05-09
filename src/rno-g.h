@@ -25,6 +25,7 @@ extern "C"
 #include <limits.h>   
 
 #define RNO_G_MAX_RADIANT_NSAMPLES 2048
+#define RNO_G_PEDESTAL_NSAMPLES 2048
 #define RNO_G_NUM_RADIANT_CHANNELS 24 
 #define RNO_G_NUM_RADIANT_WINDOWS 16
 #define RNO_G_RADIANT_WINDOW_SIZE 128
@@ -144,6 +145,19 @@ typedef struct rno_g_waveform
   int16_t radiant_waveforms[RNO_G_NUM_RADIANT_CHANNELS][RNO_G_MAX_RADIANT_NSAMPLES]; //unrolled. 
   uint8_t lt_waveforms[RNO_G_NUM_LT_CHANNELS][RNO_G_MAX_LT_NSAMPLES]; // 8-bit digitizer 
 } rno_g_waveform_t; 
+
+
+typedef struct rno_g_pedestal 
+{
+  uint32_t when; 
+  uint16_t nevents; 
+  uint16_t flags; //TBD 
+  uint16_t pedestals[RNO_G_NUM_RADIANT_CHANNELS][RNO_G_PEDESTAL_NSAMPLES]; 
+} rno_g_pedestal_t; 
+
+int rno_g_pedestal_dump(FILE *f, const rno_g_pedestal_t * pedestal); 
+int rno_g_pedestal_write(rno_g_file_handle_t handle, const rno_g_pedestal_t * pedestal);
+int rno_g_pedestal_read(rno_g_file_handle_t handle, rno_g_pedestal_t * pedestal);
 
 
 //write in ascii format (e.g. for stdout) 
