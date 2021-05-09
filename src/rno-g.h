@@ -151,7 +151,8 @@ typedef struct rno_g_pedestal
 {
   uint32_t when; 
   uint16_t nevents; 
-  uint16_t flags; //TBD 
+  uint32_t mask : 24; 
+  uint8_t flags; //TBD 
   uint16_t pedestals[RNO_G_NUM_RADIANT_CHANNELS][RNO_G_PEDESTAL_NSAMPLES]; 
 } rno_g_pedestal_t; 
 

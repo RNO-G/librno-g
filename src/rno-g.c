@@ -287,6 +287,8 @@ int rno_g_pedestal_dump(FILE *f, const rno_g_pedestal_t *pedestal)
 }
 
 
+// TODO: could only read/write unmasked if we wanted to... 
+
 int rno_g_pedestal_write(rno_g_file_handle_t h, const rno_g_pedestal_t * pd) 
 {
   io_header_t hd = {.magic = PEDESTAL_MAGIC, .version = PED_VER }; 
