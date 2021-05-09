@@ -114,8 +114,8 @@ int radiant_labs_stop(radiant_dev_t*bd);
  */
 int radiant_read_event(radiant_dev_t * bd, rno_g_header_t * hd, rno_g_waveform_t *wf); 
 
-/* Send a force trigger */ 
-int radiant_force_trigger(radiant_dev_t *bd, uint8_t howmany); 
+/* Send a force trigger. Max on howmany is 256*/ 
+int radiant_force_trigger(radiant_dev_t *bd, int howmany, int block); 
 
 
 
@@ -267,6 +267,13 @@ typedef struct
 
 int radiant_dma_control(radiant_dev_t *bd, radiant_dma_ctrl_t ctrl); 
 
+int radiant_dma_engine_reset(radiant_dev_t *bd); 
+int radiant_dma_tx_reset(radiant_dev_t *bd); 
+int radiant_dma_rx_reset(radiant_dev_t *bd); 
+int radiant_dma_request(radiant_dev_t *bd); 
+int radiant_dma_txn_count_reset(radiant_dev_t *bd); 
+int radiant_dma_txn_count(radiant_dev_t *bd, uint32_t * count); 
+
 
 typedef struct
 {
@@ -281,6 +288,13 @@ int radiant_dma_set_descriptor(radiant_dev_t *bd, uint8_t idescr,radiant_dma_des
 
 /** Sets up Radiant DMA for event reading with the appropriate channel_mask */
 int radiant_dma_setup_event(radiant_dev_t *bd, uint32_t channel_mask, uint16_t nsamp); 
+
+
+
+/** Pedestal running. Note that this leaves the DMA set up in pedestal mode so you probably need to set up event mode after */ 
+int radiant_get_pedestals(radiant_dev_t *bd, uint32_t mask, uint16_t ntriggers, rno_g_pedestal_t * ped); 
+
+
 
 
 

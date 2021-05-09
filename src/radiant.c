@@ -123,14 +123,21 @@ typedef enum
   RAD_REG_LAB_RAM_INCR                = 0x800,  //2048  ?!??? 
 
 
-
   //TRIG SPACE
   RAD_REG_EV_FIFO_BASE                = 0x30100, 
   RAD_REG_EV_FIFO_SIZE                = 0x18, 
 
   //SCALER space
   RAD_REG_SCALER_BASE                = 0x40000, 
-  RAD_REG_SCALER_SIZE                = 0x18 // why not
+  RAD_REG_SCALER_SIZE                = 0x18, // why not
+
+  //CALRAM Space ? 
+  RAD_REG_CALRAM_BASE               = 0x80000, 
+  RAD_REG_CALRAM_GLOBAL_CONTROL     = 0x86000, 
+  RAD_REG_CALRAM_GLOBAL_MODE        = 0x86004, 
+  RAD_REG_CALRAM_GLOBAL_ROLLCOUNT   = 0x86008 
+
+
 }e_fpga_reg; 
 
 
@@ -406,7 +413,7 @@ static void andall16(uint16_t *v, uint16_t andme, int N)
       v2 = vandq_u16(v2,vandme);
       v3 = vandq_u16(v3,vandme);
       v4 = vandq_u16(v4,vandme);
-      vst1q_u16( v+i*32,v1);
+      vst1q_u16(v+i*32,v1);
       vst1q_u16(v+i*32+8,v2);
       vst1q_u16(v+i*32+16,v3);
       vst1q_u16(v+i*32+24,v4);
@@ -417,12 +424,53 @@ static void andall16(uint16_t *v, uint16_t andme, int N)
 #endif 
 
 
-  // finish the last (or do all of them, if not using intrinsics 
+  // finish the last (or do all of them, if not using intrinsics) 
   for (; i < N; i++) 
   {
     v[i] &= andme; 
   }
 }
+
+
+static void bswap16(uint16_t *vv, int N) 
+{
+  int i = 0;
+  uint8_t*v = (uint8_t*) vv; 
+
+#if defined(__arm__) && !defined(NOVECTORIZE) 
+//we'll use ARM NEON intrinsics. Since usually this will be a multiple of 32, we'll use vandq_u16 unrolled by 4 
+  int Niter = N/32; 
+
+  if (Niter) 
+  {
+    for (i = 0; i < Niter; i++) 
+    {
+      uint8x16_t v1 = vld1q_u8(v+i*64);
+      uint8x16_t v2 = vld1q_u8(v+i*64+16);
+      uint8x16_t v3 = vld1q_u8(v+i*64+32);
+      uint8x16_t v4 = vld1q_u8(v+i*64+48);
+      v1 = vrev16q_u8(v1);
+      v2 = vrev16q_u8(v2);
+      v3 = vrev16q_u8(v3);
+      v4 = vrev16q_u8(v4);
+      vst1q_u8(v+i*64,v1);
+      vst1q_u8(v+i*64+16,v2);
+      vst1q_u8(v+i*64+32,v3);
+      vst1q_u8(v+i*64+48,v4);
+    }
+
+    i*=32; // catch any remaining elements with a normal loop
+  }
+#endif 
+
+
+  // finish the last (or do all of them, if not using intrinsics) 
+  for (; i < N; i++) 
+  {
+    vv[i] = __builtin_bswap16(vv[i]); 
+  }
+}
+
 
 
 int radiant_read_event(radiant_dev_t * bd, rno_g_header_t * hd, rno_g_waveform_t *wf) 
@@ -488,6 +536,17 @@ int radiant_read_event(radiant_dev_t * bd, rno_g_header_t * hd, rno_g_waveform_t
 
   
         
+  /// IS IT BIG-ENDIAN!??? 
+  // TODO: there must be a neon intrinsic for this to make it faster 
+  for (int ichan = 0; ichan < RNO_G_NUM_RADIANT_CHANNELS; ichan++) 
+  {
+    bswap16( (uint16_t*) wf->radiant_waveforms[ichan], nsamples); 
+    //for (int isamp = 0; isamp < nsamples; isamp++) 
+    //{
+    //  wf->radiant_waveforms[ichan][isamp] = __builtin_bswap16(wf->radiant_waveforms[ichan][isamp]); 
+    //}
+  }
+
   
   //now let's figure out the buffer number, start bytes, rotate, and remove the high bytes. 
   // TODO: IS THIS STILL RELEVANT OR IS THIS VESTIGIAL? 
@@ -530,7 +589,9 @@ int radiant_read_event(radiant_dev_t * bd, rno_g_header_t * hd, rno_g_waveform_t
       //that sounds a bit more complicated
       if (nrotate) roll16((uint16_t*)wf->radiant_waveforms[ichan], nrotate, nsamples); 
 
-      //remove the upper bits
+      andall16((uint16_t*)wf->radiant_waveforms[ichan], 0x0fff, nsamples); 
+      /*
+/      //remove the upper bits
       if (high_window) //have to remove upper bits on all samples
       {
         andall16((uint16_t*)wf->radiant_waveforms[ichan], 0x0fff, nsamples); 
@@ -540,6 +601,7 @@ int radiant_read_event(radiant_dev_t * bd, rno_g_header_t * hd, rno_g_waveform_t
         andall16((uint16_t*)wf->radiant_waveforms[ichan], 0x0fff, RNO_G_RADIANT_WINDOW_SIZE); 
         andall16((uint16_t*)wf->radiant_waveforms[ichan] + (nsamples-RNO_G_RADIANT_WINDOW_SIZE), 0x0fff, RNO_G_RADIANT_WINDOW_SIZE); 
       }
+      */ 
     }
     else
     {
@@ -854,7 +916,7 @@ radiant_dev_t * radiant_open(const char *spi_device, const char * uart_device, i
 
   dev->readout_mask = 0xffffff; 
   dev->readout_nsamp =1024; 
-
+  dev->run = 0; 
   return dev; 
 }
 
@@ -1477,6 +1539,42 @@ int radiant_dma_control(radiant_dev_t *bd, const radiant_dma_ctrl_t ctrl)
   return 4!=radiant_set_mem(bd, DEST_FPGA, RAD_REG_SPIDMA_CONTROL, 4 , bytes); 
 }
 
+int radiant_dma_engine_reset(radiant_dev_t *bd) 
+{
+  radiant_dma_ctrl_t engine_reset = {.engine_reset=1}; 
+  return radiant_dma_control(bd, engine_reset); 
+}
+
+int radiant_dma_tx_reset(radiant_dev_t *bd) 
+{
+  radiant_dma_ctrl_t tx_reset = {.tx_reset=1}; 
+  return radiant_dma_control(bd, tx_reset); 
+}
+
+int radiant_dma_rx_reset(radiant_dev_t *bd) 
+{
+  radiant_dma_ctrl_t rx_reset = {.rx_reset=1}; 
+  return radiant_dma_control(bd, rx_reset); 
+}
+
+int radiant_dma_request(radiant_dev_t *bd) 
+{
+  radiant_dma_ctrl_t req = {.dma_req=1}; 
+  return radiant_dma_control(bd, req); 
+}
+
+int radiant_dma_txn_count_reset(radiant_dev_t *bd) 
+{
+  uint8_t zeros[4] = {0}; 
+  return 4!= radiant_set_mem(bd, DEST_FPGA, RAD_REG_SPIDMA_TXN_COUNT, 4,zeros); 
+}
+
+int radiant_dma_txn_count(radiant_dev_t *bd, uint32_t* count) 
+{
+  return 4!= radiant_get_mem(bd, DEST_FPGA, RAD_REG_SPIDMA_TXN_COUNT,4, (uint8_t*) count); 
+}
+
+
 
 int radiant_dma_set_descriptor(radiant_dev_t* bd, uint8_t idescr, radiant_dma_desc_t descr)
 {
@@ -1507,13 +1605,14 @@ int radiant_dma_setup_event(radiant_dev_t*bd, uint32_t mask, uint16_t nsamp)
   bd->readout_mask = mask; 
   bd->readout_nsamp = nsamp; 
   
-  // ?!?? ?? !?? 
-
+  radiant_dma_txn_count_reset(bd); 
+  radiant_dma_engine_reset(bd); 
+  radiant_dma_tx_reset(bd); 
   
 
   int idesc = 0; 
   //set the first one for the event fifo. this looks like the right place 
-  radiant_dma_desc_t desc = {.addr=RAD_REG_EV_FIFO_BASE, .incr=1, .length=24}; 
+  radiant_dma_desc_t desc = {.addr=RAD_REG_EV_FIFO_BASE, .incr=1, .length=sizeof(struct fw_event_header)/sizeof(uint32_t)}; 
   radiant_dma_set_descriptor(bd, idesc++, desc); 
   int last = 31 - __builtin_clz(mask); 
 
@@ -1522,7 +1621,7 @@ int radiant_dma_setup_event(radiant_dev_t*bd, uint32_t mask, uint16_t nsamp)
   {
     if (mask & (1 << i)) 
     {
-      radiant_dma_desc_t this_desc = {.addr=RAD_REG_LAB_RAM_BASE+i*RAD_REG_LAB_RAM_INCR, .incr=0, .length=2*nsamp}; 
+      radiant_dma_desc_t this_desc = {.addr=RAD_REG_LAB_RAM_BASE+i*RAD_REG_LAB_RAM_INCR, .incr=0, .length=nsamp/2}; 
       desc.addr = RAD_REG_LAB_RAM_BASE  + RAD_REG_LAB_RAM_INCR*i; 
       if (i == last) this_desc.last = 1; 
       radiant_dma_set_descriptor(bd, idesc++, this_desc); 
@@ -1542,14 +1641,27 @@ int radiant_dma_setup_event(radiant_dev_t*bd, uint32_t mask, uint16_t nsamp)
 
 
 
-int radiant_force_trigger(radiant_dev_t * bd, uint8_t howmany) 
+int radiant_force_trigger(radiant_dev_t * bd, int howmany, int block) 
 {
 
   if (!howmany) return -1; 
+  if (howmany > 256 || howmany < 0) howmany = 256; 
 
   // inferred from python code. TODO: learn more
   uint32_t mem = 2 | ((howmany-1) << 8); 
-  return 4!=radiant_set_mem(bd, DEST_FPGA, RAD_REG_LAB_CTRL_TRIGGER, 4,(uint8_t*)  &mem); 
+  int ret =  4!=radiant_set_mem(bd, DEST_FPGA, RAD_REG_LAB_CTRL_TRIGGER, 4,(uint8_t*)  &mem); 
+
+  if (block) 
+  {
+    int busy = 1; 
+    while (busy) 
+    {
+      radiant_get_mem(bd, DEST_FPGA, RAD_REG_LAB_CTRL_READOUT, 4, (uint8_t *) &mem); 
+      busy = mem & 0x21; 
+    }
+  }
+
+  return ret; 
 }
 
 int radiant_labs_clear(radiant_dev_t *dev) 
@@ -1601,12 +1713,156 @@ int radiant_labs_stop(radiant_dev_t *dev)
 }
 
 
+/* I don't know what register to check yet... */ 
 int radiant_check_avail(radiant_dev_t * bd) 
 {
 
   return bd!=0; 
 }
 
+//not exposed for now since only used for pedestals right now... 
+static int calram_zero(radiant_dev_t * bd) 
+{
+  uint32_t ctrl; 
+  radiant_get_mem(bd, DEST_FPGA, RAD_REG_LAB_CTRL_CONTROL, sizeof(ctrl), (uint8_t*) &ctrl) ; 
+  if (ctrl & 0x4)  // TODO: python code has this as 0x2 but I'm pretty sure that's wrong
+  {
+    return 1; 
+  }
+
+  uint32_t mode = 0x2; 
+  ctrl = 0x3; 
+  radiant_set_mem(bd, DEST_FPGA, RAD_REG_CALRAM_GLOBAL_CONTROL, 4, (uint8_t*) &ctrl); 
+  radiant_set_mem(bd, DEST_FPGA, RAD_REG_CALRAM_GLOBAL_MODE, 4, (uint8_t*) &mode); 
+
+
+  radiant_labs_start(bd); 
+  radiant_force_trigger(bd,1,1); 
+  radiant_force_trigger(bd,1,1);
+  radiant_force_trigger(bd,1,1);
+  radiant_force_trigger(bd,1,1);
+  radiant_labs_stop(bd); 
+  return 0; 
+}
+
+
+//Only implementing these two for now :) 
+typedef enum 
+{
+  CALRAM_MODE_NONE, 
+  CALRAM_MODE_PED, 
+
+}calram_mode_t; 
+
+// may expose this later if necessary
+static int calram_mode(radiant_dev_t *bd, calram_mode_t mode) 
+{
+  uint32_t ctrl = 0; 
+  uint32_t mde = 0; 
+  switch(mode) 
+  {
+    case CALRAM_MODE_NONE: 
+      break; 
+    case CALRAM_MODE_PED:
+      ctrl=2; 
+      break; 
+    default: 
+        return -1; 
+  }
+
+   if (4!=radiant_set_mem(bd,DEST_FPGA,RAD_REG_CALRAM_GLOBAL_CONTROL, 4, (uint8_t*) &ctrl)) return 1; 
+   return (4!=radiant_set_mem(bd,DEST_FPGA,RAD_REG_CALRAM_GLOBAL_MODE, 4, (uint8_t*) &mde)); 
+ 
+}
+
+
+int radiant_get_pedestals(radiant_dev_t *bd, uint32_t mask, uint16_t ntriggers, rno_g_pedestal_t * ped) 
+{
+  if (!mask) return 0; 
+
+  radiant_labs_stop(bd); 
+
+  //clear the calram ?
+  if (calram_zero(bd)) return -1; 
+  if (calram_mode(bd,CALRAM_MODE_PED)) return -2; 
+
+  radiant_labs_start(bd); 
+
+  uint16_t nleft = ntriggers; 
+  while (nleft > 0) 
+  {
+    //need 4 triggers / cycle to fill
+    int todo = nleft < 64 ? nleft : 64; 
+    radiant_force_trigger(bd, todo*4, 1); 
+    nleft-=todo; 
+  }
+  radiant_labs_stop(bd); 
+  
+
+  radiant_dma_txn_count_reset(bd); 
+  radiant_dma_engine_reset(bd); 
+  radiant_dma_tx_reset(bd); 
+
+  radiant_dma_config_t dma; 
+  radiant_fill_dma_config(&dma, RADIANT_DMA_CAL_MODE); 
+  radiant_configure_dma(bd, &dma); 
+
+  int ifinal = 31 - __builtin_clz(mask); 
+  int itx = 0; 
+
+  // note that the spidev bufsiz would have to be increased even more to get all of the pedestals in, so we'll read them out one at a time after setting up the descriptors
+  for (int i = 0; i < RNO_G_NUM_RADIANT_CHANNELS; i++) 
+  {
+    if (! (mask & (1 <<i))) continue; 
+    radiant_dma_desc_t desc = {.addr = RAD_REG_CALRAM_BASE + sizeof(uint32_t) *RNO_G_PEDESTAL_NSAMPLES * i, .length = RNO_G_PEDESTAL_NSAMPLES, .incr = 1, .last = i == ifinal };
+    radiant_dma_set_descriptor(bd, itx++, desc); 
+  }
+
+  uint32_t * pedram = malloc(sizeof(uint32_t) * RNO_G_PEDESTAL_NSAMPLES); 
+
+  radiant_dma_request(bd); 
+
+  for (int i = 0; i < RNO_G_NUM_RADIANT_CHANNELS; i++) 
+  {
+    if (! (mask & (1 << i))) 
+    {
+      memset(ped->pedestals[i], 0, sizeof(ped->pedestals[i])); 
+      continue; 
+    }
+    else
+    {
+      uint16_t N = RNO_G_PEDESTAL_NSAMPLES * sizeof(uint32_t); 
+      uint8_t * memptr[1] = { (uint8_t*) pedram} ; 
+      int nrd = radiant_read(bd, 1, &N, memptr); 
+      if (nrd != N)
+      {
+        fprintf(stderr, "Bad news bears: %u %d\n", nrd, N); 
+      }
+      else
+      {
+        for (unsigned j = 0; j < RNO_G_PEDESTAL_NSAMPLES; j++) 
+        {
+          ped->pedestals[i][j] = pedram[j] / ntriggers; 
+        }
+      }
+    }
+  }
+
+  ped->nevents = ntriggers; 
+  ped->when = time(0); 
+
+  free(pedram); 
+  // take out of calram mode? 
+  calram_zero(bd); 
+  calram_mode(bd,CALRAM_MODE_NONE); 
+
+  radiant_dma_txn_count_reset(bd); 
+  radiant_dma_engine_reset(bd); 
+  radiant_dma_tx_reset(bd); 
+
+
+  return 0; 
+}
 
 
 
