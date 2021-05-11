@@ -14,7 +14,7 @@ int main(void)
   radiant_dump(rad,stdout,0);
 
   rno_g_pedestal_t ped; 
-  radiant_get_pedestals(rad, 0xffffff, 512, &ped); 
+  radiant_compute(rad, 0xffffff, 512, &ped); 
   radiant_dump(rad,stdout,0);
   rno_g_pedestal_dump(stdout,&ped); 
   radiant_close(rad); 

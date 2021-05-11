@@ -11,25 +11,30 @@ int main(void)
   radiant_dev_t * rad = radiant_open("/dev/spi/0.0", "/dev/ttyRadiant", 46, -61); //not sure if right gpio yet 
   if (!rad) return 1; 
 
-  FILE * fev = fopen("event.csv","w"); 
-  printf("At start\n"); 
-  radiant_dump(rad,stdout,0); 
-  radiant_labs_stop(rad); 
-  printf("After stop\n"); 
-  radiant_dump(rad,stdout,0); 
+  rno_g_pedestal_t ped; 
+  radiant_compute_pedestals(rad, 0xffffff, 512, &ped); 
+  rno_g_pedestal_dump(stdout,  &ped); 
+  radiant_set_pedestals(rad,&ped); 
 
-  radiant_dump(rad,stdout,0); 
-  radiant_dma_setup_event(rad, 0xffffff, 1024); 
-  printf("After DMA setup\n"); 
-  radiant_dump(rad,stdout,0); 
+  FILE * fev = fopen("event.csv","w"); 
+//  printf("At start\n"); 
+//  radiant_dump(rad,stdout,0); 
+  radiant_labs_stop(rad); 
+////  printf("After stop\n"); 
+//  radiant_dump(rad,stdout,0); 
+
+//  radiant_dump(rad,stdout,0); 
+  radiant_dma_setup_event(rad, 0xffffff); 
+//  printf("After DMA setup\n"); 
+//  radiant_dump(rad,stdout,0); 
 
   radiant_labs_start(rad); 
-  printf("After lab start\n"); 
+ // printf("After lab start\n"); 
 
   for (int i = 0; i < 10; i++) 
   {
 
-    radiant_dump(rad,stdout,0); 
+//    radiant_dump(rad,stdout,0); 
     radiant_force_trigger(rad,1,1); 
 
     rno_g_header_t hd;
@@ -53,8 +58,8 @@ int main(void)
     rno_g_waveform_dump(fev, &wf);
   }
 
-  printf("At end\n"); 
-  radiant_dump(rad,stdout,0); 
+//  printf("At end\n"); 
+//  radiant_dump(rad,stdout,0); 
  
   fclose(fev); 
 

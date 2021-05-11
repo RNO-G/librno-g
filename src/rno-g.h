@@ -25,9 +25,9 @@ extern "C"
 #include <limits.h>   
 
 #define RNO_G_MAX_RADIANT_NSAMPLES 2048
-#define RNO_G_PEDESTAL_NSAMPLES 4096
+#define RNO_G_LAB4D_NSAMPLES 4096
+#define RNO_G_PEDESTAL_NSAMPLES RNO_G_LAB4D_NSAMPLES 
 #define RNO_G_NUM_RADIANT_CHANNELS 24 
-#define RNO_G_NUM_RADIANT_WINDOWS 16
 #define RNO_G_RADIANT_WINDOW_SIZE 128
 
 #define RNO_G_MAX_LT_NSAMPLES 512
@@ -112,8 +112,15 @@ typedef struct rno_g_header
 
   uint32_t trigger_mask;  //!< Which channels (or beams?) caused the trigger
   uint32_t trigger_value; //!< Relevant for LT trigger only, probably. Something like the beam power? 
-  uint32_t trigger_time;  //!< Trigger time tag  (number of clock cycles since start of run or since PPS? If since start of run, may need to be 64-bit) 
+  uint32_t sys_clk;  //!< Trigger time tag  (number of clock cycles since start of run or since PPS? If since start of run, may need to be 64-bit) 
   uint32_t pps_count;     //!< Number of PPS's since start of run
+  uint32_t readout_time_secs; // !< readout START time in secondpart
+  uint32_t readout_time_nsecs; // !< readout START time, nanosecond part 
+  uint32_t readout_elapsed_nsecs; // How long it took to do the readout syscall 
+  uint32_t sysclk_last_pps;  //!< sysclk time at last PPS
+  uint32_t sysclk_last_last_pps; //!< sysclk time at last last PPS
+  uint32_t raw_tinfo;       //!< the raw trigger info. To  be figured out. 
+  uint32_t raw_evstatus;    //!< the raw event status flags. To be figured out. 
 
   uint8_t station_number; //!< The station number. 
 

@@ -231,7 +231,7 @@ typedef struct
   uint8_t dma_busy :1; 
   uint8_t ext_dma_req_enable :1; 
   uint8_t dma_direction :1 ; 
-  uint8_t reserved :1; 
+  uint8_t endianness :1; 
   uint8_t byte_mode :1; 
   uint8_t byte_target_in_byte_mode :2; 
   uint8_t enable_spi_receive : 1; 
@@ -287,13 +287,18 @@ int radiant_dma_set_descriptor(radiant_dev_t *bd, uint8_t idescr,radiant_dma_des
 
 
 /** Sets up Radiant DMA for event reading with the appropriate channel_mask */
-int radiant_dma_setup_event(radiant_dev_t *bd, uint32_t channel_mask, uint16_t nsamp); 
+int radiant_dma_setup_event(radiant_dev_t *bd, uint32_t channel_mask); 
 
 
 
 /** Pedestal running. Note that this leaves the DMA set up in pedestal mode so you probably need to set up event mode after */ 
-int radiant_get_pedestals(radiant_dev_t *bd, uint32_t mask, uint16_t ntriggers, rno_g_pedestal_t * ped); 
+int radiant_compute_pedestals(radiant_dev_t *bd, uint32_t mask, uint16_t ntriggers, rno_g_pedestal_t * ped); 
 
+/** This sets the pedestals, which will be automatically subtracted from each event. Note that this is not copied so must have a long lifetime.  Set to NULL if you want no pedestal subtraction. */ 
+void radiant_set_pedestals(radiant_dev_t *bd , const rno_g_pedestal_t * peds); 
+
+/** pointer to pedestals currently in use */
+const rno_g_pedestal_t * radiant_get_pedestals(radiant_dev_t *bd); 
 
 
 
@@ -333,6 +338,8 @@ int radiant_get_mem(radiant_dev_t* bd, radiant_dest_t dest, uint32_t addr, uint8
 int radiant_read(radiant_dev_t * bd, int n_read_buffers, uint16_t *  read_n_bytes, uint8_t ** buffers);
 
 
+/** Sets the dc bias of left/right labs. 0-4095 representing a 3.3V range */ 
+int radiant_set_dc_bias(radiant_dev_t * bd, uint16_t left, uint16_t right); 
 
 
 #ifdef __cplusplus

@@ -26,6 +26,25 @@
 
 #include "adf4350.h" 
 
+#define EVENT_MAGIC 0x52444530
+struct fw_event_header
+{
+  uint32_t magic; 
+  uint32_t pps;
+  uint32_t count;
+  uint32_t sysclk;
+  uint32_t trig_info; 
+  uint32_t status_flags;
+  uint32_t sysclk_last_pps;
+  uint32_t sysclk_last_last_pps;
+}; 
+
+struct fw_trigthresh
+{
+  uint32_t thresholds[128]; 
+};
+
+
 
 // BOARD MANAGER REGISTERS
 //  maybe move this to API? 
@@ -124,18 +143,17 @@ typedef enum
 
 
   //TRIG SPACE
-  RAD_REG_EV_FIFO_BASE                = 0x30100, 
-  RAD_REG_EV_FIFO_SIZE                = 0x18, 
+  RAD_REG_EV_FIFO_BASE                =  0x30100, 
+  RAD_REG_THRESH_BASE                 = 0x30200, 
 
   //SCALER space
-  RAD_REG_SCALER_BASE                = 0x40000, 
-  RAD_REG_SCALER_SIZE                = 0x18, // why not
+  RAD_REG_SCALER_BASE                 = 0x40000 , 
 
   //CALRAM Space ? 
   RAD_REG_CALRAM_BASE               = 0x80000, 
-  RAD_REG_CALRAM_GLOBAL_CONTROL     = 0x86000, 
-  RAD_REG_CALRAM_GLOBAL_MODE        = 0x86004, 
-  RAD_REG_CALRAM_GLOBAL_ROLLCOUNT   = 0x86008 
+  RAD_REG_CALRAM_GLOBAL_CONTROL     = 0xe0000, 
+  RAD_REG_CALRAM_GLOBAL_MODE        = 0xe0004, 
+  RAD_REG_CALRAM_GLOBAL_ROLLCOUNT   = 0xe0008 
 
 
 }e_fpga_reg; 
@@ -197,10 +215,15 @@ struct radiant_dev
   volatile int interrupt_thread_stop; 
 
   struct pollfd interrupt_fdset; 
+  uint16_t readout_nsamp; 
 
   uint32_t readout_mask; 
-  uint32_t readout_nsamp; 
   int cleanup_spi_gpio; 
+  int nbuffers; // this will change to 2 i the future, who knows, may even be user configurable in the future. 
+  int nwindows_per_buffer; 
+  struct fw_trigthresh trig_thresh; 
+  double last_trig_thresh_updated; 
+  const rno_g_pedestal_t * peds; 
 }; 
 
 
@@ -348,17 +371,6 @@ int radiant_read(radiant_dev_t * bd, int nbufs, uint16_t * N, uint8_t **bufs)
 }
 
 
-struct fw_event_header
-{
-  uint16_t magic; 
-  uint16_t programmable; 
-  uint16_t counter[2]; 
-  uint16_t time[2]; 
-  uint16_t tinfo[2]; 
-  uint16_t nev[2]; 
-  uint16_t nstatus[2]; 
-}; 
-
 static int get_gcd(int a, int b) 
 {
   if (!b) return a; 
@@ -366,7 +378,7 @@ static int get_gcd(int a, int b)
 }
 
 //TODO figure out how to vectorize this (and maybe also remove high bits while we go?) 
-// for now use algorithm from https://www.geeksforgeeks.org/array-rotation/
+// for now use algorithm from https://www.geeksforgeeks.org/array-rotation/ but this can definitely be optimized, I think 
 static void roll16(uint16_t * v, int shift, int N)  //using 
 {
   int i,j,k,tmp; 
@@ -389,9 +401,14 @@ static void roll16(uint16_t * v, int shift, int N)  //using
   }
 }
 
-
-static void andall16(uint16_t *v, uint16_t andme, int N) 
+//TODO: if we need to and with other values, can used parameterized macros to fake templates :)
+//
+static void andall16_0x0fff(uint16_t *v, int N) 
 {
+
+  static uint16x8_t vandme_0x0fff = { 0x0fff, 0x0fff, 0x0fff, 0x0fff,
+                                          0x0fff, 0x0fff, 0x0fff, 0x0fff}; 
+  static const uint16_t andme = 0x0fff; 
 
   int i = 0;
 #if defined(__arm__) && !defined(NOVECTORIZE) 
@@ -400,19 +417,16 @@ static void andall16(uint16_t *v, uint16_t andme, int N)
 
   if (Niter) 
   {
-    //probably a smarter way to do this 
-    uint16x8_t vandme = vdupq_n_u16 (andme); 
-
     for (i = 0; i < Niter; i++) 
     {
       uint16x8_t v1 = vld1q_u16(v+i*32);
       uint16x8_t v2 = vld1q_u16(v+i*32+8);
       uint16x8_t v3 = vld1q_u16(v+i*32+16);
       uint16x8_t v4 = vld1q_u16(v+i*32+24);
-      v1 = vandq_u16(v1,vandme);
-      v2 = vandq_u16(v2,vandme);
-      v3 = vandq_u16(v3,vandme);
-      v4 = vandq_u16(v4,vandme);
+      v1 = vandq_u16(v1,vandme_0x0fff);
+      v2 = vandq_u16(v2,vandme_0x0fff);
+      v3 = vandq_u16(v3,vandme_0x0fff);
+      v4 = vandq_u16(v4,vandme_0x0fff);
       vst1q_u16(v+i*32,v1);
       vst1q_u16(v+i*32+8,v2);
       vst1q_u16(v+i*32+16,v3);
@@ -431,7 +445,52 @@ static void andall16(uint16_t *v, uint16_t andme, int N)
   }
 }
 
+static void sub16(int N, int16_t * A, const int16_t * B) 
+{
+  int i = 0;
+#if defined(__arm__) && !defined(NOVECTORIZE) 
+//we'll use ARM NEON intrinsics. Since usually this will be a multiple of 32, we'll use vandq_u16 unrolled by 4 
+  int Niter = N/32; 
 
+  if (Niter) 
+  {
+    for (i = 0; i < Niter; i++) 
+    {
+      int16x8_t A1 = vld1q_s16(A+i*32);
+      int16x8_t A2 = vld1q_s16(A+i*32+8);
+      int16x8_t A3 = vld1q_s16(A+i*32+16);
+      int16x8_t A4 = vld1q_s16(A+i*32+24);
+      int16x8_t B1 = vld1q_s16(B+i*32);
+      int16x8_t B2 = vld1q_s16(B+i*32+8);
+      int16x8_t B3 = vld1q_s16(B+i*32+16);
+      int16x8_t B4 = vld1q_s16(B+i*32+24);
+ 
+      A1 = vsubq_s16(A1,B1);
+      A2 = vsubq_s16(A2,B2);
+      A3 = vsubq_s16(A3,B3);
+      A4 = vsubq_s16(A4,B4);
+      vst1q_s16(A+i*32,A1);
+      vst1q_s16(A+i*32+8,A2);
+      vst1q_s16(A+i*32+16,A3);
+      vst1q_s16(A+i*32+24,A4);
+    }
+
+    i*=32; // catch any remaining elements with a normal loop
+  }
+#endif 
+ 
+  for ( ; i < N; i++) 
+  {
+    A[i] -= B[i]; 
+  }
+}
+
+
+
+
+/** simd version of bswap, no longer needed */ 
+
+/*
 static void bswap16(uint16_t *vv, int N) 
 {
   int i = 0;
@@ -470,6 +529,7 @@ static void bswap16(uint16_t *vv, int N)
     vv[i] = __builtin_bswap16(vv[i]); 
   }
 }
+*/ 
 
 
 
@@ -480,8 +540,8 @@ int radiant_read_event(radiant_dev_t * bd, rno_g_header_t * hd, rno_g_waveform_t
   struct fw_event_header fwhd; 
  
 
-  uint16_t Ns[1+RNO_G_NUM_RADIANT_CHANNELS]; 
-  uint8_t* bufs[1+RNO_G_NUM_RADIANT_CHANNELS]; 
+  uint16_t Ns[2+RNO_G_NUM_RADIANT_CHANNELS]; 
+  uint8_t* bufs[2+RNO_G_NUM_RADIANT_CHANNELS]; 
 
   Ns[0] = sizeof(fwhd); 
   bufs[0] = (uint8_t*) &fwhd; 
@@ -499,35 +559,39 @@ int radiant_read_event(radiant_dev_t * bd, rno_g_header_t * hd, rno_g_waveform_t
     }
   }
 
-  // Doh, default max bufsiz is too small for spidev . Need to make it bigger with modprobe option 
   int nactual = iactual; 
-  int ret = radiant_read(bd, 1+nactual, Ns,bufs); 
 
- // Start filling in the metadata 
- // THIS IS BROKEN RIGHT NOW, I THINK I HAVE THE LAYOUT WRONG
- 
-  /*
+  //TODO: revisit if we want to read the thresholds each time, it adds a few percent overhead
+  Ns[1+iactual] = sizeof(bd->trig_thresh); 
+  bufs[1+iactual] =(uint8_t*) &bd->trig_thresh; 
+
+  struct timespec start; 
+  struct timespec end; 
+
+  clock_gettime(CLOCK_REALTIME, &start); 
+  int ret = radiant_read(bd, 2+nactual, Ns,bufs); 
+  clock_gettime(CLOCK_REALTIME, &end); 
+
+  
   //check magic 
-  if (fwhd.magic!= 0x4452 )
+  if (fwhd.magic!= EVENT_MAGIC )
   {
-    fprintf(stderr,"Bad magic :%d\n", fwhd.magic);
-    return -0x5244; 
+    fprintf(stderr,"Bad magic :%x\n", fwhd.magic);
+    return -1; 
   }
-  */
 
 
   memset(hd,0,sizeof(*hd)); 
-  hd->event_number |= (fwhd.counter[1]);
-  hd->event_number |= (fwhd.counter[0]) << 16;
-  hd->trigger_time |= (fwhd.time[1]);
-  hd->trigger_time |= (fwhd.time[0]) << 16;
+  hd->event_number = fwhd.count;
+  hd->pps_count = fwhd.pps; 
+  hd->sys_clk = fwhd.sysclk; 
+  hd->readout_time_secs = start.tv_sec; 
+  hd->readout_time_nsecs = start.tv_nsec; 
+  hd->readout_elapsed_nsecs = (end.tv_nsec - start.tv_nsec) + 1000000000 * (end.tv_sec-start.tv_sec); 
+  bd->last_trig_thresh_updated = start.tv_sec + 1e-9*(0.5*hd->readout_elapsed_nsecs  + start.tv_nsec) ; 
   hd->run_number = bd->run; 
-
-  int num_status = fwhd.nstatus[1]; 
-  num_status |= (fwhd.nstatus[0]) << 16; 
-
-  int num_ev = fwhd.nev[1]; 
-  num_ev |= (fwhd.nev[0]) << 16; 
+  hd->sysclk_last_pps = fwhd.sysclk_last_pps; 
+  hd->sysclk_last_last_pps = fwhd.sysclk_last_last_pps; 
 
   wf->event_number = hd->event_number; 
   wf->run_number = bd->run; 
@@ -536,23 +600,22 @@ int radiant_read_event(radiant_dev_t * bd, rno_g_header_t * hd, rno_g_waveform_t
 
   
         
-  /// IS IT BIG-ENDIAN!??? 
-  // TODO: there must be a neon intrinsic for this to make it faster 
-  for (int ichan = 0; ichan < RNO_G_NUM_RADIANT_CHANNELS; ichan++) 
-  {
-    bswap16( (uint16_t*) wf->radiant_waveforms[ichan], nsamples); 
-    //for (int isamp = 0; isamp < nsamples; isamp++) 
-    //{
-    //  wf->radiant_waveforms[ichan][isamp] = __builtin_bswap16(wf->radiant_waveforms[ichan][isamp]); 
-    //}
-  }
-
+ 
+//  /// IS IT BIG-ENDIAN!??? Yes if reading 32-bit words
+//  We no longer need this now that it's handled on the firmware! 
+//  for (int ichan = 0; ichan < RNO_G_NUM_RADIANT_CHANNELS; ichan++) 
+//  {
+//    bswap16( (uint16_t*) wf->radiant_waveforms[ichan], nsamples); 
+//  }
+//
   
   //now let's figure out the buffer number, start bytes, rotate, and remove the high bytes. 
   // TODO: IS THIS STILL RELEVANT OR IS THIS VESTIGIAL? 
   
   //get buffer number (assume little-endian here and assume the same for all channels?) 
-  int high_window = (wf->radiant_waveforms[0][0] & 0xc000) >> 14; 
+  int buffer_number = (wf->radiant_waveforms[0][0] & 0xc000) >> 14; 
+
+
 
   for (int ichan = 0; ichan < RNO_G_NUM_RADIANT_CHANNELS; ichan++) 
   {
@@ -560,48 +623,39 @@ int radiant_read_event(radiant_dev_t * bd, rno_g_header_t * hd, rno_g_waveform_t
     if (bd->readout_mask & (1 << ichan))
     {
 
-      //now let's find the start window 
+      //now let's find the STOP window 
       //right now I'm assuming it's the same for each channel
       int nrotate = 0;
 
-      for (int w = 0; w < RNO_G_NUM_RADIANT_WINDOWS; w++) 
+      for (int w = 0; w < bd->nwindows_per_buffer; w++) 
       {
         uint16_t val = wf->radiant_waveforms[ichan][RNO_G_RADIANT_WINDOW_SIZE*w];
-        if (val & 0x2000)//this is the start window
+
+        //TODO: demagicify this 
+        if (val & 0x2000)//this is the STOP window. Means the START window is snext
         {
-          hd->radiant_start_windows[ichan] = high_window ? w+RNO_G_NUM_RADIANT_WINDOWS: w; 
+          hd->radiant_start_windows[ichan] =  buffer_number * bd->nwindows_per_buffer + ( w+1) % bd->nwindows_per_buffer; 
           nrotate = w * RNO_G_RADIANT_WINDOW_SIZE; 
           break; 
         }
-        else if (val & 0x1000) //this is the stop window 
-        {
-          //figure out the number of windows we must have read... this might just be constant! 
-          int num_windows =  nsamples >> 7; 
-          int start = (w-num_windows) % RNO_G_NUM_RADIANT_WINDOWS ;
-          hd->radiant_start_windows[ichan] = start + (high_window ? RNO_G_NUM_RADIANT_WINDOWS : 0);  
-          nrotate = start * RNO_G_RADIANT_WINDOW_SIZE; 
-          break; 
-        }
       }
 
 
-      //maybe it's possible to rotate and removce high bits at same time? 
+      //TODO: in some cases (buffer 0, not start or stop window) we can avoid doing this on all samples 
+      andall16_0x0fff((uint16_t*)wf->radiant_waveforms[ichan],nsamples); 
+
+      // Now subtract the pedestals
+      if (bd->peds)
+      {
+        sub16 (nsamples,  wf->radiant_waveforms[ichan], (int16_t*) bd->peds->pedestals[ichan] + nsamples * buffer_number); 
+      }
+
+      //maybe it's possible to rotate and remove high bits at same time? 
       //that sounds a bit more complicated
       if (nrotate) roll16((uint16_t*)wf->radiant_waveforms[ichan], nrotate, nsamples); 
 
-      andall16((uint16_t*)wf->radiant_waveforms[ichan], 0x0fff, nsamples); 
-      /*
-/      //remove the upper bits
-      if (high_window) //have to remove upper bits on all samples
-      {
-        andall16((uint16_t*)wf->radiant_waveforms[ichan], 0x0fff, nsamples); 
-      }
-      else //only have to remove upper bits on first and last windows, which are now in the right place
-      {
-        andall16((uint16_t*)wf->radiant_waveforms[ichan], 0x0fff, RNO_G_RADIANT_WINDOW_SIZE); 
-        andall16((uint16_t*)wf->radiant_waveforms[ichan] + (nsamples-RNO_G_RADIANT_WINDOW_SIZE), 0x0fff, RNO_G_RADIANT_WINDOW_SIZE); 
-      }
-      */ 
+
+
     }
     else
     {
@@ -701,6 +755,7 @@ radiant_dev_t * radiant_open(const char *spi_device, const char * uart_device, i
   uint8_t mode = 0; 
   uint8_t bits_per_word = 32; 
   ioctl(spi_fd, SPI_IOC_WR_MODE,&mode); 
+  //set it up in 32 bitsperword mode
   ioctl(spi_fd, SPI_IOC_WR_BITS_PER_WORD,&bits_per_word); 
   
   //and set up the UART 
@@ -769,9 +824,9 @@ radiant_dev_t * radiant_open(const char *spi_device, const char * uart_device, i
   //drain the port 
   tcflush(uart_fd, TCIOFLUSH); 
 
-  //Write two 0s to make sure we're synchronized
-  uint16_t zero = 0; 
-  write(uart_fd,&zero,sizeof(zero)); 
+  //Write a few 0s to make sure we're synchronized
+  uint16_t zeros[2] = {0}; 
+  write(uart_fd,&zeros,sizeof(zeros)); 
 
 
   dev = calloc(sizeof(radiant_dev_t),1); 
@@ -915,8 +970,13 @@ radiant_dev_t * radiant_open(const char *spi_device, const char * uart_device, i
 
 
   dev->readout_mask = 0xffffff; 
-  dev->readout_nsamp =1024; 
   dev->run = 0; 
+
+  //TODO: update these when firmware changed 
+  dev->nbuffers = 4; 
+  dev->readout_nsamp = (RNO_G_LAB4D_NSAMPLES / dev->nbuffers);  
+  dev->nwindows_per_buffer = dev->readout_nsamp/ RNO_G_RADIANT_WINDOW_SIZE; // this must be a constant... even if we record fewer samples to disk, we won't know where to look until we read it out. 
+  dev->peds = 0; 
   return dev; 
 }
 
@@ -1493,6 +1553,9 @@ int radiant_fill_dma_config(radiant_dma_config_t * cfg, radiant_dma_mode_preset_
   //zero out
   memset(cfg,0,sizeof(radiant_dma_config_t)); 
 
+  //We are always using 32-bit words right now, so always want the endianness swwap 
+  cfg->endianness = 1; 
+
   switch(preset)
   {
     case RADIANT_DMA_EVENT_MODE: 
@@ -1596,14 +1659,12 @@ int radiant_dma_set_descriptor(radiant_dev_t* bd, uint8_t idescr, radiant_dma_de
 }
 
 
-int radiant_dma_setup_event(radiant_dev_t*bd, uint32_t mask, uint16_t nsamp) 
+int radiant_dma_setup_event(radiant_dev_t*bd, uint32_t mask) 
 {
   mask &= 0xffffff; // 24 bits 
   if (!mask) return -1; 
-  if (nsamp > 2048) return -1; 
 
   bd->readout_mask = mask; 
-  bd->readout_nsamp = nsamp; 
   
   radiant_dma_txn_count_reset(bd); 
   radiant_dma_engine_reset(bd); 
@@ -1614,25 +1675,27 @@ int radiant_dma_setup_event(radiant_dev_t*bd, uint32_t mask, uint16_t nsamp)
   //set the first one for the event fifo. this looks like the right place 
   radiant_dma_desc_t desc = {.addr=RAD_REG_EV_FIFO_BASE, .incr=1, .length=sizeof(struct fw_event_header)/sizeof(uint32_t)}; 
   radiant_dma_set_descriptor(bd, idesc++, desc); 
-  int last = 31 - __builtin_clz(mask); 
+//  int last = 31 - __builtin_clz(mask); 
 
 
   for (int i = 0; i < 24; i++) 
   {
     if (mask & (1 << i)) 
     {
-      radiant_dma_desc_t this_desc = {.addr=RAD_REG_LAB_RAM_BASE+i*RAD_REG_LAB_RAM_INCR, .incr=0, .length=nsamp/2}; 
+      radiant_dma_desc_t this_desc = {.addr=RAD_REG_LAB_RAM_BASE+i*RAD_REG_LAB_RAM_INCR, .incr=0, .length=bd->readout_nsamp/2}; 
       desc.addr = RAD_REG_LAB_RAM_BASE  + RAD_REG_LAB_RAM_INCR*i; 
-      if (i == last) this_desc.last = 1; 
+//      if (i == last) this_desc.last = 1; 
       radiant_dma_set_descriptor(bd, idesc++, this_desc); 
     }
   }
 
-  //set up a descriptor for the scalers  ??  (but where?) 
-//  desc.addr = RAD_REG_SCALER_BASE; 
- // desc.length = RAD_REG_SCALER_SIZE; 
- // desc.last = 1; 
-//  radiant_dma_set_descriptor(bd, idesc++, desc); 
+  //set up a descriptor for the thresholds (do we really want to read this all the time ? it adds a slight amount of overhead) 
+  //may make sense to only occassionally read via uart considering we'll to change? 
+  desc.addr = RAD_REG_THRESH_BASE ; 
+  desc.length = sizeof (struct fw_trigthresh) / sizeof(uint32_t); 
+  desc.incr =1 ; 
+  desc.last = 1; 
+  radiant_dma_set_descriptor(bd, idesc++, desc); 
   radiant_dma_config_t dma_cfg; 
   radiant_fill_dma_config(&dma_cfg, RADIANT_DMA_EVENT_MODE); 
   radiant_configure_dma(bd, &dma_cfg); //this should probably already have been done but whatever... 
@@ -1657,7 +1720,8 @@ int radiant_force_trigger(radiant_dev_t * bd, int howmany, int block)
     while (busy) 
     {
       radiant_get_mem(bd, DEST_FPGA, RAD_REG_LAB_CTRL_READOUT, 4, (uint8_t *) &mem); 
-      busy = mem & 0x21; 
+      printf("DBG: blocking for force trigger, RAD_REG_LAB_CTRL_READOUT = 0x%x\n", mem); 
+      busy = (mem & 0x21); 
     }
   }
 
@@ -1737,10 +1801,7 @@ static int calram_zero(radiant_dev_t * bd)
 
 
   radiant_labs_start(bd); 
-  radiant_force_trigger(bd,1,1); 
-  radiant_force_trigger(bd,1,1);
-  radiant_force_trigger(bd,1,1);
-  radiant_force_trigger(bd,1,1);
+  for (int i = 0; i < 4; i++) radiant_force_trigger(bd,1,1); 
   radiant_labs_stop(bd); 
   return 0; 
 }
@@ -1771,12 +1832,19 @@ static int calram_mode(radiant_dev_t *bd, calram_mode_t mode)
   }
 
    if (4!=radiant_set_mem(bd,DEST_FPGA,RAD_REG_CALRAM_GLOBAL_CONTROL, 4, (uint8_t*) &ctrl)) return 1; 
-   return (4!=radiant_set_mem(bd,DEST_FPGA,RAD_REG_CALRAM_GLOBAL_MODE, 4, (uint8_t*) &mde)); 
- 
+   if (4!=radiant_set_mem(bd,DEST_FPGA,RAD_REG_CALRAM_GLOBAL_MODE, 4, (uint8_t*) &mde)) return 1; 
+
+   if (mode == CALRAM_MODE_PED) 
+   {
+     ctrl=1; 
+     if (4!=radiant_set_mem(bd,DEST_FPGA,RAD_REG_CALRAM_GLOBAL_CONTROL, 4, (uint8_t*) &ctrl)) return 1; 
+   }
+
+   return 0; 
 }
 
 
-int radiant_get_pedestals(radiant_dev_t *bd, uint32_t mask, uint16_t ntriggers, rno_g_pedestal_t * ped) 
+int radiant_compute_pedestals(radiant_dev_t *bd, uint32_t mask, uint16_t ntriggers, rno_g_pedestal_t * ped) 
 {
   if (!mask) return 0; 
 
@@ -1792,35 +1860,39 @@ int radiant_get_pedestals(radiant_dev_t *bd, uint32_t mask, uint16_t ntriggers, 
   while (nleft > 0) 
   {
     //need 4 triggers / cycle to fill
-    int todo = nleft < 64 ? nleft : 64; 
+    int todo = nleft < 32 ? nleft : 32; 
     radiant_force_trigger(bd, todo*4, 1); 
     nleft-=todo; 
   }
   radiant_labs_stop(bd); 
   
 
-  radiant_dma_txn_count_reset(bd); 
   radiant_dma_engine_reset(bd); 
   radiant_dma_tx_reset(bd); 
+
+  int ifinal = 31 - __builtin_clz(mask); 
+  int itx = 0; 
 
   radiant_dma_config_t dma; 
   radiant_fill_dma_config(&dma, RADIANT_DMA_CAL_MODE); 
   radiant_configure_dma(bd, &dma); 
 
-  int ifinal = 31 - __builtin_clz(mask); 
-  int itx = 0; 
 
   // note that the spidev bufsiz would have to be increased even more to get all of the pedestals in, so we'll read them out one at a time after setting up the descriptors
   for (int i = 0; i < RNO_G_NUM_RADIANT_CHANNELS; i++) 
   {
     if (! (mask & (1 <<i))) continue; 
-    radiant_dma_desc_t desc = {.addr = RAD_REG_CALRAM_BASE + sizeof(uint32_t) *RNO_G_PEDESTAL_NSAMPLES * i, .length = RNO_G_PEDESTAL_NSAMPLES, .incr = 1, .last = i == ifinal };
+    radiant_dma_desc_t desc = {.addr = RAD_REG_CALRAM_BASE + sizeof(uint32_t) *RNO_G_PEDESTAL_NSAMPLES * i, .length = RNO_G_PEDESTAL_NSAMPLES, .incr = 1, .last = (i == ifinal) };
     radiant_dma_set_descriptor(bd, itx++, desc); 
   }
 
+
   uint32_t * pedram = malloc(sizeof(uint32_t) * RNO_G_PEDESTAL_NSAMPLES); 
 
+  usleep(10000); 
   radiant_dma_request(bd); 
+  //wait a bit? 
+  usleep(10000); 
 
   for (int i = 0; i < RNO_G_NUM_RADIANT_CHANNELS; i++) 
   {
@@ -1865,5 +1937,24 @@ int radiant_get_pedestals(radiant_dev_t *bd, uint32_t mask, uint16_t ntriggers, 
 }
 
 
+int radiant_set_dc_bias (radiant_dev_t * bd, uint16_t l16, uint16_t r16) 
+{
+  uint32_t l = l16; 
+  uint32_t r = r16; 
+  // set to reasonable value if out of range
+  if (l > 4095) l = 1000; 
+  if (r > 4095) r = 1000; 
+  if (4!=radiant_set_mem(bd, DEST_MANAGER, BM_REG_VPEDLEFT, 4, (uint8_t*) &l)) return 1; 
+  return (4!=radiant_set_mem(bd, DEST_MANAGER, BM_REG_VPEDRIGHT, 4, (uint8_t*) &r)); 
+}
 
 
+void radiant_set_pedestals(radiant_dev_t* bd, const rno_g_pedestal_t * ped) 
+{
+  bd->peds = ped; 
+}
+
+const rno_g_pedestal_t *  radiant_get_pedestals(radiant_dev_t* bd) 
+{
+  return bd->peds; 
+}
