@@ -131,7 +131,7 @@ typedef struct rno_g_header
   uint8_t flags; 
 
   uint8_t pretrigger_windows; //!< Number of pretrigger windows? 
-  uint8_t  radiant_start_windows[RNO_G_NUM_RADIANT_CHANNELS]; //!<this encodes buffer number too 
+  uint8_t  radiant_start_windows[RNO_G_NUM_RADIANT_CHANNELS][2]; //!<this encodes buffer number too. There may be two of these, depending on the number of samples
   uint16_t radiant_nsamples; //!< Number of samples per channel in RADIANT board (could just keep this in waveform if we wanted)
   uint16_t lt_nsamples; //!< Number of samples per channel in low-threshold board  (could just keep this in waveform if we wanted)
 

@@ -619,13 +619,12 @@ int radiant_read_event(radiant_dev_t * bd, rno_g_header_t * hd, rno_g_waveform_t
 //  }
 //
   
-  //now let's figure out the buffer number, start bytes, rotate, and remove the high bytes. 
-  // TODO: IS THIS STILL RELEVANT OR IS THIS VESTIGIAL? 
   
   //get buffer number (assume little-endian here and assume the same for all channels?) 
-  int buffer_number = (wf->radiant_waveforms[0][0] & 0xc000) >> 14; 
 
-
+  int buffer_number[2];  
+  buffer_number[0] =  (wf->radiant_waveforms[0][0] & 0xc000) >> 14; 
+  if (bd->nbuffers==2) buffer_number[1] =  (wf->radiant_waveforms[0][1024] & 0xc000) >> 14; 
 
   for (int ichan = 0; ichan < RNO_G_NUM_RADIANT_CHANNELS; ichan++) 
   {
@@ -633,20 +632,26 @@ int radiant_read_event(radiant_dev_t * bd, rno_g_header_t * hd, rno_g_waveform_t
     if (bd->readout_mask & (1 << ichan))
     {
 
-      //now let's find the STOP window 
-      //right now I'm assuming it's the same for each channel
-      int nrotate = 0;
-
-      for (int w = 0; w < bd->nwindows_per_buffer; w++) 
+      int nrotate[2] = {0}; 
+      const int offs[2] = {0,1024}; 
+      for (int half = 0; half < 2; half++) 
       {
-        uint16_t val = wf->radiant_waveforms[ichan][RNO_G_RADIANT_WINDOW_SIZE*w];
+        if (half ==1 && bd->nbuffers ==4) break; 
+        //now let's find the STOP window 
+        //right now I'm assuming it's the same for each channel
 
-        //TODO: demagicify this 
-        if (val & 0x2000)//this is the STOP window. Means the START window is snext
+        int nw = bd->nbuffers == 2 ? bd->nwindows_per_buffer/2 : bd->nwindows_per_buffer; 
+        for (int w = 0; w < nw; w++) 
         {
-          hd->radiant_start_windows[ichan] =  buffer_number * bd->nwindows_per_buffer + ( w+1) % bd->nwindows_per_buffer; 
-          nrotate = w * RNO_G_RADIANT_WINDOW_SIZE; 
-          break; 
+          uint16_t val = wf->radiant_waveforms[ichan][offs[half]+RNO_G_RADIANT_WINDOW_SIZE*w];
+
+          //TODO: demagicify this 
+          if (val & 0x2000)//this is the STOP window. Means the START window is snext
+          {
+            hd->radiant_start_windows[ichan][half] =  buffer_number[half]* nw + ( w+1) % nw; 
+            nrotate[half] = w * RNO_G_RADIANT_WINDOW_SIZE; 
+            break; 
+          }
         }
       }
 
@@ -657,15 +662,19 @@ int radiant_read_event(radiant_dev_t * bd, rno_g_header_t * hd, rno_g_waveform_t
       // Now subtract the pedestals
       if (bd->peds)
       {
-        sub16 (nsamples,  wf->radiant_waveforms[ichan], (int16_t*) bd->peds->pedestals[ichan] + nsamples * buffer_number); 
+        sub16 (1024,  wf->radiant_waveforms[ichan], (int16_t*) bd->peds->pedestals[ichan] + 1024 * buffer_number[0]); 
+        if (bd->nbuffers == 2) 
+        {
+          sub16 (1024,  wf->radiant_waveforms[ichan]+1024, (int16_t*) bd->peds->pedestals[ichan] + 1024 * buffer_number[1]); 
+        }
       }
 
       //maybe it's possible to rotate and remove high bits at same time? 
       //that sounds a bit more complicated
-      if (nrotate) roll16((uint16_t*)wf->radiant_waveforms[ichan], nrotate, nsamples); 
-
-
-
+      for (int half = 0; half < 2; half++) 
+      {
+        if (nrotate[half]) roll16((uint16_t*)wf->radiant_waveforms[ichan] + offs[half], nrotate[half], 1024 ); //hack hack hack 
+      }
     }
     else
     {
@@ -983,7 +992,7 @@ radiant_dev_t * radiant_open(const char *spi_device, const char * uart_device, i
   dev->run = 0; 
 
   //TODO: update these when firmware changed 
-  dev->nbuffers = 4; 
+  dev->nbuffers = 2; 
   dev->readout_nsamp = (RNO_G_LAB4D_NSAMPLES / dev->nbuffers);  
   dev->nwindows_per_buffer = dev->readout_nsamp/ RNO_G_RADIANT_WINDOW_SIZE; // this must be a constant... even if we record fewer samples to disk, we won't know where to look until we read it out. 
   dev->peds = 0; 
@@ -1722,6 +1731,12 @@ int radiant_force_trigger(radiant_dev_t * bd, int howmany, int block)
 
   // inferred from python code. TODO: learn more
   uint32_t mem = 2 | ((howmany-1) << 8); 
+
+  //2048 mode, hackily for now
+  if (bd->nbuffers == 2) 
+  {
+    mem |= 0x81000000; 
+  }
   int ret =  4!=radiant_set_mem(bd, DEST_FPGA, RAD_REG_LAB_CTRL_TRIGGER, 4,(uint8_t*)  &mem); 
 
   if (block) 
@@ -1858,7 +1873,10 @@ int radiant_compute_pedestals(radiant_dev_t *bd, uint32_t mask, uint16_t ntrigge
 {
   if (!mask) return 0; 
 
+
+
   radiant_labs_stop(bd); 
+  bd->nbuffers = 4; 
 
   //clear the calram ?
   if (calram_zero(bd)) return -1; 
@@ -1942,7 +1960,7 @@ int radiant_compute_pedestals(radiant_dev_t *bd, uint32_t mask, uint16_t ntrigge
   radiant_dma_engine_reset(bd); 
   radiant_dma_tx_reset(bd); 
 
-
+  bd->nbuffers = 2; 
   return 0; 
 }
 
