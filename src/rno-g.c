@@ -92,8 +92,9 @@ int rno_g_header_dump(FILE *f, const rno_g_header_t *header)
 {
   //TODO 
   int ret = 0;
-  ret+=fprintf(f,"RUN %d, EVENT %d\n", header->event_number, header->run_number); 
-  ret+=fprintf(f, "   PPS_COUNT: %d, STATION: %d\n", header->pps_count, header->station_number);
+  ret+=fprintf(f,"RUN:, %d, EVENT:, %d\n", header->run_number, header->event_number); 
+  ret+=fprintf(f, "   PPS_COUNT:, %d, SYSCLK:, %u, TIME_SINCE_START:,%f\n", header->pps_count, header->sys_clk, header->pps_count + ((double)header->sys_clk - header->sysclk_last_pps) / ( header->sysclk_last_pps - header->sysclk_last_last_pps));
+  ret+=fprintf(f, "   READOUT_TIME:, %d.%09d, ELAPSED: %d\n", header->readout_time_secs, header->readout_time_nsecs, header->readout_elapsed_nsecs);
   return ret; 
 }
 

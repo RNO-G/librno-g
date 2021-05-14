@@ -3,7 +3,7 @@ PREFIX=/rno-g
 CFLAGS=-fPIC -Og -Wall -Wextra -g
 CXXFLAGS+=-fPIC -Og -Wall -Wextra -g
 
-CFLAGS+=-DRADIANT_SET_DBG
+#CFLAGS+=-DRADIANT_SET_DBG
 
 # are we on the BBB? 
 ifeq ($(shell uname -m),armv7l) 
@@ -103,7 +103,7 @@ $(BUILD_DIR)/%.o: src/%.c $(DAQ_INCLUDES) | $(BUILD_DIR)
 
 $(BUILD_DIR)/test/%: test/%.c $(INCLUDES) $(DAQ_INCLUDES) $(BUILD_DIR)/librno-g.so $(BUILD_DIR)/libradiant.so | $(BUILD_DIR)
 	@echo Compiling $@
-	@cc  -o $@ $(CFLAGS) -Isrc/ -L$(BUILD_DIR) -lradiant -lrno-g $< 
+	@cc  -o $@ $(CFLAGS) -Isrc/ -L$(BUILD_DIR) -lradiant -lrno-g -lz $< 
 
 $(BUILD_DIR)/test/%: test/%.py $(INCLUDES) $(DAQ_INCLUDES) $(BUILD_DIR)/librno-g.so  $(BUILD_DIR)/_rno_g.so $(BUILD_DIR)/libradiant.so | $(BUILD_DIR)
 	ln  $@ $<
