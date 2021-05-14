@@ -79,7 +79,7 @@ int main(int nargs, char ** args)
 
   //flush 
   printf("Flushing extant triggers\n"); 
-  while (radiant_poll_trigger_ready(rad,10))
+  while (radiant_poll_trigger_ready(rad,100))
   {
     radiant_read_event(rad, &hd, &wf); 
   }
@@ -110,12 +110,9 @@ int main(int nargs, char ** args)
 
 //    radiant_dump(rad,stdout,0); 
 
-    while (!instrumented_poll(rad, 0))
-    {
-      printf("Sending force trigger\n"); 
-      radiant_force_trigger(rad,1,0); 
-    }
+    radiant_force_trigger(rad,1,0); 
 
+    while(!instrumented_poll(rad,10)); 
 
     radiant_read_event(rad, &hd, &wf); 
 
