@@ -79,7 +79,7 @@ int main(int nargs, char ** args)
 
   //flush 
   printf("Flushing extant triggers\n"); 
-  while (!radiant_poll_trigger_ready(rad,0))
+  while (radiant_poll_trigger_ready(rad,10))
   {
     radiant_read_event(rad, &hd, &wf); 
   }
@@ -87,13 +87,13 @@ int main(int nargs, char ** args)
 #ifdef ZIPPED
   gzFile hf = gzopen("/data/test/header.gz","w"); 
   rno_g_file_handle_t hh = { .type=RNO_G_GZIP, .handle.gz = hf}; 
-  gzFile ef = gzopen("/data/test/events.gz","w"); 
+  gzFile ef = gzopen("/data/test/wfs.gz","w"); 
   rno_g_file_handle_t eh = { .type=RNO_G_GZIP, .handle.gz = ef }; 
 #else
 
   FILE* hf = fopen("/data/test/header.dat","w"); 
   rno_g_file_handle_t hh = { .type=RNO_G_RAW, .handle.raw = hf}; 
-  FILE* ef = fopen("/data/test/events.dat","w"); 
+  FILE* ef = fopen("/data/test/wfs.dat","w"); 
   rno_g_file_handle_t eh = { .type=RNO_G_RAW, .handle.raw = ef }; 
 #endif
 
