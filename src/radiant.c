@@ -187,6 +187,13 @@ date_version
     unsigned year: 7; 
 } date_version_t; 
 
+
+//TODO decide if these need to be exposed or not
+#define RADIANT_NBUF 4
+#define RADIANT_WINDOW_SIZE 128 
+#define RADIANT_NSAMP_PER_BUF (RNO_G_LAB4D_NSAMPLES / RADIANT_NBUF)
+#define RADIANT_NWIND_PER_BUF (RADIANT_NSAMP_PER_BUF / RADIANT_WINDOW_SIZE) 
+
 /** The radiant device structure */ 
 struct radiant_dev
 {
