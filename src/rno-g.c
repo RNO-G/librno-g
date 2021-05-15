@@ -95,6 +95,12 @@ int rno_g_header_dump(FILE *f, const rno_g_header_t *header)
   ret+=fprintf(f,"RUN:, %d, EVENT:, %d\n", header->run_number, header->event_number); 
   ret+=fprintf(f, "   PPS_COUNT:, %d, SYSCLK:, %u, TIME_SINCE_START:,%f\n", header->pps_count, header->sys_clk, header->pps_count + ((double)header->sys_clk - header->sysclk_last_pps) / ( header->sysclk_last_pps - header->sysclk_last_last_pps));
   ret+=fprintf(f, "   READOUT_TIME:, %d.%09d, ELAPSED: %d\n", header->readout_time_secs, header->readout_time_nsecs, header->readout_elapsed_nsecs);
+  ret+=fprintf(f, "   START WINDOWS: "); 
+  for (int i = 0; i < RNO_G_NUM_RADIANT_CHANNELS; i++) 
+  {
+    fprintf(f," %u ", header->radiant_start_windows[i]); 
+  }
+  ret+=fprintf(f, "\n"); 
   return ret; 
 }
 
