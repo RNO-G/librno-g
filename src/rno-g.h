@@ -129,9 +129,8 @@ typedef struct rno_g_header
 
   /** Various flags for the event. See rno_g_flags_t orable */ 
   uint8_t flags; 
-
   uint8_t pretrigger_windows; //!< Number of pretrigger windows? 
-  uint8_t  radiant_start_windows[RNO_G_NUM_RADIANT_CHANNELS]; //!<this encodes buffer number too 
+  uint8_t radiant_start_windows[RNO_G_NUM_RADIANT_CHANNELS][2]; //!<this encodes buffer number too. There are two of these because of 2048-sample readout works. The second one will be 0xff (255) if we are in 1024-mode. 
   uint16_t radiant_nsamples; //!< Number of samples per channel in RADIANT board (could just keep this in waveform if we wanted)
   uint16_t lt_nsamples; //!< Number of samples per channel in low-threshold board  (could just keep this in waveform if we wanted)
 

@@ -98,7 +98,7 @@ int rno_g_header_dump(FILE *f, const rno_g_header_t *header)
   ret+=fprintf(f, "   START WINDOWS: "); 
   for (int i = 0; i < RNO_G_NUM_RADIANT_CHANNELS; i++) 
   {
-    fprintf(f," %u ", header->radiant_start_windows[i]); 
+    fprintf(f," %u/%u ", header->radiant_start_windows[i][0], header->radiant_start_windows[i][1]); 
   }
   ret+=fprintf(f, "\n"); 
   return ret; 
