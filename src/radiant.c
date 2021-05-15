@@ -119,6 +119,7 @@ typedef enum
   RAD_REG_DEVICEDNA                   = 0x2c, 
   RAD_REG_SIMPLE_SPI                  = 0x30, // to 0x3f 
 
+
   /// SPIDMA space
   RAD_REG_SPIDMA_CONFIG               = 0x8000, 
   RAD_REG_SPIDMA_CONTROL              = 0x8004, 
@@ -143,6 +144,10 @@ typedef enum
 
 
   //TRIG SPACE
+  RAD_REG_EV_CTRL                     =  0x30000, 
+  RAD_REG_EV_PPS                      =  0x30004, 
+  RAD_REG_EV_SYSCLK                   =  0x30008, 
+  RAD_REG_EV_LASTSYSCLK               =  0x3000c, 
   RAD_REG_EV_FIFO_BASE                =  0x30100, 
   RAD_REG_THRESH_BASE                 = 0x30200, 
 
@@ -994,7 +999,7 @@ radiant_dev_t * radiant_open(const char *spi_device, const char * uart_device, i
   dev->readout_mask = 0xffffff; 
   dev->run = 0; 
 
-  dev->nbuffers_per_readout = 2; 
+  dev->nbuffers_per_readout = 1; 
   dev->readout_nsamp = dev->nbuffers_per_readout * RADIANT_NSAMP_PER_BUF ; 
   dev->peds = 0; 
   dev->calram = CALRAM_MODE_NONE; 
@@ -1949,7 +1954,7 @@ int radiant_compute_pedestals(radiant_dev_t *bd, uint32_t mask, uint16_t ntrigge
 
   free(pedram); 
   // take out of calram mode? 
-  calram_zero(bd); 
+  calram_zero(bd); // TODO: IS THIS NEEDED? Dan has this, but why? 
   calram_mode(bd,CALRAM_MODE_NONE); 
 
   radiant_dma_txn_count_reset(bd); 
@@ -1994,3 +1999,108 @@ int radiant_set_nbuffers_per_readout(radiant_dev_t *bd, int nbuffers)
 
   return 0x90991e5; //they do nothing 
 }
+
+
+/** how is this different from labc_stop/start?  */ 
+static int radiant_run_mode(radiant_dev_t * bd, int enable) 
+{
+
+    uint32_t ctrl; 
+    if (4!=radiant_get_mem(bd, DEST_FPGA, RAD_REG_LAB_CTRL_CONTROL, 4, (uint8_t*) &ctrl)) return 1; 
+
+    if (enable) ctrl|= 2; 
+    else ctrl&=~2; 
+    return (4!=radiant_set_mem(bd, DEST_FPGA, RAD_REG_LAB_CTRL_CONTROL, 4, (uint8_t*) &ctrl)); 
+}
+
+
+int radiant_reset_readout_fifo(radiant_dev_t * bd, int force, int reset_readout) 
+{
+  if (!force) 
+  {
+    uint32_t ctrl; 
+    if (4!=radiant_get_mem(bd, DEST_FPGA, RAD_REG_LAB_CTRL_CONTROL, 4, (uint8_t*) &ctrl) || ctrl & 2 ) 
+    {
+      fprintf(stderr,"CANNOT RESET FIFO, LAB4 in run mode or cannot be read\n"); 
+      return 1; 
+    }
+  }
+
+  // Ok, if we didn't force this should be extraneous no? 
+  if (reset_readout) 
+  {
+    radiant_run_mode(bd,0); 
+  }
+
+  uint32_t rdout; 
+  if (4!=radiant_get_mem(bd, DEST_FPGA, RAD_REG_LAB_CTRL_READOUT, 4, (uint8_t*) &rdout)) return 1; 
+
+  rdout |= 2; 
+  if (reset_readout)
+  {
+    rdout |= 4; 
+  }
+  else
+  {
+    rdout&=~4; 
+  }
+    return (4!=radiant_set_mem(bd, DEST_FPGA, RAD_REG_LAB_CTRL_READOUT, 4, (uint8_t*) &rdout)); 
+}
+
+
+int radiant_reset_counters(radiant_dev_t * bd) 
+{
+  uint32_t evctrl = 4; 
+  return (4!=radiant_set_mem(bd, DEST_FPGA, RAD_REG_EV_CTRL, 4, (uint8_t*) &evctrl)); 
+}
+
+int radiant_sync(radiant_dev_t * bd) 
+{
+  uint32_t evctrl = 2; 
+  return (4!=radiant_set_mem(bd, DEST_FPGA, RAD_REG_EV_CTRL, 4, (uint8_t*) &evctrl)); 
+}
+
+int radiant_get_pending(radiant_dev_t * bd, radiant_pending_t * pend) 
+{
+  if (!pend) return 1; 
+  uint32_t evctrl = 0; 
+
+  if (4!=radiant_get_mem(bd, DEST_FPGA, RAD_REG_EV_CTRL, 4, (uint8_t*) &evctrl)) return 1; 
+
+  pend->pending = (evctrl >> 16) & 0x3f; 
+  pend->fifo_empty = evctrl & (1 << 15); 
+  pend->pending_empty = evctrl & (1 << 14); 
+  return 0; 
+}
+
+int radiant_current_pps(radiant_dev_t * bd, uint32_t *pps, uint32_t *sysclk_last_pps, uint32_t *sysclk_last_last_pps) 
+{
+  //just read all 3 at once, it won't take any longer really  
+  uint32_t mem[3]={0,0,0}; 
+  if (12!=radiant_get_mem(bd, DEST_FPGA, RAD_REG_EV_PPS, 12, (uint8_t*) mem )) return 1; 
+
+  if (pps) 
+  {
+    *pps = mem[0]; 
+  }
+
+  if (sysclk_last_pps) 
+  {
+    *sysclk_last_pps = mem[1]; 
+  }
+
+  if (sysclk_last_last_pps) 
+  {
+    *sysclk_last_last_pps = mem[2]; 
+  }
+
+  return 0; 
+}
+
+
+
+
+
+
+
+

@@ -307,7 +307,24 @@ void radiant_set_pedestals(radiant_dev_t *bd , const rno_g_pedestal_t * peds);
 const rno_g_pedestal_t * radiant_get_pedestals(radiant_dev_t *bd); 
 
 
+/** This resets the event fifo counters (I think?) */ 
+int radiant_reset_counters(radiant_dev_t *bd); 
 
+/** Synchronizes counters at next pps */ 
+int radiant_sync(radiant_dev_t *bd); 
+
+typedef struct radiant_pending
+{
+  uint8_t pending : 6; 
+  uint8_t fifo_empty : 1; 
+  uint8_t pending_empty : 1; 
+} radiant_pending_t; 
+int radiant_get_pending(radiant_dev_t *bd, radiant_pending_t * pending); 
+
+/** Get current times */ 
+int radiant_current_pps(radiant_dev_t * bd, uint32_t *pps, uint32_t *sysclk_last_pps, uint32_t *sysclk_last_last_pps); 
+
+int radiant_reset_readout_fifo(radiant_dev_t *bd, int force, int reset_readout);
 
 
 typedef enum radiant_dest
@@ -346,6 +363,7 @@ int radiant_read(radiant_dev_t * bd, int n_read_buffers, uint16_t *  read_n_byte
 
 /** Sets the dc bias of left/right labs. 0-4095 representing a 3.3V range */ 
 int radiant_set_dc_bias(radiant_dev_t * bd, uint16_t left, uint16_t right); 
+
 
 
 #ifdef __cplusplus

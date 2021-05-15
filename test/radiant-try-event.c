@@ -34,7 +34,8 @@ int main(int nargs, char ** args)
   radiant_dev_t * rad = radiant_open("/dev/spi/0.0", "/dev/ttyRadiant", 46, -61); //not sure if right gpio yet 
   if (!rad) return 1; 
 
-  radiant_set_nbuffers_per_readout(rad, nbuffers); 
+
+
 
 #ifdef ZIPPED
   gzFile pf = gzopen("/data/test/peds.gz","w"); 
@@ -47,6 +48,8 @@ int main(int nargs, char ** args)
 
   printf("Computing pedestals...\n");
   rno_g_pedestal_t ped; 
+  rno_g_header_t hd;
+  rno_g_waveform_t wf; 
   radiant_compute_pedestals(rad, 0xffffff, 512, &ped); 
 //  rno_g_pedestal_dump(stdout,  &ped); 
   radiant_set_pedestals(rad,&ped); 
@@ -59,34 +62,33 @@ int main(int nargs, char ** args)
 #else
   fclose(pf);
 #endif 
-
-//  printf("At start\n"); 
-//  radiant_dump(rad,stdout,0); 
   radiant_labs_stop(rad); 
-////  printf("After stop\n"); 
-//  radiant_dump(rad,stdout,0); 
 
-//  radiant_dump(rad,stdout,0); 
+  //this seems to clear the extra triggers too? 
+  radiant_reset_counters(rad); 
+
+
+  /*
   radiant_dma_setup_event(rad, 0xffffff); 
-//  printf("After DMA setup\n"); 
-//  radiant_dump(rad,stdout,0); 
-
-  radiant_labs_start(rad); 
- // printf("After lab start\n"); 
-
-
   //flush all events
-
-  rno_g_header_t hd;
-  rno_g_waveform_t wf; 
-
-
-  //flush 
-  printf("Flushing extant triggers\n"); 
-  while (radiant_poll_trigger_ready(rad,100))
+  printf("Flushing extant triggers (where did these come from? calram_zero?)\n"); 
+  int iflushed = 0; 
+  while (radiant_poll_trigger_ready(rad,500))
   {
     radiant_read_event(rad, &hd, &wf); 
+    printf("%d...", iflushed++); 
+    fflush(stdout); 
   }
+  */ 
+
+
+  radiant_set_nbuffers_per_readout(rad, nbuffers); 
+  radiant_dma_setup_event(rad, 0xffffff); 
+
+  radiant_labs_start(rad); 
+
+
+  printf("\nStarting readout using %d buffer%s!\n", nbuffers, nbuffers == 2 ? "s" : ""); 
 
 #ifdef ZIPPED
   gzFile hf = gzopen("/data/test/header.gz","w"); 
@@ -110,7 +112,7 @@ int main(int nargs, char ** args)
   clock_gettime(CLOCK_REALTIME,&start);
   for (int i = 0; i < N; i++) 
   {
-    printf("%d\n",i); 
+    printf("====%d=====\n",i); 
 
 //    radiant_dump(rad,stdout,0); 
 
@@ -131,6 +133,11 @@ int main(int nargs, char ** args)
   clock_gettime(CLOCK_REALTIME,&stop);
   double time = stop.tv_sec - start.tv_sec + 1e-9*(stop.tv_nsec - start.tv_nsec); 
   printf("Elapsed time: %g, (%g Hz)\n",  time, N/time); 
+  printf("  Note: for fastest speed, don't let this print to your terminal!!!\n"); 
+
+  // leave this at 1 buffer readout
+  radiant_set_nbuffers_per_readout(rad, 1); 
+  radiant_dma_setup_event(rad, 0xffffff); 
 
 //  printf("At end\n"); 
 //  radiant_dump(rad,stdout,0); 
