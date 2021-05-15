@@ -28,7 +28,9 @@ static int instrumented_poll(radiant_dev_t * rad, int timeout)
 int main(int nargs, char ** args) 
 {
   int N = 100; 
+  int nbuffers = 2; 
   if (nargs > 1) N = atoi(args[1]); 
+  if (nargs > 2) nbuffers = atoi(args[2]); 
   radiant_dev_t * rad = radiant_open("/dev/spi/0.0", "/dev/ttyRadiant", 46, -61); //not sure if right gpio yet 
   if (!rad) return 1; 
 
