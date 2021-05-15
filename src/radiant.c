@@ -172,6 +172,7 @@ typedef enum
 {
   CALRAM_MODE_NONE, 
   CALRAM_MODE_PED, 
+  CALRAM_MODE_ZERO  // not really a mode, jsut used to avoid confusing the radiant 
 }calram_mode_t; 
 
 
@@ -478,7 +479,7 @@ static void sub16(int N, int16_t * A, const int16_t * B)
 {
   int i = 0;
 #if defined(__arm__) && !defined(NOVECTORIZE) 
-//we'll use ARM NEON intrinsics. Since usually this will be a multiple of 32, we'll use vandq_u16 unrolled by 4 
+//we'll use ARM NEON intrinsics. Since usually this will be a multiple of 32, we'll use vsubq_s16 unrolled by 4 
   int Niter = N/32; 
 
   if (Niter) 
@@ -621,6 +622,7 @@ int radiant_read_event(radiant_dev_t * bd, rno_g_header_t * hd, rno_g_waveform_t
   hd->run_number = bd->run; 
   hd->sysclk_last_pps = fwhd.sysclk_last_pps; 
   hd->sysclk_last_last_pps = fwhd.sysclk_last_last_pps; 
+  //TODO fill rest of header 
 
   wf->event_number = hd->event_number; 
   wf->run_number = bd->run; 
@@ -633,21 +635,21 @@ int radiant_read_event(radiant_dev_t * bd, rno_g_header_t * hd, rno_g_waveform_t
     if (bd->readout_mask & (1 << ichan))
     {
 
-      //if we are in 1024-sample mode, ony one start window per event
+      //if we are in 1024-sample mode, ony one start window per event, so set the second to a magic value. 
       if (bd->nbuffers_per_readout == 1) 
       {
         hd->radiant_start_windows[ichan][1] = 0xff; 
       }
 
+      //Loop over the readout buffers 
       //TODO: there may be some efficiency gains in doing the andall and sub16 operations on both buffers at the same time... but probably not huge and the code is simpler this way 
       for (int ibuffer = 0; ibuffer < bd->nbuffers_per_readout; ibuffer++) 
       {
 
-        //get buffer number
+        //get buffer number (TODO: demagicify this) 
         int buffer_number = (wf->radiant_waveforms[ichan][ibuffer * RADIANT_NSAMP_PER_BUF] & 0xc000) >> 14; 
 
         //now let's find the STOP window 
-        //right now I'm assuming it's the same for each channel
         int nrotate = 0;
 
         for (int w = 0; w < RADIANT_NWIND_PER_BUF; w++) 
@@ -657,7 +659,7 @@ int radiant_read_event(radiant_dev_t * bd, rno_g_header_t * hd, rno_g_waveform_t
           //TODO: demagicify this 
           if (val & 0x2000)//this is the STOP window. Means the START window is snext
           {
-            hd->radiant_start_windows[ichan][ibuffer] =  buffer_number * RADIANT_NWIND_PER_BUF  + (( w+1) % (RADIANT_NWIND_PER_BUF)); 
+            hd->radiant_start_windows[ichan][ibuffer] =  buffer_number * RADIANT_NWIND_PER_BUF  + ((w+1) % (RADIANT_NWIND_PER_BUF)); 
             nrotate = w * RADIANT_WINDOW_SIZE; 
             break; 
           }
@@ -676,7 +678,6 @@ int radiant_read_event(radiant_dev_t * bd, rno_g_header_t * hd, rno_g_waveform_t
         //that sounds a bit more complicated
         if (nrotate) roll16((uint16_t*)wf->radiant_waveforms[ichan] + ibuffer * RADIANT_NSAMP_PER_BUF, nrotate, RADIANT_NSAMP_PER_BUF); 
       }
-
     }
     else
     {
@@ -1827,7 +1828,11 @@ static int calram_zero(radiant_dev_t * bd)
 
 
   radiant_labs_start(bd); 
+ 
+  uint8_t oldmode = bd->calram; 
+  bd->calram = CALRAM_MODE_ZERO; 
   for (int i = 0; i < 4; i++) radiant_force_trigger(bd,1,1); 
+  bd->calram = oldmode; 
   radiant_labs_stop(bd); 
   return 0; 
 }
