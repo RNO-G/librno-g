@@ -204,8 +204,8 @@ date_version
 //TODO decide if these need to be exposed or not
 #define RADIANT_NBUF 4
 #define RADIANT_WINDOW_SIZE 128 
-#define RADIANT_NSAMP_PER_BUF (RNO_G_LAB4D_NSAMPLES / RADIANT_NBUF)
-#define RADIANT_NWIND_PER_BUF (RADIANT_NSAMP_PER_BUF / RADIANT_WINDOW_SIZE) 
+#define RADIANT_NSAMP_PER_BUF 1024
+#define RADIANT_NWIND_PER_BUF 8
 
 /** The radiant device structure */ 
 struct radiant_dev
@@ -644,7 +644,7 @@ int radiant_read_event(radiant_dev_t * bd, rno_g_header_t * hd, rno_g_waveform_t
       {
 
         //get buffer number
-        int buffer_number = (wf->radiant_waveforms[0][ibuffer * RADIANT_NSAMP_PER_BUF] & 0xc000) >> 14; 
+        int buffer_number = (wf->radiant_waveforms[ichan][ibuffer * RADIANT_NSAMP_PER_BUF] & 0xc000) >> 14; 
 
         //now let's find the STOP window 
         //right now I'm assuming it's the same for each channel
@@ -652,12 +652,12 @@ int radiant_read_event(radiant_dev_t * bd, rno_g_header_t * hd, rno_g_waveform_t
 
         for (int w = 0; w < RADIANT_NWIND_PER_BUF; w++) 
         {
-          uint16_t val = wf->radiant_waveforms[ichan][RADIANT_WINDOW_SIZE*w];
+          uint16_t val = wf->radiant_waveforms[ichan][RADIANT_WINDOW_SIZE*w+ibuffer * RADIANT_NSAMP_PER_BUF];
 
           //TODO: demagicify this 
           if (val & 0x2000)//this is the STOP window. Means the START window is snext
           {
-            hd->radiant_start_windows[ichan][ibuffer] =  buffer_number * RADIANT_NWIND_PER_BUF  + ( w+1) % (RADIANT_NWIND_PER_BUF); 
+            hd->radiant_start_windows[ichan][ibuffer] =  buffer_number * RADIANT_NWIND_PER_BUF  + (( w+1) % (RADIANT_NWIND_PER_BUF)); 
             nrotate = w * RADIANT_WINDOW_SIZE; 
             break; 
           }
