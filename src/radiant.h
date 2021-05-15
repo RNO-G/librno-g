@@ -63,6 +63,12 @@ int radiant_set_trigger_ready_callback(radiant_dev_t *bd, void (*callback)(radia
 int radiant_poll_trigger_ready(radiant_dev_t*bd, int timeout_ms); 
 
 
+/** Set the number of buffers per readout. Valid choices are 1 (for 1024-sample mode) or 2 (for 2048-sample mode).
+ * Other values will do nothing. 
+ **/ 
+int radiant_set_nbuffers_per_readout(radiant_dev_t *bd, int nbuffers) 
+
+
 /** Dump some debug information to stream*/
 typedef enum 
 {

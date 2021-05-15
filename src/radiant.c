@@ -993,8 +993,6 @@ radiant_dev_t * radiant_open(const char *spi_device, const char * uart_device, i
   dev->readout_mask = 0xffffff; 
   dev->run = 0; 
 
-  // TODO: make this configurable 
-  // Also, these two are coupled. 
   dev->nbuffers_per_readout = 2; 
   dev->readout_nsamp = dev->nbuffers_per_readout * RADIANT_NSAMP_PER_BUF ; 
   dev->peds = 0; 
@@ -1978,4 +1976,16 @@ void radiant_set_pedestals(radiant_dev_t* bd, const rno_g_pedestal_t * ped)
 const rno_g_pedestal_t *  radiant_get_pedestals(radiant_dev_t* bd) 
 {
   return bd->peds; 
+}
+
+int radiant_set_nbuffers_per_readout(radiant_dev_t *bd, int nbuffers) 
+{
+  if (nbuffers == 1 || nbuffers == 2) 
+  {
+    bd->nbuffers_per_readout =nbuffers; 
+    bd->readout_nsamp = nbuffers * RADIANT_NSAMP_PER_BUF; 
+    return 0; 
+  }
+
+  return 0x90991e5; //they do nothing 
 }
