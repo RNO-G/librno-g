@@ -1,6 +1,6 @@
 BUILD_DIR=build
 PREFIX=/rno-g
-CFLAGS=-fPIC -Og -Wall -Wextra -g
+CFLAGS=-fPIC -Og -Wall -Wextra -g -std=gnu11
 CXXFLAGS+=-fPIC -Og -Wall -Wextra -g
 
 #CFLAGS+=-DRADIANT_SET_DBG
