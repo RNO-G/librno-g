@@ -34,6 +34,8 @@ int main(int nargs, char ** args)
   radiant_dev_t * rad = radiant_open("/dev/spi/0.0", "/dev/ttyRadiant", 46, -61); //not sure if right gpio yet 
   if (!rad) return 1; 
 
+  radiant_set_nbuffers_per_readout(rad, nbuffers); 
+
 #ifdef ZIPPED
   gzFile pf = gzopen("/data/test/peds.gz","w"); 
   rno_g_file_handle_t ph = { .type=RNO_G_GZIP, .handle.gz = pf}; 
