@@ -119,6 +119,7 @@ typedef enum
   RAD_REG_DEVICEDNA                   = 0x2c, 
   RAD_REG_SIMPLE_SPI                  = 0x30, // to 0x3f 
 
+
   /// SPIDMA space
   RAD_REG_SPIDMA_CONFIG               = 0x8000, 
   RAD_REG_SPIDMA_CONTROL              = 0x8004, 
@@ -143,6 +144,10 @@ typedef enum
 
 
   //TRIG SPACE
+  RAD_REG_EV_CTRL                     =  0x30000, 
+  RAD_REG_EV_PPS                      =  0x30004, 
+  RAD_REG_EV_SYSCLK                   =  0x30008, 
+  RAD_REG_EV_LASTSYSCLK               =  0x3000c, 
   RAD_REG_EV_FIFO_BASE                =  0x30100, 
   RAD_REG_THRESH_BASE                 = 0x30200, 
 
@@ -167,11 +172,25 @@ struct fpga_dma_descr
   uint32_t last : 1; 
 }; 
 
+//Only implementing these two for now :) 
+typedef enum 
+{
+  CALRAM_MODE_NONE, 
+  CALRAM_MODE_PED, 
+  CALRAM_MODE_ZERO  // not really a mode, jsut used to avoid confusing the radiant 
+}calram_mode_t; 
+
 
 
 static uint32_t ffffffff = 0xffffffff;
 // A lot of things seem to return this is thy're bad
 static uint8_t*  BM_BAD_READ = (uint8_t*) &ffffffff; 
+
+enum 
+{
+  RADIANT_TRIG_TWOBUFMODE = 0x81000000
+
+} e_trig_settings; 
 
 
 // this is the correct order, apparently :) 
@@ -186,6 +205,13 @@ date_version
     unsigned month: 4; 
     unsigned year: 7; 
 } date_version_t; 
+
+
+//TODO decide if these need to be exposed or not
+#define RADIANT_NBUF 4
+#define RADIANT_WINDOW_SIZE 128 
+#define RADIANT_NSAMP_PER_BUF 1024
+#define RADIANT_NWIND_PER_BUF 8
 
 /** The radiant device structure */ 
 struct radiant_dev
@@ -216,11 +242,10 @@ struct radiant_dev
 
   struct pollfd interrupt_fdset; 
   uint16_t readout_nsamp; 
-
   uint32_t readout_mask; 
   int cleanup_spi_gpio; 
-  int nbuffers; // this will change to 2 i the future, who knows, may even be user configurable in the future. 
-  int nwindows_per_buffer; 
+  int nbuffers_per_readout; // 1 for 1024 mode, 2 for 2048 mode
+  int calram; //calram mode
   struct fw_trigthresh trig_thresh; 
   double last_trig_thresh_updated; 
   const rno_g_pedestal_t * peds; 
@@ -459,7 +484,7 @@ static void sub16(int N, int16_t * A, const int16_t * B)
 {
   int i = 0;
 #if defined(__arm__) && !defined(NOVECTORIZE) 
-//we'll use ARM NEON intrinsics. Since usually this will be a multiple of 32, we'll use vandq_u16 unrolled by 4 
+//we'll use ARM NEON intrinsics. Since usually this will be a multiple of 32, we'll use vsubq_s16 unrolled by 4 
   int Niter = N/32; 
 
   if (Niter) 
@@ -602,30 +627,12 @@ int radiant_read_event(radiant_dev_t * bd, rno_g_header_t * hd, rno_g_waveform_t
   hd->run_number = bd->run; 
   hd->sysclk_last_pps = fwhd.sysclk_last_pps; 
   hd->sysclk_last_last_pps = fwhd.sysclk_last_last_pps; 
+  //TODO fill rest of header 
 
   wf->event_number = hd->event_number; 
   wf->run_number = bd->run; 
 
   wf->radiant_nsamples = nsamples;
-
-  
-        
- 
-//  /// IS IT BIG-ENDIAN!??? Yes if reading 32-bit words
-//  We no longer need this now that it's handled on the firmware! 
-//  for (int ichan = 0; ichan < RNO_G_NUM_RADIANT_CHANNELS; ichan++) 
-//  {
-//    bswap16( (uint16_t*) wf->radiant_waveforms[ichan], nsamples); 
-//  }
-//
-  
-  //now let's figure out the buffer number, start bytes, rotate, and remove the high bytes. 
-  // TODO: IS THIS STILL RELEVANT OR IS THIS VESTIGIAL? 
-  
-  //get buffer number (assume little-endian here and assume the same for all channels?) 
-  int buffer_number = (wf->radiant_waveforms[0][0] & 0xc000) >> 14; 
-
-
 
   for (int ichan = 0; ichan < RNO_G_NUM_RADIANT_CHANNELS; ichan++) 
   {
@@ -633,39 +640,49 @@ int radiant_read_event(radiant_dev_t * bd, rno_g_header_t * hd, rno_g_waveform_t
     if (bd->readout_mask & (1 << ichan))
     {
 
-      //now let's find the STOP window 
-      //right now I'm assuming it's the same for each channel
-      int nrotate = 0;
-
-      for (int w = 0; w < bd->nwindows_per_buffer; w++) 
+      //if we are in 1024-sample mode, ony one start window per event, so set the second to a magic value. 
+      if (bd->nbuffers_per_readout == 1) 
       {
-        uint16_t val = wf->radiant_waveforms[ichan][RNO_G_RADIANT_WINDOW_SIZE*w];
+        hd->radiant_start_windows[ichan][1] = 0xff; 
+      }
 
-        //TODO: demagicify this 
-        if (val & 0x2000)//this is the STOP window. Means the START window is snext
+      //Loop over the readout buffers 
+      //TODO: there may be some efficiency gains in doing the andall and sub16 operations on both buffers at the same time... but probably not huge and the code is simpler this way 
+      for (int ibuffer = 0; ibuffer < bd->nbuffers_per_readout; ibuffer++) 
+      {
+
+        //get buffer number (TODO: demagicify this) 
+        int buffer_number = (wf->radiant_waveforms[ichan][ibuffer * RADIANT_NSAMP_PER_BUF] & 0xc000) >> 14; 
+
+        //now let's find the STOP window 
+        int nrotate = 0;
+
+        for (int w = 0; w < RADIANT_NWIND_PER_BUF; w++) 
         {
-          hd->radiant_start_windows[ichan] =  buffer_number * bd->nwindows_per_buffer + ( w+1) % bd->nwindows_per_buffer; 
-          nrotate = w * RNO_G_RADIANT_WINDOW_SIZE; 
-          break; 
+          uint16_t val = wf->radiant_waveforms[ichan][RADIANT_WINDOW_SIZE*w+ibuffer * RADIANT_NSAMP_PER_BUF];
+
+          //TODO: demagicify this 
+          if (val & 0x2000)//this is the STOP window. Means the START window is snext
+          {
+            hd->radiant_start_windows[ichan][ibuffer] =  buffer_number * RADIANT_NWIND_PER_BUF  + ((w+1) % (RADIANT_NWIND_PER_BUF)); 
+            nrotate = w * RADIANT_WINDOW_SIZE; 
+            break; 
+          }
         }
+
+        //TODO: in some cases (buffer 0, not start or stop window) we can avoid doing this on all samples 
+        andall16_0x0fff((uint16_t*)wf->radiant_waveforms[ichan]+ibuffer * RADIANT_NSAMP_PER_BUF,RADIANT_NSAMP_PER_BUF); 
+
+        // Now subtract the pedestals
+        if (bd->peds)
+        {
+          sub16 (RADIANT_NSAMP_PER_BUF,  wf->radiant_waveforms[ichan] + ibuffer * RADIANT_NSAMP_PER_BUF, (int16_t*) bd->peds->pedestals[ichan] + RADIANT_NSAMP_PER_BUF * buffer_number); 
+        }
+
+        //maybe it's possible to rotate and remove high bits at same time? 
+        //that sounds a bit more complicated
+        if (nrotate) roll16((uint16_t*)wf->radiant_waveforms[ichan] + ibuffer * RADIANT_NSAMP_PER_BUF, nrotate, RADIANT_NSAMP_PER_BUF); 
       }
-
-
-      //TODO: in some cases (buffer 0, not start or stop window) we can avoid doing this on all samples 
-      andall16_0x0fff((uint16_t*)wf->radiant_waveforms[ichan],nsamples); 
-
-      // Now subtract the pedestals
-      if (bd->peds)
-      {
-        sub16 (nsamples,  wf->radiant_waveforms[ichan], (int16_t*) bd->peds->pedestals[ichan] + nsamples * buffer_number); 
-      }
-
-      //maybe it's possible to rotate and remove high bits at same time? 
-      //that sounds a bit more complicated
-      if (nrotate) roll16((uint16_t*)wf->radiant_waveforms[ichan], nrotate, nsamples); 
-
-
-
     }
     else
     {
@@ -982,11 +999,10 @@ radiant_dev_t * radiant_open(const char *spi_device, const char * uart_device, i
   dev->readout_mask = 0xffffff; 
   dev->run = 0; 
 
-  //TODO: update these when firmware changed 
-  dev->nbuffers = 4; 
-  dev->readout_nsamp = (RNO_G_LAB4D_NSAMPLES / dev->nbuffers);  
-  dev->nwindows_per_buffer = dev->readout_nsamp/ RNO_G_RADIANT_WINDOW_SIZE; // this must be a constant... even if we record fewer samples to disk, we won't know where to look until we read it out. 
+  dev->nbuffers_per_readout = 1; 
+  dev->readout_nsamp = dev->nbuffers_per_readout * RADIANT_NSAMP_PER_BUF ; 
   dev->peds = 0; 
+  dev->calram = CALRAM_MODE_NONE; 
   return dev; 
 }
 
@@ -1722,6 +1738,12 @@ int radiant_force_trigger(radiant_dev_t * bd, int howmany, int block)
 
   // inferred from python code. TODO: learn more
   uint32_t mem = 2 | ((howmany-1) << 8); 
+
+  if (bd->calram == CALRAM_MODE_NONE && bd->nbuffers_per_readout == 2) 
+  {
+    mem |= RADIANT_TRIG_TWOBUFMODE; 
+  }
+
   int ret =  4!=radiant_set_mem(bd, DEST_FPGA, RAD_REG_LAB_CTRL_TRIGGER, 4,(uint8_t*)  &mem); 
 
   if (block) 
@@ -1811,19 +1833,15 @@ static int calram_zero(radiant_dev_t * bd)
 
 
   radiant_labs_start(bd); 
+ 
+  uint8_t oldmode = bd->calram; 
+  bd->calram = CALRAM_MODE_ZERO; 
   for (int i = 0; i < 4; i++) radiant_force_trigger(bd,1,1); 
+  bd->calram = oldmode; 
   radiant_labs_stop(bd); 
   return 0; 
 }
 
-
-//Only implementing these two for now :) 
-typedef enum 
-{
-  CALRAM_MODE_NONE, 
-  CALRAM_MODE_PED, 
-
-}calram_mode_t; 
 
 // may expose this later if necessary
 static int calram_mode(radiant_dev_t *bd, calram_mode_t mode) 
@@ -1850,6 +1868,7 @@ static int calram_mode(radiant_dev_t *bd, calram_mode_t mode)
      if (4!=radiant_set_mem(bd,DEST_FPGA,RAD_REG_CALRAM_GLOBAL_CONTROL, 4, (uint8_t*) &ctrl)) return 1; 
    }
 
+   bd->calram = mode; 
    return 0; 
 }
 
@@ -1935,7 +1954,7 @@ int radiant_compute_pedestals(radiant_dev_t *bd, uint32_t mask, uint16_t ntrigge
 
   free(pedram); 
   // take out of calram mode? 
-  calram_zero(bd); 
+  calram_zero(bd); // TODO: IS THIS NEEDED? Dan has this, but why? 
   calram_mode(bd,CALRAM_MODE_NONE); 
 
   radiant_dma_txn_count_reset(bd); 
@@ -1968,3 +1987,120 @@ const rno_g_pedestal_t *  radiant_get_pedestals(radiant_dev_t* bd)
 {
   return bd->peds; 
 }
+
+int radiant_set_nbuffers_per_readout(radiant_dev_t *bd, int nbuffers) 
+{
+  if (nbuffers == 1 || nbuffers == 2) 
+  {
+    bd->nbuffers_per_readout =nbuffers; 
+    bd->readout_nsamp = nbuffers * RADIANT_NSAMP_PER_BUF; 
+    return 0; 
+  }
+
+  return 0x90991e5; //they do nothing 
+}
+
+
+/** how is this different from labc_stop/start?  */ 
+static int radiant_run_mode(radiant_dev_t * bd, int enable) 
+{
+
+    uint32_t ctrl; 
+    if (4!=radiant_get_mem(bd, DEST_FPGA, RAD_REG_LAB_CTRL_CONTROL, 4, (uint8_t*) &ctrl)) return 1; 
+
+    if (enable) ctrl|= 2; 
+    else ctrl&=~2; 
+    return (4!=radiant_set_mem(bd, DEST_FPGA, RAD_REG_LAB_CTRL_CONTROL, 4, (uint8_t*) &ctrl)); 
+}
+
+
+int radiant_reset_readout_fifo(radiant_dev_t * bd, int force, int reset_readout) 
+{
+  if (!force) 
+  {
+    uint32_t ctrl; 
+    if (4!=radiant_get_mem(bd, DEST_FPGA, RAD_REG_LAB_CTRL_CONTROL, 4, (uint8_t*) &ctrl) || ctrl & 2 ) 
+    {
+      fprintf(stderr,"CANNOT RESET FIFO, LAB4 in run mode or cannot be read\n"); 
+      return 1; 
+    }
+  }
+
+  // Ok, if we didn't force this should be extraneous no? 
+  if (reset_readout) 
+  {
+    radiant_run_mode(bd,0); 
+  }
+
+  uint32_t rdout; 
+  if (4!=radiant_get_mem(bd, DEST_FPGA, RAD_REG_LAB_CTRL_READOUT, 4, (uint8_t*) &rdout)) return 1; 
+
+  rdout |= 2; 
+  if (reset_readout)
+  {
+    rdout |= 4; 
+  }
+  else
+  {
+    rdout&=~4; 
+  }
+    return (4!=radiant_set_mem(bd, DEST_FPGA, RAD_REG_LAB_CTRL_READOUT, 4, (uint8_t*) &rdout)); 
+}
+
+
+int radiant_reset_counters(radiant_dev_t * bd) 
+{
+  uint32_t evctrl = 4; 
+  return (4!=radiant_set_mem(bd, DEST_FPGA, RAD_REG_EV_CTRL, 4, (uint8_t*) &evctrl)); 
+}
+
+int radiant_sync(radiant_dev_t * bd) 
+{
+  uint32_t evctrl = 2; 
+  return (4!=radiant_set_mem(bd, DEST_FPGA, RAD_REG_EV_CTRL, 4, (uint8_t*) &evctrl)); 
+}
+
+int radiant_get_pending(radiant_dev_t * bd, radiant_pending_t * pend) 
+{
+  if (!pend) return 1; 
+  uint32_t evctrl = 0; 
+
+  if (4!=radiant_get_mem(bd, DEST_FPGA, RAD_REG_EV_CTRL, 4, (uint8_t*) &evctrl)) return 1; 
+
+  pend->pending = (evctrl >> 16) & 0x3f; 
+  pend->fifo_empty = evctrl & (1 << 15); 
+  pend->pending_empty = evctrl & (1 << 14); 
+  return 0; 
+}
+
+int radiant_current_pps(radiant_dev_t * bd, uint32_t *pps, uint32_t *sysclk_last_pps, uint32_t *sysclk_last_last_pps) 
+{
+  //just read all 3 at once, it won't take any longer really  
+  uint32_t mem[3]={0,0,0}; 
+  if (12!=radiant_get_mem(bd, DEST_FPGA, RAD_REG_EV_PPS, 12, (uint8_t*) mem )) return 1; 
+
+  if (pps) 
+  {
+    *pps = mem[0]; 
+  }
+
+  if (sysclk_last_pps) 
+  {
+    *sysclk_last_pps = mem[1]; 
+  }
+
+  if (sysclk_last_last_pps) 
+  {
+    *sysclk_last_last_pps = mem[2]; 
+  }
+
+  return 0; 
+}
+
+
+
+
+
+
+
+
