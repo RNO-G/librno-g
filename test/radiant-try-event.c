@@ -34,6 +34,11 @@ int main(int nargs, char ** args)
   radiant_dev_t * rad = radiant_open("/dev/spi/0.0", "/dev/ttyRadiant", 46, -61); //not sure if right gpio yet 
   if (!rad) return 1; 
 
+  printf("Setting DC bias to 1550\n"); 
+  //set reasonable dc bias
+  radiant_set_dc_bias(rad,1550,1550); 
+  sleep(1); 
+
 
 
 
