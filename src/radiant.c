@@ -249,6 +249,7 @@ struct radiant_dev
   struct fw_trigthresh trig_thresh; 
   double last_trig_thresh_updated; 
   const rno_g_pedestal_t * peds; 
+  uint16_t vbias[2]; 
 }; 
 
 
@@ -1003,6 +1004,12 @@ radiant_dev_t * radiant_open(const char *spi_device, const char * uart_device, i
   dev->readout_nsamp = dev->nbuffers_per_readout * RADIANT_NSAMP_PER_BUF ; 
   dev->peds = 0; 
   dev->calram = CALRAM_MODE_NONE; 
+
+  // We don't know what the vbias is since there is no readback implemented
+  // so you have to set it if you want to know what it is :)  
+  dev->vbias[0] = -1; 
+  dev->vbias[1] = -1; 
+
   return dev; 
 }
 
@@ -1879,6 +1886,9 @@ int radiant_compute_pedestals(radiant_dev_t *bd, uint32_t mask, uint16_t ntrigge
 
   radiant_labs_stop(bd); 
 
+
+ 
+
   //clear the calram ?
   if (calram_zero(bd)) return -1; 
   if (calram_mode(bd,CALRAM_MODE_PED)) return -2; 
@@ -1948,7 +1958,8 @@ int radiant_compute_pedestals(radiant_dev_t *bd, uint32_t mask, uint16_t ntrigge
       }
     }
   }
-
+  ped->vbias[0] = bd->vbias[0];
+  ped->vbias[1] = bd->vbias[1];
   ped->nevents = ntriggers; 
   ped->when = time(0); 
 
@@ -1973,6 +1984,8 @@ int radiant_set_dc_bias (radiant_dev_t * bd, uint16_t l16, uint16_t r16)
   // set to reasonable value if out of range
   if (l > 4095) l = 1000; 
   if (r > 4095) r = 1000; 
+  bd->vbias[0] = l;
+  bd->vbias[1] = r; 
   if (4!=radiant_set_mem(bd, DEST_MANAGER, BM_REG_VPEDLEFT, 4, (uint8_t*) &l)) return 1; 
   return (4!=radiant_set_mem(bd, DEST_MANAGER, BM_REG_VPEDRIGHT, 4, (uint8_t*) &r)); 
 }
