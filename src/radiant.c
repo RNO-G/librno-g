@@ -188,6 +188,7 @@ static uint8_t*  BM_BAD_READ = (uint8_t*) &ffffffff;
 
 enum 
 {
+  RADIANT_TRIG_ONEBUFMODE = 0x80000000, 
   RADIANT_TRIG_TWOBUFMODE = 0x81000000
 
 } e_trig_settings; 
@@ -1006,7 +1007,7 @@ radiant_dev_t * radiant_open(const char *spi_device, const char * uart_device, i
   dev->calram = CALRAM_MODE_NONE; 
 
   // We don't know what the vbias is since there is no readback implemented
-  // so you have to set it if you want to know what it is :)  
+  // so you have to set it if you want to know what it is :) , 
   dev->vbias[0] = -1; 
   dev->vbias[1] = -1; 
 
@@ -1811,8 +1812,11 @@ int radiant_labs_stop(radiant_dev_t *dev)
     radiant_set_mem(dev, DEST_FPGA, RAD_REG_LAB_CTRL_CONTROL,4,ctrl); 
     radiant_get_mem(dev, DEST_FPGA, RAD_REG_LAB_CTRL_CONTROL,4,ctrl); 
   }
-  return 0; 
 
+  //make we sure in single-buffer mode! 
+  radiant_set_nbuffers_per_readout(dev,1); 
+
+  return 0; 
 }
 
 
@@ -2016,9 +2020,10 @@ int radiant_set_nbuffers_per_readout(radiant_dev_t *bd, int nbuffers)
 {
   if (nbuffers == 1 || nbuffers == 2) 
   {
-    bd->nbuffers_per_readout =nbuffers; 
+    bd->nbuffers_per_readout = nbuffers; 
     bd->readout_nsamp = nbuffers * RADIANT_NSAMP_PER_BUF; 
-    return 0; 
+    uint32_t mem = nbuffers== 1 ? RADIANT_TRIG_ONEBUFMODE : RADIANT_TRIG_TWOBUFMODE; 
+    return 4!=radiant_set_mem(bd, DEST_FPGA, RAD_REG_LAB_CTRL_TRIGGER, 4, (uint8_t*) &mem); 
   }
 
   return 0x90991e5; //they do nothing 
