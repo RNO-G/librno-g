@@ -47,8 +47,8 @@ void quick_plot(const char * file, int ev = 0, int symmetric=1, int Nev = 1, int
     c->Divide(4,6,0.001,0.001); 
 
 
-    double abs_max= 0; 
-    double abs_min= 0; 
+    double abs_max= -2048; 
+    double abs_min= 2048; 
 
     for (int i = 0; i < 24; i++) 
     {
@@ -67,12 +67,27 @@ void quick_plot(const char * file, int ev = 0, int symmetric=1, int Nev = 1, int
       g->GetXaxis()->SetLabelSize(0.05);
 
 
+      bool all_zeroes = true; 
+
+      //check to make sure not all zeroes
+      for (int j = 0; j < wf.radiant_nsamples; j++) 
+      {
+        if (wf.radiant_waveforms[i][j]) 
+        {
+          all_zeroes = false; 
+          break; 
+        }
+      }
 
       for (int j = 0; j < wf.radiant_nsamples; j++) 
       {
         g->SetPoint(j,j, wf.radiant_waveforms[i][j]); 
-        if (wf.radiant_waveforms[i][j] >  abs_max) abs_max = wf.radiant_waveforms[i][j]; 
-        if (wf.radiant_waveforms[i][j] <  abs_min) abs_min = wf.radiant_waveforms[i][j]; 
+      
+        if (!all_zeroes) 
+        {
+          if (wf.radiant_waveforms[i][j] >  abs_max) abs_max = wf.radiant_waveforms[i][j]; 
+          if (wf.radiant_waveforms[i][j] <  abs_min) abs_min = wf.radiant_waveforms[i][j]; 
+        }
       }
 
 
@@ -80,8 +95,9 @@ void quick_plot(const char * file, int ev = 0, int symmetric=1, int Nev = 1, int
     }
 
 
-    double umin = symmetric ? - TMath::Max(abs_min, abs_max) : abs_min; 
-    double umax = symmetric ? TMath::Max(abs_min, abs_max) : abs_max; 
+    double umin = symmetric ? - TMath::Max(-abs_min, abs_max) : abs_min; 
+    double umax = symmetric ? TMath::Max(-abs_min, abs_max) : abs_max; 
+    printf("%g %g %g %g\n", umin,umax,abs_min,abs_max); 
     umin-= 0.1 * (umax-umin); 
     umax+= 0.1 * (umax-umin); 
     for (unsigned icd = 1; icd <= gs.size(); icd++) 
