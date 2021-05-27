@@ -51,7 +51,9 @@ int main(int nargs, char ** args)
   rno_g_header_t hd;
   rno_g_waveform_t wf; 
   radiant_compute_pedestals(rad, 0xffffff, 512, &ped); 
-//  rno_g_pedestal_dump(stdout,  &ped); 
+  FILE * fpedscsv = fopen("peds.csv","w"); 
+  rno_g_pedestal_dump(fpedscsv,  &ped); 
+  fclose(fpedscsv); 
   radiant_set_pedestals(rad,&ped); 
 
   printf("Writing out pedestals...\n");
