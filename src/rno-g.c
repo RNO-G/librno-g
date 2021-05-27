@@ -13,7 +13,7 @@
 
 #define HEADER_VER 0
 #define WF_VER 0 
-#define PED_VER 0 
+#define PED_VER 1 
 
 #define HEADER_MAGIC 0xead1 
 #define WAVEFORM_MAGIC 0xafd1 
@@ -120,14 +120,15 @@ int rno_g_header_read(rno_g_file_handle_t h, rno_g_header_t *header)
   uint32_t sum = init_cksum; 
   uint32_t wanted_sum = 0; 
   rd = 0; 
+  int rdsum = 0;
   // here we handle converting to the newest kind of header
   switch (hd.version) 
   {
 
     case HEADER_VER:
       {
-        int rd = do_read(h,sizeof(*header),header, &sum); 
-        int rdsum = do_read(h,sizeof(wanted_sum), &wanted_sum,0); 
+        rd = do_read(h,sizeof(*header),header, &sum); 
+        rdsum = do_read(h,sizeof(wanted_sum), &wanted_sum,0); 
         if (!rdsum || sum!=wanted_sum) 
         {
           fprintf(stderr,"Checksum error. Got %x, wnated %x\n", sum,wanted_sum); 
@@ -214,7 +215,7 @@ int rno_g_waveform_read(rno_g_file_handle_t h, rno_g_waveform_t *wf)
           fprintf(stderr,"Checksum error. Got %x, wanted %x\n", sum,wanted_sum); 
           return -1; 
         }
-        return rd; 
+        return rd+rdsum; 
       }
     default: 
       fprintf(stderr,"Unknown waveform version %d\n", hd.version); 
@@ -281,6 +282,7 @@ int rno_g_pedestal_dump(FILE *f, const rno_g_pedestal_t *pedestal)
   char ctime_buf[32]; 
   const char * timestr = ctime_r((time_t*) &pedestal->when, ctime_buf);
   int ret = fprintf(stdout,"PEDESTAL of %d events recorded at %s\n", pedestal->nevents, timestr); 
+  ret += fprintf(stdout,"VBIAS,%d,%d\n", pedestal->vbias[0], pedestal->vbias[1]); 
 
   for (int i = 0; i < RNO_G_NUM_RADIANT_CHANNELS; i++) 
   {
@@ -306,38 +308,65 @@ int rno_g_pedestal_write(rno_g_file_handle_t h, const rno_g_pedestal_t * pd)
   return wr; 
 }
 
+typedef struct rno_g_pedestal_v0
+{
+  uint32_t when; 
+  uint16_t nevents; 
+  uint32_t mask : 24; 
+  uint8_t flags; //TBD 
+  uint16_t pedestals[RNO_G_NUM_RADIANT_CHANNELS][RNO_G_PEDESTAL_NSAMPLES]; 
+} rno_g_pedestal_v0_t; 
+
 
 int rno_g_pedestal_read(rno_g_file_handle_t h, rno_g_pedestal_t * pd) 
 {
   io_header_t hd; 
   int rd = do_read(h, sizeof(hd), &hd,0); 
+
+  if (!rd) return 0; 
+
   if (hd.magic != PEDESTAL_MAGIC) 
   {
     fprintf(stderr,"Wrong magic! Got %hx, expected %hx\n", hd.magic, PEDESTAL_MAGIC); 
     return -1; 
-
   }
 
   uint32_t sum = init_cksum; 
   uint32_t wanted_sum = 0; 
-  int rdsum;
+  int rdsum=0;
 
   switch (hd.version) 
   {
-    case PED_VER: 
-      rd = do_read(h, sizeof(rno_g_pedestal_t), pd, &sum); 
+    case 0: 
+    {
+      rno_g_pedestal_v0_t pdv0; 
+      rd = do_read(h, sizeof(rno_g_pedestal_v0_t), &pdv0, &sum); 
       rdsum = do_read(h, sizeof(wanted_sum),&wanted_sum,0); 
-      if (!rdsum || sum != wanted_sum) 
-      {
-          fprintf(stderr,"Checksum error. Got %x, wanted %x\n", sum,wanted_sum); 
-          return -1; 
-      }
-      return rd; 
-
+      pd->when = pdv0.when; 
+      pd->nevents = pdv0.nevents; 
+      pd->mask = pdv0.mask; 
+      pd->flags = pdv0.flags; 
+      pd->vbias[0]=-1;
+      pd->vbias[1]=-1;
+      memcpy(pd->pedestals, pdv0.pedestals, sizeof(pd->pedestals)); 
+      break; 
+    }
+    case PED_VER: 
+      rd += do_read(h, sizeof(rno_g_pedestal_t), pd, &sum); 
+      rdsum = do_read(h, sizeof(wanted_sum),&wanted_sum,0); 
+      break; 
     default: 
       fprintf(stderr,"Unknown pedestal version %d\n", hd.version); 
+      return 0; 
   }
-  return 0; 
+  if (!rdsum || sum != wanted_sum) 
+  {
+     fprintf(stderr,"Checksum error. Got %x, wanted %x\n", sum,wanted_sum); 
+     return -1; 
+  }
+
+
+  return rd; 
 
 }
 

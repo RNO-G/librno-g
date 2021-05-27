@@ -156,15 +156,17 @@ typedef struct rno_g_waveform
 typedef struct rno_g_pedestal 
 {
   uint32_t when; 
-  uint16_t nevents; 
+  uint32_t nevents; 
   uint32_t mask : 24; 
   uint8_t flags; //TBD 
+  int16_t vbias[2];  //signed so that we can have -1 as unknown
   uint16_t pedestals[RNO_G_NUM_RADIANT_CHANNELS][RNO_G_PEDESTAL_NSAMPLES]; 
 } rno_g_pedestal_t; 
 
 int rno_g_pedestal_dump(FILE *f, const rno_g_pedestal_t * pedestal); 
 int rno_g_pedestal_write(rno_g_file_handle_t handle, const rno_g_pedestal_t * pedestal);
 int rno_g_pedestal_read(rno_g_file_handle_t handle, rno_g_pedestal_t * pedestal);
+
 
 
 //write in ascii format (e.g. for stdout) 
