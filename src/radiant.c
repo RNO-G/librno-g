@@ -1978,6 +1978,17 @@ int radiant_set_dc_bias (radiant_dev_t * bd, uint16_t l16, uint16_t r16)
 }
 
 
+int radiant_set_td_bias(radiant_dev_t *bd, int ich, uint16_t val) 
+{
+  if (ich < 0 || ich >= RNO_G_NUM_RADIANT_CHANNELS) return -1; 
+  //clamp 
+  if (val>4095) val = 4095;
+
+  uint32_t v32 = val; 
+  return 4!=radiant_set_mem(bd, DEST_MANAGER, BM_REG_TDBIAS_BASE + ich * BM_REG_TDBIAS_INCR, 4, (uint8_t*) &v32); 
+}
+
+
 void radiant_set_pedestals(radiant_dev_t* bd, const rno_g_pedestal_t * ped) 
 {
   bd->peds = ped; 

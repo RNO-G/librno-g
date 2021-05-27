@@ -364,6 +364,10 @@ int radiant_read(radiant_dev_t * bd, int n_read_buffers, uint16_t *  read_n_byte
 /** Sets the dc bias of left/right labs. 0-4095 representing a 3.3V range */ 
 int radiant_set_dc_bias(radiant_dev_t * bd, uint16_t left, uint16_t right); 
 
+/** Sets the trigger diode bias , 0-4095 representing a 2 V range. chan is 0-indexed. */ 
+int radiant_set_td_bias(radiant_dev_t * bd, int chan,  uint16_t val); 
+
+
 
 
 #ifdef __cplusplus
