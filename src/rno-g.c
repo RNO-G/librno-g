@@ -281,12 +281,12 @@ int rno_g_pedestal_dump(FILE *f, const rno_g_pedestal_t *pedestal)
 {
   char ctime_buf[32]; 
   const char * timestr = ctime_r((time_t*) &pedestal->when, ctime_buf);
-  int ret = fprintf(stdout,"PEDESTAL of %d events recorded at %s\n", pedestal->nevents, timestr); 
-  ret += fprintf(stdout,"VBIAS,%d,%d\n", pedestal->vbias[0], pedestal->vbias[1]); 
+  int ret = fprintf(f,"PEDESTAL of %d events recorded at %s\n", pedestal->nevents, timestr); 
+  ret += fprintf(f,"VBIAS,%d,%d\n", pedestal->vbias[0], pedestal->vbias[1]); 
 
   for (int i = 0; i < RNO_G_NUM_RADIANT_CHANNELS; i++) 
   {
-    ret += fprintf(stdout,"CH%d,", i); 
+    ret += fprintf(f,"CH%d,", i); 
     for (int j = 0; j < RNO_G_PEDESTAL_NSAMPLES; j++) 
     {
       ret+=fprintf(f, "%hd%c", pedestal->pedestals[i][j], j ==RNO_G_PEDESTAL_NSAMPLES-1?'\n':','); 
