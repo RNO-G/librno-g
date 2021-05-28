@@ -263,17 +263,22 @@ static int do_poll(radiant_dev_t * bd, int timeout)
   if (val=='1') return 1; 
   int rc= poll(&bd->interrupt_fdset,1,timeout); 
 
-  if (bd->interrupt_fdset.revents & POLLERR) 
-  {
-    return errno; 
-  }
 
-  if (rc && bd->interrupt_fdset.revents & POLLPRI) 
+  if (rc && (bd->interrupt_fdset.revents & POLLPRI))
   {
     lseek(bd->interrupt_fd,0,SEEK_SET); 
     read(bd->interrupt_fd, &val,1); 
     return val=='1'; 
   }
+  //note that POLLPRI | POLLERR seems to be the defalut response, 
+  //so checking this AFTER pollpri in case there's actually an error? 
+  if (bd->interrupt_fdset.revents & POLLERR) 
+  {
+    return errno; 
+  }
+
+
+
   if (rc == 0) return 0; 
 
   return -1; 
