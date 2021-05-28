@@ -64,7 +64,7 @@ int main(int nargs, char ** args)
   int usleepamt = sleepamt * 1e6; 
 
   rno_g_pedestal_t ped; 
-  for (int val = 0; val <4096; val+= step) 
+  for (int val = 0; val <3072; val+= step) 
   {
     radiant_set_dc_bias(rad,val,val); 
     printf("BIAS=%d\n", val); 
