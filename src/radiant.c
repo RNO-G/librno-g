@@ -149,7 +149,15 @@ typedef enum
   RAD_REG_EV_SYSCLK                   =  0x30008, 
   RAD_REG_EV_LASTSYSCLK               =  0x3000c, 
   RAD_REG_EV_FIFO_BASE                =  0x30100, 
-  RAD_REG_THRESH_BASE                 = 0x30200, 
+  RAD_REG_TRIGTHRESH_BASE             = 0x30200, 
+  RAD_REG_TRIGTHRESH_INCR             = 0x04,
+  RAD_REG_TRIG_MASTEREN               = 0x30600, 
+  RAD_REG_TRIG_TRIGINEN               = 0x30604, 
+  RAD_REG_TRIG_PULSECTRL              = 0x30608, 
+  RAD_REG_TRIG_TRIGEN0                = 0x30700, 
+  RAD_REG_TRIG_TRIGMASKB0             = 0x30704, 
+  RAD_REG_TRIG_TRIGWINDOW0            = 0x30708, 
+  RAD_REG_TRIG_TRIGTHRESH0            = 0x3070c,  //this is number of channels that must pass
 
   //SCALER space
   RAD_REG_SCALER_BASE                 = 0x40000 , 
@@ -1730,7 +1738,7 @@ int radiant_dma_setup_event(radiant_dev_t*bd, uint32_t mask)
 
   //set up a descriptor for the thresholds (do we really want to read this all the time ? it adds a slight amount of overhead) 
   //may make sense to only occassionally read via uart considering we'll to change? 
-  desc.addr = RAD_REG_THRESH_BASE ; 
+  desc.addr = RAD_REG_TRIGTHRESH_BASE; 
   desc.length = sizeof (struct fw_trigthresh) / sizeof(uint32_t); 
   desc.incr =1 ; 
   desc.last = 1; 
