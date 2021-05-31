@@ -173,7 +173,10 @@ typedef enum
 
 
   //SCALER space
-  RAD_REG_SCALER_BASE                 = 0x40000 , 
+  RAD_REG_SCALER_PERIOD                 = 0x40000, 
+  RAD_REG_SCALER_PRESCALECTL            = 0x40004, 
+  RAD_REG_SCALER_SCALMAP_BASE           = 0x40080, 
+  RAD_REG_SCALER_SCAL_BASE              = 0x40800, 
 
   //CALRAM Space ? 
   RAD_REG_CALRAM_BASE               = 0x80000, 
@@ -2385,6 +2388,47 @@ int radiant_get_trigger_thresholds(radiant_dev_t * bd, int ichan_start, int icha
 
   return 0; 
 }
+
+
+int radiant_set_scaler_period(radiant_dev_t * bd, float period) 
+{
+  if (!bd) return -1; 
+  if (period < 0) return -1; 
+  uint32_t mem = 0; 
+  if (period==0)
+  {
+     mem = 1 << 31; 
+  }
+  else
+  {
+    const uint32_t max_uperiod = ( 1u << 31) -1; 
+    const float max_period = max_uperiod * 1e-6; 
+    if (period > max_period) period = max_period; 
+    uint32_t uperiod = period*1e6; 
+    if (uperiod > max_uperiod) uperiod = max_uperiod; //just in case
+    mem = uperiod; 
+  }
+
+  return 4!=radiant_set_mem(bd, DEST_FPGA, RAD_REG_SCALER_PERIOD, 4, (uint8_t*) &mem); 
+}
+
+int radiant_set_prescaler(radiant_dev_t * bd, int scaler, uint8_t prescale_m1) 
+{
+  if (scaler < 0 || scaler > 31 || !bd) return -1; 
+
+  uint32_t mem = (scaler << 24) | prescale_m1; 
+  return 4!=radiant_set_mem(bd, DEST_FPGA, RAD_REG_SCALER_PRESCALECTL, 4, (uint8_t*) &mem); 
+}
+
+int radiant_get_scalers(radiant_dev_t * bd, int sc0, int sc1, uint16_t * scalers) 
+{
+  if (sc0 < 0 || sc1 > 31 || !bd || sc0 > sc1 || !scalers) return -1; 
+
+  int nscalers = (sc1-sc0)+1; 
+  return 2*nscalers != radiant_get_mem(bd, DEST_FPGA, RAD_REG_SCALER_SCAL_BASE + sc0*2, nscalers*2, (uint8_t*) scalers); 
+}
+
+
 
 
 
