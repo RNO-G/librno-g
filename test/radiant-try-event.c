@@ -180,10 +180,10 @@ int main(int nargs, char ** args)
   //this seems to clear the extra triggers too? 
   radiant_reset_counters(rad); 
 
-  radiant_dma_setup_event(rad, 0xffffff); 
   radiant_labs_start(rad); 
 
   radiant_set_nbuffers_per_readout(rad, nbuffers); 
+  radiant_dma_setup_event(rad, 0xffffff); 
 
   int enables = 0; 
 
@@ -280,11 +280,7 @@ int main(int nargs, char ** args)
   printf("  Note: for fastest speed, don't let this print to your terminal!!!\n"); 
 
 
-  //we can stop the labs too , which by side effect also reverts to 1-buffer readout
   radiant_labs_stop(rad); 
-
-  //set up DMA for one buffer, just in case someone else is relying on it 
-  radiant_dma_setup_event(rad, 0xffffff); 
 
   rno_g_close_handle(&eh); 
   rno_g_close_handle(&hh); 
