@@ -127,6 +127,9 @@ int radiant_internal_trigger(radiant_dev_t *bd, int howmany, int block);
 /** Sends a soft trrgger */
 int radiant_soft_trigger(radiant_dev_t *bd); 
 
+/** Checks if trigger is busy */ 
+int radiant_trigger_busy(radiant_dev_t * bd, int * bsy); 
+
 
 
 /***********************************************************
@@ -363,18 +366,25 @@ typedef enum
   RADIANT_TRIGOUT_SOFT = 512, //global enable
   RADIANT_TRIGOUT_PPS = 1024, //global enable
   RADIANT_TRIG_CPUFLOW = 65536, //global enable
-  RADIANT_TRIG_QUERY = 16777216 // If set, will ignore rest of bits and just return what is currently set(or RADIANT_TRIG_QUERY if there's an error)
+  RADIANT_TRIG_QUERY = 16777216, // If set, will ignore rest of bits and just return what is currently set(or RADIANT_TRIG_QUERY if there's an error)
+  RADIANT_TRIG_DISMASK_QUERY = 33554432 // If set, will ignore rest of bits and just return the trig disable mask. 
  
 } e_radiant_trig_enables;
 
-int radiant_trigger_enable(radiant_dev_t * bd, int enables); 
+int radiant_trigger_enable(radiant_dev_t * bd, int enables, uint32_t disable_mask); 
 
 /** Sets the trigout length, will be rounded to nearest 10 ns */ 
 int radiant_trigout_set_length(radiant_dev_t *bd, int ns);
 int radiant_trigout_get_length(radiant_dev_t *bd, int * ns);
 
+/** Use 0 to use pps for period instead of clock */ 
+int radiant_set_scaler_period(radiant_dev_t * bd, float period); 
+int radiant_set_prescaler(radiant_dev_t * bd, int scaler, uint8_t prescale_minus_one); 
+int radiant_get_scalers(radiant_dev_t * bd, int start, int end, uint16_t * scalers); 
+
 
 int radiant_cpu_clear(radiant_dev_t *bd); 
+int radiant_cpu_clear_pending(radiant_dev_t *bd, int * pending); 
 
 typedef enum radiant_trig_sel
 {
@@ -418,7 +428,6 @@ int radiant_set_dc_bias(radiant_dev_t * bd, uint16_t left, uint16_t right);
 
 /** Sets the trigger diode bias , 0-4095 representing a 2 V range. chan is 0-indexed. */ 
 int radiant_set_td_bias(radiant_dev_t * bd, int chan,  uint16_t val); 
-
 
 
 
