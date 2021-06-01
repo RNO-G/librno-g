@@ -40,11 +40,6 @@ struct fw_event_header
   uint32_t sysclk_last_last_pps;
 }; 
 
-struct fw_trigthresh
-{
-  uint32_t thresholds[128]; 
-};
-
 
 
 // BOARD MANAGER REGISTERS
@@ -273,8 +268,6 @@ struct radiant_dev
   int cleanup_spi_gpio; 
   int nbuffers_per_readout; // 1 for 1024 mode, 2 for 2048 mode
   int calram; //calram mode
-  struct fw_trigthresh trig_thresh; 
-  double last_trig_thresh_updated; 
   const rno_g_pedestal_t * peds; 
   uint16_t vbias[2]; 
   uint32_t triginen; 
@@ -633,10 +626,6 @@ int radiant_read_event(radiant_dev_t * bd, rno_g_header_t * hd, rno_g_waveform_t
 
   int nactual = iactual; 
 
-  //TODO: revisit if we want to read the thresholds each time, it adds a few percent overhead
-  Ns[1+iactual] = sizeof(bd->trig_thresh); 
-  bufs[1+iactual] =(uint8_t*) &bd->trig_thresh; 
-
   struct timespec start; 
   struct timespec end; 
 
@@ -660,7 +649,6 @@ int radiant_read_event(radiant_dev_t * bd, rno_g_header_t * hd, rno_g_waveform_t
   hd->readout_time_secs = start.tv_sec; 
   hd->readout_time_nsecs = start.tv_nsec; 
   hd->readout_elapsed_nsecs = (end.tv_nsec - start.tv_nsec) + 1000000000 * (end.tv_sec-start.tv_sec); 
-  bd->last_trig_thresh_updated = start.tv_sec + 1e-9*(0.5*hd->readout_elapsed_nsecs  + start.tv_nsec) ; 
   hd->run_number = bd->run; 
   hd->sysclk_last_pps = fwhd.sysclk_last_pps; 
   hd->sysclk_last_last_pps = fwhd.sysclk_last_last_pps; 
@@ -1111,8 +1099,8 @@ int radiant_dump(radiant_dev_t *dev, FILE * stream, int flags)
   fprintf(stream,"=====RADIANT DUMP of handle at 0x%p======\n", dev); 
   fprintf(stream,"    BM_DATE_VERSION: %u.%u.%u (%u/%u/%u) \n", dev->bm_dateversion.major, dev->bm_dateversion.minor, dev->bm_dateversion.rev, 
                       dev->bm_dateversion.year, dev->bm_dateversion.month, dev->bm_dateversion.day ); 
-  fprintf(stream,"    RAD_DATE_VERSION: %u.%u.%u (%u/%u/%u) \n", dev->rad_dateversion.major, dev->rad_dateversion.minor, dev->rad_dateversion.rev, 
-                      dev->rad_dateversion.year, dev->rad_dateversion.month, dev->rad_dateversion.day ); 
+  fprintf(stream,"    RAD_DATE_VERSION: %u.%u.%u (%u/%u/%u) = %d \n", dev->rad_dateversion.major, dev->rad_dateversion.minor, dev->rad_dateversion.rev, 
+                      dev->rad_dateversion.year, dev->rad_dateversion.month, dev->rad_dateversion.day , dev->rad_dateversion_int); 
 
 
   if (flags & RADIANT_DUMP_UPDATE_GPIOS || dev->paranoid_about_gpios) 
@@ -1991,7 +1979,7 @@ int radiant_labs_stop(radiant_dev_t *dev)
   }
 
   //make we sure in single-buffer mode! 
-  radiant_set_nbuffers_per_readout(dev,1); 
+  if (dev->rad_dateversion_int <= 227) radiant_set_nbuffers_per_readout(dev,1); 
 
   return 0; 
 }
@@ -2384,7 +2372,7 @@ int radiant_configure_rf_trigger(radiant_dev_t *bd, radiant_trig_sel_t which,
     iwin++; 
   }
 
-  mem = win[0] | (win[1] << 5) |( win[2] << 10) | (win[3] << 15); 
+  mem = (win[0] | (win[1] << 5) |( win[2] << 10) | (win[3] << 15)); 
   if ( 4!= radiant_set_mem(bd, DEST_FPGA, 
       which == RADIANT_TRIG_A ? RAD_REG_TRIG_TRIGWINDOW0 : RAD_REG_TRIG_TRIGWINDOW1, 
       4, (uint8_t*) &mem)) return 1; 
@@ -2411,7 +2399,7 @@ int radiant_set_trigger_thresholds_float(radiant_dev_t * bd, int ichan_start, in
   {
     if (threshold_V[ichan] > 2.5) vals[ichan] = 16777215; 
     else if (threshold_V[ichan] < 0 ) vals[ichan] = 0; 
-    else vals[ichan] = (threshold_V[ichan] / 2.5 ) * (16777215); 
+    else vals[ichan] = (threshold_V[ichan] / 2.5 * 16777215); 
   }
 
   return radiant_set_trigger_thresholds(bd,ichan_start, ichan_end, vals+ichan_start); 
@@ -2421,8 +2409,38 @@ int radiant_set_trigger_thresholds(radiant_dev_t * bd, int ichan_start, int icha
 {
   if (ichan_start < 0 || ichan_end > 24 || ichan_start > ichan_end || !bd || !vals) return -1; 
 
+  //if any are 0, let's just disable? 
+
+  uint32_t oeb = 0;
+  if (4!= radiant_get_mem(bd,DEST_FPGA, RAD_REG_TRIG_THRESH_OEB, 4, (uint8_t*) &oeb)) return 1; 
+  uint32_t new_oeb = oeb;
+  for (int i = ichan_start; i <= ichan_end; i++) 
+  {
+    if (vals[i-ichan_start]) 
+    {
+      new_oeb &= ~(1 << i); 
+    }
+    else
+    {
+      new_oeb |= (1 << i); 
+    }
+  }
+
+  //otehrwise make sure they are enabled
+
   int nchan = (ichan_end-ichan_start)+1; 
-  return (4*nchan!=radiant_set_mem(bd, DEST_FPGA, RAD_REG_TRIG_THRESH_BASE+RAD_REG_TRIG_THRESH_INCR * ichan_start, 4*nchan, (uint8_t*) (vals))); 
+  if (4*nchan!=radiant_set_mem(bd, DEST_FPGA, RAD_REG_TRIG_THRESH_BASE+RAD_REG_TRIG_THRESH_INCR * ichan_start, 4*nchan, (uint8_t*) (vals))) return 1; 
+
+  if (new_oeb != oeb)
+  {
+//    printf("new_oeb: %x  old_oeb: %x\n", new_oeb, oeb) ; 
+    if (4!= radiant_set_mem(bd,DEST_FPGA, RAD_REG_TRIG_THRESH_OEB, 4, (uint8_t*) &new_oeb)) return 1; 
+  }
+
+  return 0;
+
+
+
 }
 
 
@@ -2516,7 +2534,7 @@ int radiant_read_daqstatus(radiant_dev_t * bd, rno_g_daqstatus_t * ds)
   struct timespec start; 
   struct timespec end; 
 
-  memcpy(ds->prescalers, bd->prescal, sizeof(*bd->prescal)); 
+  memcpy(ds->prescalers, bd->prescal, RNO_G_NUM_RADIANT_CHANNELS); 
 
   clock_gettime(CLOCK_REALTIME,&start); 
   //TODO just cache these... no need to readback  
