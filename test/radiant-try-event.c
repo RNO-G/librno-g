@@ -5,6 +5,7 @@
 #include <stdlib.h> 
 #include <unistd.h> 
 #include <time.h> 
+#include <signal.h> 
 
 
 static int instrumented_poll(radiant_dev_t * rad, int timeout) 
@@ -23,22 +24,114 @@ static int instrumented_poll(radiant_dev_t * rad, int timeout)
 }
 
 
+int usage() 
+{
+  printf("radiant-try-event [-N NEVENTS=100] [-b buffers=2] [-M TRIGMASK=0x37b000] [-W TRIGWINDOW=20] [-T THRESH=0.2] [-M MINCOINCIDENT =3] [-B BIAS=1550]  [-z] [-f] [-c] [-h]\n"); 
+  printf("  -N NEVENTS number of events"); 
+  printf("  -b BUFFERS number of buffers"); 
+  printf("  -M TRIGMASK  trigger mask used (default 0x37b000)"); 
+  printf("  -W TRIGWINDOW  ns for trig window") ;
+  printf("  -T TRIGTHRESH  V") ;
+  printf("  -M MINCOINCIDENT  minimum concident") ;
+  printf("  -B BIAS  the DAC count for the biask") ;
+  printf("  -z gzip poutput"); ;
+  printf("  -f force triggers"); 
+  printf("  -c trigger clear mode"); 
+  printf("  -h this message"); 
+  exit(1); 
+
+}
+
+
+volatile int quit = 0; 
+void sighandler(int sig) 
+{
+  printf("Got signal %d, quitting\n", sig); 
+  quit =1; 
+}
+
 int main(int nargs, char ** args) 
 {
   int N = 100; 
   int nbuffers = 2; 
   int gzipped = 0;
-  if (nargs > 1) N = atoi(args[1]); 
-  if (nargs > 2) nbuffers = atoi(args[2]); 
-  if (nargs > 3) gzipped = atoi(args[3]); 
+  int force = 0; 
+  int clearmode = 0; 
+  uint32_t trigmask = 0x37b000; 
+  float trigwindow = 20; 
+  float trigthresh = 0.2; 
+  uint8_t mincoincident = 3; 
+  uint16_t bias = 1550; 
 
+  for (int i = 1; i < nargs; i++) 
+  {
 
-  radiant_dev_t * rad = radiant_open("/dev/spi/0.0", "/dev/ttyRadiant", 46, -61); //not sure if right gpio yet 
+    int last = (i == (nargs-1)); 
+
+    if (!strcmp(args[i],"-h"))
+    {
+      usage(); 
+    }
+
+    else if (!strcmp(args[i],"-f"))
+    {
+      force = 1; 
+    }
+
+    else if (!strcmp(args[i],"-z"))
+    {
+      gzipped = 1; 
+    }
+
+    else if (!strcmp(args[i],"-c"))
+    {
+      clearmode = 1; 
+    }
+
+    else if(!last) 
+    {
+      if (!strcmp(args[i],"-N"))
+      {
+        N = atoi(args[++i]);
+      }
+      if (!strcmp(args[i],"-b"))
+      {
+        nbuffers = atoi(args[++i]);
+      }
+ 
+      else if (!strcmp(args[i],"-M"))
+      {
+         trigmask = strtol(args[++i], 0, 0);
+      }
+      else if (!strcmp(args[i],"-W"))
+      {
+        trigwindow = atof(args[++i]); 
+      }
+      else if (!strcmp(args[i],"-T"))
+      {
+        trigthresh = atof(args[++i]); 
+      }
+      else if (!strcmp(args[i],"-M"))
+      {
+        mincoincident = atoi(args[++i]); 
+      }
+    }
+    else 
+    {
+      usage(); 
+    }
+
+  }
+
+  radiant_dev_t * rad = radiant_open("/dev/spi/0.0", "/dev/ttyRadiant", 46, -61);
   if (!rad) return 1; 
 
-  printf("Setting DC bias to 1550\n"); 
-  //set reasonable dc bias
-  radiant_set_dc_bias(rad,1550,1550); 
+  if (bias) 
+  {
+    printf("Setting DC bias to %u\n",bias); 
+    //set reasonable dc bias
+    radiant_set_dc_bias(rad,bias,bias); 
+  }
   sleep(1); 
 
 
@@ -74,8 +167,46 @@ int main(int nargs, char ** args)
   radiant_dma_setup_event(rad, 0xffffff); 
   radiant_labs_start(rad); 
 
+  int enables = 0; 
 
   printf("\nStarting %s readout using %d buffer%s!\n", gzipped ? "gzipped" : "uncompresed", nbuffers, nbuffers == 2 ? "s" : ""); 
+  if (force) 
+  {
+    printf("Using force triggers\n"); 
+  }
+  else
+  {
+    printf("Using RF triggers:  MASK: 0x%x, THRESH: %f V, WINDOW: %f ns, MINCOINC: %d\n", trigmask, trigthresh, trigwindow, mincoincident); 
+    enables |= RADIANT_TRIG_EN; 
+
+    //let's set the thresholds now (for all channels) 
+    
+    float all_thresh[RNO_G_NUM_RADIANT_CHANNELS]; 
+    for (int i = 0; i < RNO_G_NUM_RADIANT_CHANNELS; i++) 
+    {
+      all_thresh[i] = trigthresh; 
+
+    }
+
+    radiant_set_trigger_thresholds(rad,0, RNO_G_NUM_RADIANT_CHANNELS-1, all_thresh); 
+
+    //we'll use TRIG A
+    radiant_configure_rf_trigger(rad,RADIANT_TRIG_A, trigmask, mincoincident, trigwindow); 
+
+    //make sure TRIG B isn't doing anything
+    radiant_configure_rf_trigger(rad,RADIANT_TRIG_B, 0, 0, 0); 
+  }
+
+
+  if (clearmode)
+  {
+    printf("Clear mode is on\n"); 
+    enables |= RADIANT_TRIG_CPUFLOW; 
+  }
+
+  radiant_trigger_enable(rad, enables,0); 
+
+
 
   rno_g_file_handle_t hh;
   rno_g_file_handle_t eh;
@@ -83,17 +214,34 @@ int main(int nargs, char ** args)
   rno_g_init_handle(&hh, gzipped ? "/data/test/header.dat.gz" : "/data/test/header.dat", "w");
   rno_g_init_handle(&eh, gzipped ? "/data/test/wfs.dat.gz" : "/data/test/wfs.dat", "w");
 
+
+  signal(SIGINT, sighandler); 
+
   struct timespec start;
   struct timespec stop;
   clock_gettime(CLOCK_REALTIME,&start);
-  for (int i = 0; i < N; i++) 
+
+  int i = 0;
+  for (i = 0; i < N; i++) 
   {
+    if (quit) break;
     printf("====%d=====\n",i); 
 
 
-    radiant_force_trigger(rad,1,0); 
+    if (force) 
+    {
+      radiant_soft_trigger(rad); 
+    }
 
-    while(!instrumented_poll(rad,10)); 
+    while(!instrumented_poll(rad,10) && !quit); 
+
+    if (quit) break; 
+
+    if (clearmode) 
+    {
+      radiant_cpu_clear(rad); 
+    }
+
 
     radiant_read_event(rad, &hd, &wf); 
 
@@ -104,7 +252,7 @@ int main(int nargs, char ** args)
 
   clock_gettime(CLOCK_REALTIME,&stop);
   double time = stop.tv_sec - start.tv_sec + 1e-9*(stop.tv_nsec - start.tv_nsec); 
-  printf("Elapsed time: %g, (%g Hz)\n",  time, N/time); 
+  printf("Elapsed time: %g, (%g Hz)\n",  time, i/time); 
   printf("  Note: for fastest speed, don't let this print to your terminal!!!\n"); 
 
 
