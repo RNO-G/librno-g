@@ -274,6 +274,7 @@ struct radiant_dev
   uint32_t trigAen; 
   uint32_t trigBen; 
   uint8_t prescal[RNO_G_NUM_RADIANT_CHANNELS]; 
+  uint32_t thresh[RNO_G_NUM_RADIANT_CHANNELS]; 
 }; 
 
 
@@ -1060,6 +1061,11 @@ radiant_dev_t * radiant_open(const char *spi_device, const char * uart_device, i
   // so you have to set it if you want to know what it is :) , 
   dev->vbias[0] = -1; 
   dev->vbias[1] = -1; 
+
+  for (in i = 0; i < RNO_G_NUM_RADIANT_CHANNELS; i++) 
+  {
+    dev->thresh[i] = RADIANT_THRESHOLD_UNKNOWN; 
+  } 
 
   return dev; 
 }
@@ -2427,6 +2433,9 @@ int radiant_set_trigger_thresholds(radiant_dev_t * bd, int ichan_start, int icha
     {
       new_oeb |= (1 << i); 
     }
+
+    //cache the threshold 
+    bd->thresh[i] = vals[i-ichan_start]; 
   }
 
   //otehrwise make sure they are enabled
@@ -2453,8 +2462,10 @@ int radiant_get_trigger_thresholds(radiant_dev_t * bd, int ichan_start, int icha
 
 
   int nchan = (ichan_end-ichan_start)+1; 
-
-  return 4*nchan!=radiant_get_mem(bd, DEST_FPGA, RAD_REG_TRIG_THRESH_BASE+RAD_REG_TRIG_THRESH_INCR * ichan_start, 4*nchan, (uint8_t*) (vals)); 
+  memcpy(vals, bd->thresh+ichan_start, 4*nchan); 
+  return 0; 
+// no readback yet
+//  return 4*nchan!=radiant_get_mem(bd, DEST_FPGA, RAD_REG_TRIG_THRESH_BASE+RAD_REG_TRIG_THRESH_INCR * ichan_start, 4*nchan, (uint8_t*) (vals)); 
 }
 
 int radiant_get_trigger_thresholds_float(radiant_dev_t * bd, int ichan_start, int ichan_end, float  * threshold_V) 

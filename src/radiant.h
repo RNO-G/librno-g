@@ -360,7 +360,14 @@ int radiant_get_mem(radiant_dev_t* bd, radiant_dest_t dest, uint32_t addr, uint8
 
 int radiant_set_trigger_thresholds_float(radiant_dev_t * bd, int ichan_start, int chan_end,  const float * threshold_V); 
 int radiant_get_trigger_thresholds_float(radiant_dev_t * bd, int ichan_start, int ichan_end, float * threshold_V); 
+
+
 int radiant_set_trigger_thresholds(radiant_dev_t * bd, int ichan_start, int chan_end,  const uint32_t * threshold_V); 
+
+typedef enum
+{
+  RADIANT_THRESHOLD_UNKNOWN=0xffffffff; 
+} e_radiant_thresh_consts; 
 int radiant_get_trigger_thresholds(radiant_dev_t * bd, int ichan_start, int ichan_end, uint32_t * threshold_V); 
 
 
