@@ -50,6 +50,22 @@ void sighandler(int sig)
   quit =1; 
 }
 
+int last_daqstatus = 0;
+int maybe_dump_daqstatus(radiant_dev_t * rad, rno_g_file_handle_t h,  rno_g_daqstatus_t* ds )
+{
+
+  int now = time(0); 
+  if (now > last_daqstatus+10)
+  {
+    radiant_read_daqstatus(rad, ds); 
+    rno_g_daqstatus_write(h, ds); 
+    rno_g_daqstatus_dump(stdout,ds);
+    last_daqstatus = now; 
+    return 1;
+  }
+  return 0; 
+}
+
 int main(int nargs, char ** args) 
 {
   int N = 100; 
@@ -144,6 +160,7 @@ int main(int nargs, char ** args)
   rno_g_pedestal_t ped; 
   rno_g_header_t hd;
   rno_g_waveform_t wf; 
+  rno_g_daqstatus_t ds; 
   radiant_compute_pedestals(rad, 0xffffff, 512, &ped); 
 
   // csv for debugging purposes for now 
@@ -163,9 +180,10 @@ int main(int nargs, char ** args)
   //this seems to clear the extra triggers too? 
   radiant_reset_counters(rad); 
 
-  radiant_set_nbuffers_per_readout(rad, nbuffers); 
   radiant_dma_setup_event(rad, 0xffffff); 
   radiant_labs_start(rad); 
+
+  radiant_set_nbuffers_per_readout(rad, nbuffers); 
 
   int enables = 0; 
 
@@ -177,7 +195,6 @@ int main(int nargs, char ** args)
   else
   {
     printf("Using RF triggers:  MASK: 0x%x, THRESH: %f V, WINDOW: %f ns, MINCOINC: %d\n", trigmask, trigthresh, trigwindow, mincoincident); 
-    enables |= RADIANT_TRIG_EN; 
 
     //let's set the thresholds now (for all channels) 
     
@@ -188,7 +205,8 @@ int main(int nargs, char ** args)
 
     }
 
-    radiant_set_trigger_thresholds(rad,0, RNO_G_NUM_RADIANT_CHANNELS-1, all_thresh); 
+    enables |= RADIANT_TRIG_EN; 
+    radiant_set_trigger_thresholds_float(rad,0, RNO_G_NUM_RADIANT_CHANNELS-1, all_thresh); 
 
     //we'll use TRIG A
     radiant_configure_rf_trigger(rad,RADIANT_TRIG_A, trigmask, mincoincident, trigwindow); 
@@ -196,6 +214,7 @@ int main(int nargs, char ** args)
     //make sure TRIG B isn't doing anything
     radiant_configure_rf_trigger(rad,RADIANT_TRIG_B, 0, 0, 0); 
   }
+
 
 
   if (clearmode)
@@ -210,13 +229,14 @@ int main(int nargs, char ** args)
 
   rno_g_file_handle_t hh;
   rno_g_file_handle_t eh;
+  rno_g_file_handle_t dsh;
 
   rno_g_init_handle(&hh, gzipped ? "/data/test/header.dat.gz" : "/data/test/header.dat", "w");
   rno_g_init_handle(&eh, gzipped ? "/data/test/wfs.dat.gz" : "/data/test/wfs.dat", "w");
+  rno_g_init_handle(&dsh, gzipped ? "/data/test/daqstatus.dat.gz" : "/data/test/daqstatus.dat", "w");
 
 
   signal(SIGINT, sighandler); 
-
   struct timespec start;
   struct timespec stop;
   clock_gettime(CLOCK_REALTIME,&start);
@@ -233,17 +253,21 @@ int main(int nargs, char ** args)
       radiant_soft_trigger(rad); 
     }
 
-    while(!instrumented_poll(rad,10) && !quit); 
+    maybe_dump_daqstatus(rad,dsh,&ds);
+
+    while(!instrumented_poll(rad,100) && !quit) 
+    {
+      maybe_dump_daqstatus(rad,dsh,&ds);
+    }
 
     if (quit) break; 
+
+    radiant_read_event(rad, &hd, &wf); 
 
     if (clearmode) 
     {
       radiant_cpu_clear(rad); 
     }
-
-
-    radiant_read_event(rad, &hd, &wf); 
 
     rno_g_header_dump(stdout, &hd);
     rno_g_header_write(hh, &hd); 
