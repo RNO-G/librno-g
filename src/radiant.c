@@ -1840,13 +1840,17 @@ int radiant_soft_trigger(radiant_dev_t *bd)
   return 4!=radiant_set_mem(bd, DEST_FPGA, RAD_REG_TRIG_OVLDCTRL, 4, (uint8_t*) &mem); 
 }
 
-int radiant_trigger_busy(radiant_dev_t *bd, int *bsy) 
+int radiant_trigger_busy(radiant_dev_t *bd, int *bsy, int * pending) 
 {
   if (!bd) return -1; 
 
   if (bd->rad_dateversion_int <= 227) return -1; 
 
-  return 4!=radiant_get_mem(bd, DEST_FPGA, RAD_REG_TRIG_OVLDCTRL, 4, (uint8_t*) bsy); 
+  uint32_t mem = 0; 
+  if (4!=radiant_get_mem(bd, DEST_FPGA, RAD_REG_TRIG_OVLDCTRL, 4, (uint8_t*) &mem)) return 1; 
+  if (bsy) *bsy = mem & 1; 
+  if (pending) *pending = (mem >> 1) & 1; 
+  return 0; 
 }
 
 

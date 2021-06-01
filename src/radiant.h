@@ -129,8 +129,10 @@ int radiant_internal_trigger(radiant_dev_t *bd, int howmany, int block);
 /** Sends a soft trrgger */
 int radiant_soft_trigger(radiant_dev_t *bd); 
 
-/** Checks if trigger is busy */ 
-int radiant_trigger_busy(radiant_dev_t * bd, int * bsy); 
+/** Checks if trigger is busy  (and if a CPU clear is pending, set either to NULL if you don't care)*/ 
+int radiant_trigger_busy(radiant_dev_t * bd, int * bsy, int * clear_pending); 
+
+int radiant_cpu_clear(radiant_dev_t *bd); 
 
 
 
@@ -400,8 +402,6 @@ int radiant_set_prescaler(radiant_dev_t * bd, int scaler, uint8_t prescale_minus
 int radiant_get_scalers(radiant_dev_t * bd, int start, int end, uint16_t * scalers); 
 
 
-int radiant_cpu_clear(radiant_dev_t *bd); 
-int radiant_cpu_clear_pending(radiant_dev_t *bd, int * pending); 
 
 typedef enum radiant_trig_sel
 {
