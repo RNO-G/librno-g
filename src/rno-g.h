@@ -152,6 +152,12 @@ typedef struct rno_g_waveform
   uint8_t lt_waveforms[RNO_G_NUM_LT_CHANNELS][RNO_G_MAX_LT_NSAMPLES]; // 8-bit digitizer 
 } rno_g_waveform_t; 
 
+//write in ascii format (e.g. for stdout) 
+int rno_g_waveform_dump(FILE *f, const rno_g_waveform_t * waveform);
+// write in binary format 
+int rno_g_waveform_write(rno_g_file_handle_t handle, const rno_g_waveform_t * waveform);
+int rno_g_waveform_read(rno_g_file_handle_t handle, rno_g_waveform_t * waveform);
+
 
 typedef struct rno_g_pedestal 
 {
@@ -168,12 +174,6 @@ int rno_g_pedestal_write(rno_g_file_handle_t handle, const rno_g_pedestal_t * pe
 int rno_g_pedestal_read(rno_g_file_handle_t handle, rno_g_pedestal_t * pedestal);
 
 
-
-//write in ascii format (e.g. for stdout) 
-int rno_g_waveform_dump(FILE *f, const rno_g_waveform_t * waveform);
-// write in binary format 
-int rno_g_waveform_write(rno_g_file_handle_t handle, const rno_g_waveform_t * waveform);
-int rno_g_waveform_read(rno_g_file_handle_t handle, rno_g_waveform_t * waveform);
 
 
 
