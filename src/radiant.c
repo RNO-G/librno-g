@@ -156,6 +156,7 @@ typedef enum
 
   RAD_REG_TRIG_OVLDCFG                = 0x30400, 
   RAD_REG_TRIG_OVLDCTRL               = 0x30404, 
+  RAD_REG_TRIG_OVLDCHCFG              = 0x30408, 
 
   RAD_REG_TRIG_MASTEREN               = 0x30600, 
   RAD_REG_TRIG_TRIGINEN               = 0x30604, 
@@ -1833,6 +1834,16 @@ int radiant_soft_trigger(radiant_dev_t *bd)
   return 4!=radiant_set_mem(bd, DEST_FPGA, RAD_REG_TRIG_OVLDCTRL, 4, (uint8_t*) &mem); 
 }
 
+int radiant_trigger_busy(radiant_dev_t *bd, int *bsy) 
+{
+  if (!bd) return -1; 
+
+  if (bd->rad_dateversion_int <= 227) return -1; 
+
+  return 4!=radiant_get_mem(bd, DEST_FPGA, RAD_REG_TRIG_OVLDCTRL, 4, (uint8_t*) bsy); 
+}
+
+
 int radiant_cpu_clear(radiant_dev_t *bd) 
 {
   if (!bd || bd->rad_dateversion_int <=227) return -1; 
@@ -1841,14 +1852,48 @@ int radiant_cpu_clear(radiant_dev_t *bd)
   return 4!=radiant_set_mem(bd, DEST_FPGA, RAD_REG_TRIG_OVLDCTRL, 4, (uint8_t*) &mem); 
 }
 
+int radiant_cpu_clear_pending(radiant_dev_t *bd, int *pending) 
+{
+  if (!bd) return -1; 
+
+  if (bd->rad_dateversion_int <= 227) return -1; 
+
+  uint32_t mem = 0;  
+  if (4!=radiant_get_mem(bd, DEST_FPGA, RAD_REG_TRIG_OVLDCTRL, 4, (uint8_t*) &mem)) return 1; 
+
+  *pending = mem >> 1; 
+  return 0;
+}
+
+
 
 
 const uint32_t enable_mask = RADIANT_TRIG_EN | RADIANT_TRIG_EXT | RADIANT_TRIG_PPS | RADIANT_TRIGOUT_EN | RADIANT_TRIGOUT_SOFT | RADIANT_TRIGOUT_PPS | RADIANT_TRIG_CPUFLOW; 
-int radiant_trigger_enable(radiant_dev_t *bd, int enables) 
+
+int radiant_trigger_enable(radiant_dev_t *bd, int enables, uint32_t disable_mask) 
 {
   if (!bd || bd->rad_dateversion_int <=227) return -1; 
 
   uint32_t mem = 0; 
+
+
+  if (enables == RADIANT_TRIG_DISMASK_QUERY) 
+  {
+    if (4!=radiant_get_mem(bd, DEST_FPGA, RAD_REG_TRIG_OVLDCHCFG, 4, (uint8_t*) &mem)) 
+    {
+      return RADIANT_TRIG_DISMASK_QUERY; 
+    }
+
+    return (int) mem; 
+  }
+
+  //set the new disable mask 
+  if (4!=radiant_set_mem(bd, DEST_FPGA, RAD_REG_TRIG_OVLDCHCFG, 4, (uint8_t*) &disable_mask)) 
+  {
+      return 1; 
+  }
+
+  //Get the enables 
   if (4!=radiant_get_mem(bd, DEST_FPGA, RAD_REG_TRIG_OVLDCFG, 4, (uint8_t*) &mem)) 
   {
     return  enables == RADIANT_TRIG_QUERY ? RADIANT_TRIG_QUERY : 1; 
@@ -1865,6 +1910,8 @@ int radiant_trigger_enable(radiant_dev_t *bd, int enables)
   //set the new mask 
   mem |= (enables & enable_mask); 
   return  4!=radiant_set_mem(bd, DEST_FPGA, RAD_REG_TRIG_OVLDCFG, 4, (uint8_t*) &mem);
+
+
 }
 
 int radiant_trigout_set_length(radiant_dev_t * bd, int ns) 
@@ -2147,12 +2194,12 @@ const rno_g_pedestal_t *  radiant_get_pedestals(radiant_dev_t* bd)
 
 int radiant_set_nbuffers_per_readout(radiant_dev_t *bd, int nbuffers) 
 {
-  if (nbuffers <1 || nbuffers >2) 
+  if (nbuffers <1 || nbuffers >4 || (nbuffers > 2 && bd->rad_dateversion_int <=227))
   {
     return 0x90991e5; //they do nothing 
   }
 
-  int ret = 0; 
+  int ret; 
   if (bd->rad_dateversion_int <= 227)
   {
     uint32_t mem = nbuffers== 1 ? RADIANT_TRIG_ONEBUFMODE : RADIANT_TRIG_TWOBUFMODE; 
@@ -2166,7 +2213,7 @@ int radiant_set_nbuffers_per_readout(radiant_dev_t *bd, int nbuffers)
 
     const uint32_t buffer_bits = 0x3 << 17; 
     mem&=~buffer_bits; 
-    mem|= nbuffers << 17 ; 
+    mem|= (nbuffers-1) << 17 ; 
     ret = 4!=radiant_set_mem(bd, DEST_FPGA, RAD_REG_TRIG_OVLDCFG, 4, (uint8_t*) &mem); 
   }
 
@@ -2293,7 +2340,7 @@ int radiant_configure_rf_trigger(radiant_dev_t *bd, radiant_trig_sel_t which,
   contributing_channels &=0xffffff; 
   if (!required_coincident_channels) contributing_channels = 0; 
 
-  // enable this trigger or not depending on the channels in it 
+  // enable this trigger or not depending on if there are any channels enabled 
   mem = (!!contributing_channels) << 31; 
   
   if ( 4!= radiant_set_mem(bd, DEST_FPGA, 
