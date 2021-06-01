@@ -239,7 +239,7 @@ date_version
 #define RADIANT_NSAMP_PER_BUF 1024
 #define RADIANT_NWIND_PER_BUF 8
 
-/** The radiant device structure */ 
+/** The radiant device structure. To be optimized for padding */ 
 struct radiant_dev
 {
   int spi_fd; 
@@ -280,6 +280,7 @@ struct radiant_dev
   uint32_t triginen; 
   uint32_t trigAen; 
   uint32_t trigBen; 
+  uint8_t prescal[RNO_G_NUM_RADIANT_CHANNELS]; 
 }; 
 
 
@@ -2400,7 +2401,7 @@ int radiant_configure_rf_trigger(radiant_dev_t *bd, radiant_trig_sel_t which,
 }
 
 
-int radiant_set_trigger_thresholds(radiant_dev_t * bd, int ichan_start, int ichan_end, const float  * threshold_V) 
+int radiant_set_trigger_thresholds_float(radiant_dev_t * bd, int ichan_start, int ichan_end, const float  * threshold_V) 
 {
   if (ichan_start < 0 || ichan_end > 24 || ichan_start > ichan_end || !bd || !threshold_V) return -1; 
 
@@ -2413,20 +2414,33 @@ int radiant_set_trigger_thresholds(radiant_dev_t * bd, int ichan_start, int icha
     else vals[ichan] = (threshold_V[ichan] / 2.5 ) * (16777215); 
   }
 
-  int nchan = (ichan_end-ichan_start)+1; 
-
-  return (4*nchan!=radiant_set_mem(bd, DEST_FPGA, RAD_REG_TRIG_THRESH_BASE+RAD_REG_TRIG_THRESH_INCR * ichan_start, 4*nchan, (uint8_t*) (vals + ichan_start))); 
+  return radiant_set_trigger_thresholds(bd,ichan_start, ichan_end, vals+ichan_start); 
 }
 
-int radiant_get_trigger_thresholds(radiant_dev_t * bd, int ichan_start, int ichan_end, float  * threshold_V) 
+int radiant_set_trigger_thresholds(radiant_dev_t * bd, int ichan_start, int ichan_end, const uint32_t  * vals) 
 {
-  if (ichan_start < 0 || ichan_end > 24 || ichan_start > ichan_end || !bd || !threshold_V) return -1; 
+  if (ichan_start < 0 || ichan_end > 24 || ichan_start > ichan_end || !bd || !vals) return -1; 
 
-  uint32_t vals[24]; 
+  int nchan = (ichan_end-ichan_start)+1; 
+  return (4*nchan!=radiant_set_mem(bd, DEST_FPGA, RAD_REG_TRIG_THRESH_BASE+RAD_REG_TRIG_THRESH_INCR * ichan_start, 4*nchan, (uint8_t*) (vals))); 
+}
+
+
+int radiant_get_trigger_thresholds(radiant_dev_t * bd, int ichan_start, int ichan_end, uint32_t  * vals) 
+{
+  if (ichan_start < 0 || ichan_end > 24 || ichan_start > ichan_end || !bd || !vals) return -1; 
+
 
   int nchan = (ichan_end-ichan_start)+1; 
 
-  if  (4*nchan!=radiant_get_mem(bd, DEST_FPGA, RAD_REG_TRIG_THRESH_BASE+RAD_REG_TRIG_THRESH_INCR * ichan_start, 4*nchan, (uint8_t*) (vals + ichan_start))) return -1; 
+  return 4*nchan!=radiant_get_mem(bd, DEST_FPGA, RAD_REG_TRIG_THRESH_BASE+RAD_REG_TRIG_THRESH_INCR * ichan_start, 4*nchan, (uint8_t*) (vals)); 
+}
+
+int radiant_get_trigger_thresholds_float(radiant_dev_t * bd, int ichan_start, int ichan_end, float  * threshold_V) 
+{
+  uint32_t vals[24] = {0}; 
+  int ret = radiant_get_trigger_thresholds(bd, ichan_start, ichan_end, vals+ichan_start); 
+  if (ret) return ret; 
 
   for (int ichan = ichan_start; ichan <=ichan_end; ichan++) 
   {
@@ -2435,6 +2449,23 @@ int radiant_get_trigger_thresholds(radiant_dev_t * bd, int ichan_start, int icha
 
   return 0; 
 }
+
+int radiant_get_scaler_period(radiant_dev_t * bd, float *period) 
+{
+  if (!bd) return -1; 
+  uint32_t mem = 0; 
+  if (4!=radiant_get_mem(bd, DEST_FPGA, RAD_REG_SCALER_PERIOD, 4, (uint8_t*) &mem)) return 1; 
+
+  if (mem & (1u << 31)) *period = 0; 
+  else
+  {
+    mem &=(0x7fffffff); 
+    *period = mem *1e-6; 
+  }
+  return 0; 
+
+}
+
 
 
 int radiant_set_scaler_period(radiant_dev_t * bd, float period) 
@@ -2464,7 +2495,9 @@ int radiant_set_prescaler(radiant_dev_t * bd, int scaler, uint8_t prescale_m1)
   if (scaler < 0 || scaler > 31 || !bd) return -1; 
 
   uint32_t mem = (scaler << 24) | prescale_m1; 
-  return 4!=radiant_set_mem(bd, DEST_FPGA, RAD_REG_SCALER_PRESCALECTL, 4, (uint8_t*) &mem); 
+  if(4!=radiant_set_mem(bd, DEST_FPGA, RAD_REG_SCALER_PRESCALECTL, 4, (uint8_t*) &mem)) return 1; 
+  bd->prescal[scaler] = prescale_m1; 
+  return 0;
 }
 
 int radiant_get_scalers(radiant_dev_t * bd, int sc0, int sc1, uint16_t * scalers) 
@@ -2475,6 +2508,29 @@ int radiant_get_scalers(radiant_dev_t * bd, int sc0, int sc1, uint16_t * scalers
   return 2*nscalers != radiant_get_mem(bd, DEST_FPGA, RAD_REG_SCALER_SCAL_BASE + sc0*2, nscalers*2, (uint8_t*) scalers); 
 }
 
+
+int radiant_read_daqstatus(radiant_dev_t * bd, rno_g_daqstatus_t * ds) 
+{
+  if (!bd || !ds) return -1; 
+
+  struct timespec start; 
+  struct timespec end; 
+
+  memcpy(ds->prescalers, bd->prescal, sizeof(*bd->prescal)); 
+
+  clock_gettime(CLOCK_REALTIME,&start); 
+  //TODO just cache these... no need to readback  
+  //TODO: check return values
+  radiant_get_scaler_period(bd,&ds->scaler_period); 
+  radiant_get_trigger_thresholds(bd,0, RNO_G_NUM_RADIANT_CHANNELS-1, ds->thresholds); 
+
+  radiant_get_scalers(bd,0, RNO_G_NUM_RADIANT_CHANNELS-1, ds->scalers); 
+  clock_gettime(CLOCK_REALTIME,&end); 
+
+  ds->when = 0.5 * ( start.tv_nsec*1e-9 + end.tv_nsec*1e-9+start.tv_sec + end.tv_sec); 
+
+  return 0;
+}
 
 
 

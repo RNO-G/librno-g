@@ -379,7 +379,7 @@ int rno_g_daqstatus_dump(FILE *f, const rno_g_daqstatus_t* ds)
   int tm = ds->when; 
   int ns = (ds->when-tm)*1e9; 
   const char * timestr = ctime_r((time_t*) &tm, ctime_buf);
-  int ret = fprintf(f,"DAQSTATUS, period=%f s, recorded at %s.%09d\n",ds->scaler_period,timestr,ns); 
+  int ret = fprintf(f,"DAQSTATUS, period=%f s, recorded at %sfractional sec=0.%09d\n",ds->scaler_period,timestr,ns); 
   fprintf(f,  "==CHAN===THRESH(V)=====SCALER===PRESCALER\n"); 
   for (int i = 0; i < RNO_G_NUM_RADIANT_CHANNELS; i++) 
   {

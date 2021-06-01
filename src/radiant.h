@@ -118,6 +118,8 @@ int radiant_labs_stop(radiant_dev_t*bd);
  */
 int radiant_read_event(radiant_dev_t * bd, rno_g_header_t * hd, rno_g_waveform_t *wf); 
 
+int radiant_read_daqstatus(radiant_dev_t * bd, rno_g_daqstatus_t* ds); 
+
 /* Send an INTERNAL (not a SOFT trigger, this is used internally for calram and such. This may be removed from the API in the future. Max on howmany is 256
  * DOES not automatically generate a DMA read; 
  * */ 
@@ -354,8 +356,11 @@ int radiant_set_mem(radiant_dev_t* bd, radiant_dest_t dest, uint32_t addr, uint8
 int radiant_get_mem(radiant_dev_t* bd, radiant_dest_t dest, uint32_t addr, uint8_t len, uint8_t * bytes); 
 
 
-int radiant_set_trigger_thresholds(radiant_dev_t * bd, int ichan_start, int chan_end,  const float * threshold_V); 
-int radiant_get_trigger_thresholds(radiant_dev_t * bd, int ichan_start, int ichan_end, float * threshold_V); 
+int radiant_set_trigger_thresholds_float(radiant_dev_t * bd, int ichan_start, int chan_end,  const float * threshold_V); 
+int radiant_get_trigger_thresholds_float(radiant_dev_t * bd, int ichan_start, int ichan_end, float * threshold_V); 
+int radiant_set_trigger_thresholds(radiant_dev_t * bd, int ichan_start, int chan_end,  const uint32_t * threshold_V); 
+int radiant_get_trigger_thresholds(radiant_dev_t * bd, int ichan_start, int ichan_end, uint32_t * threshold_V); 
+
 
 typedef enum
 {
@@ -379,7 +384,10 @@ int radiant_trigout_get_length(radiant_dev_t *bd, int * ns);
 
 /** Use 0 to use pps for period instead of clock */ 
 int radiant_set_scaler_period(radiant_dev_t * bd, float period); 
+int radiant_get_scaler_period(radiant_dev_t * bd, float *period); 
+
 int radiant_set_prescaler(radiant_dev_t * bd, int scaler, uint8_t prescale_minus_one); 
+
 int radiant_get_scalers(radiant_dev_t * bd, int start, int end, uint16_t * scalers); 
 
 
