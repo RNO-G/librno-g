@@ -284,6 +284,7 @@ int main(int nargs, char ** args)
 
   rno_g_close_handle(&eh); 
   rno_g_close_handle(&hh); 
+  rno_g_close_handle(&dsh); 
  
   radiant_close(rad); 
 }
