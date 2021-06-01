@@ -353,6 +353,8 @@ typedef enum radiant_dest
  * @param bytes the data to write 
  **/ 
 int radiant_set_mem(radiant_dev_t* bd, radiant_dest_t dest, uint32_t addr, uint8_t len, const uint8_t * bytes); 
+int radiant_set_mem_unacked(radiant_dev_t* bd, radiant_dest_t dest, uint32_t addr, uint8_t len, const uint8_t * bytes); 
+
 int radiant_get_mem(radiant_dev_t* bd, radiant_dest_t dest, uint32_t addr, uint8_t len, uint8_t * bytes); 
 
 

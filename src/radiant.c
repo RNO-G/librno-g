@@ -1249,11 +1249,12 @@ static int read_until_zero(radiant_dev_t * bd, double timeout)
 
 
 
-int radiant_set_mem(radiant_dev_t * bd, radiant_dest_t dest, uint32_t addr, uint8_t len, const uint8_t * bytes) 
+
+static int radiant_real_set_mem(radiant_dev_t * bd, radiant_dest_t dest, uint32_t addr, uint8_t len, const uint8_t * bytes, int acked) 
 {
 
 #ifdef RADIANT_SET_DBG
-  printf("DBG:Writing to 0x%x on %s:", addr, dest == DEST_MANAGER ? "RDBM" : "RDNT"); 
+  printf("DBG:Writing %s  to 0x%x on %s:", acked ? "acked" : "unacked" , addr, dest == DEST_MANAGER ? "RDBM" : "RDNT"); 
   for (int i = 0; i < len; i++) printf(" 0x%x", bytes[i]); 
   printf("\n"); 
 #endif
@@ -1278,27 +1279,42 @@ int radiant_set_mem(radiant_dev_t * bd, radiant_dest_t dest, uint32_t addr, uint
     return -1; 
   }
 
-  uint8_t expected[3] = { bd->reg_buf[0], bd->reg_buf[1], bd->reg_buf[2]}; 
-
-
-  //read until we get a 0
-  int rd = read_until_zero(bd, 0); 
-  int decoded_len = cobs_decode_buf(rd, bd->reg_buf_encoded, sizeof(bd->reg_buf), bd->reg_buf); 
-  int expected_len = sizeof(expected); 
-
-  if (memcmp(expected, bd->reg_buf, expected_len))
+  if (acked) 
   {
-    int i = 0;
-    fprintf(stderr, "expected buf mismatch in radiant_set mem.\n"); 
-    fprintf(stderr, "  expected: "); 
-    for (i = 0; i < expected_len; i++) fprintf(stderr," %02x ", expected[i]);
-    fprintf(stderr, "\n  got    : "); 
-    for (i = 0; i < decoded_len; i++) fprintf(stderr," %02x ", bd->reg_buf[i]);
-    return -decoded_len; 
+    uint8_t expected[3] = { bd->reg_buf[0], bd->reg_buf[1], bd->reg_buf[2]}; 
+
+    //read until we get a 0
+    int rd = read_until_zero(bd, 0); 
+    int decoded_len = cobs_decode_buf(rd, bd->reg_buf_encoded, sizeof(bd->reg_buf), bd->reg_buf); 
+    int expected_len = sizeof(expected); 
+
+    if (memcmp(expected, bd->reg_buf, expected_len))
+    {
+      int i = 0;
+      fprintf(stderr, "expected buf mismatch in radiant_set mem.\n"); 
+      fprintf(stderr, "  expected: "); 
+      for (i = 0; i < expected_len; i++) fprintf(stderr," %02x ", expected[i]);
+      fprintf(stderr, "\n  got    : "); 
+      for (i = 0; i < decoded_len; i++) fprintf(stderr," %02x ", bd->reg_buf[i]);
+      return -decoded_len; 
+    }
   }
 
   return len; 
 }
+
+int radiant_set_mem(radiant_dev_t * bd, radiant_dest_t dest, uint32_t addr, uint8_t len, const uint8_t * bytes) 
+{
+  return radiant_real_set_mem(bd,dest,addr,len,bytes,1);
+
+}
+
+int radiant_set_mem_unacked(radiant_dev_t * bd, radiant_dest_t dest, uint32_t addr, uint8_t len, const uint8_t * bytes) 
+{
+  return radiant_real_set_mem(bd,dest,addr,len,bytes,0);
+}
+
+
 
 int radiant_get_mem(radiant_dev_t * bd, radiant_dest_t dest, uint32_t addr, uint8_t len, uint8_t * bytes) 
 {
