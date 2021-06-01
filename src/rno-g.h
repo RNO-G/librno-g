@@ -175,6 +175,19 @@ int rno_g_pedestal_read(rno_g_file_handle_t handle, rno_g_pedestal_t * pedestal)
 
 
 
+typedef struct rno_g_daqstatus 
+{
+  uint32_t when; 
+  uint32_t thresholds[RNO_G_NUM_RADIANT_CHANNELS]; 
+  uint16_t scalers[RNO_G_NUM_RADIANT_CHANNELS]; 
+  uint8_t prescalers[RNO_G_NUM_RADIANT_CHANNELS]; 
+  float scaler_period; 
+} rno_g_daqstatus_t; 
+
+int rno_g_daqstatus_dump(FILE *f, const rno_g_daqstatus_t * ds); 
+int rno_g_daqstatus_write(rno_g_file_handle_t handle, const rno_g_daqstatus_t * ds);
+int rno_g_daqstatus_read(rno_g_file_handle_t handle, rno_g_daqstatus_t * ds);
+
 
 
 

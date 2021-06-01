@@ -14,10 +14,12 @@
 #define HEADER_VER 0
 #define WF_VER 0 
 #define PED_VER 1 
+#define DAQSTATUS_VER 0 
 
 #define HEADER_MAGIC 0xead1 
 #define WAVEFORM_MAGIC 0xafd1 
 #define PEDESTAL_MAGIC 0x57a1 
+#define DAQSTATUS_MAGIC 0xdacc 
 
 
 typedef struct io_header
@@ -369,4 +371,69 @@ int rno_g_pedestal_read(rno_g_file_handle_t h, rno_g_pedestal_t * pd)
   return rd; 
 
 }
+
+
+int rno_g_daqstatus_dump(FILE *f, const rno_g_daqstatus_t* ds) 
+{
+  char ctime_buf[32]; 
+  const char * timestr = ctime_r((time_t*) &ds->when, ctime_buf);
+  int ret = fprintf(f,"DAQSTATUS, period=%f s, recorded at %s\n",ds->scaler_period,timestr); 
+  fprintf(f,  "==CHAN===THRESH(V)=====SCALER===PRESCALER\n"); 
+  for (int i = 0; i < RNO_G_NUM_RADIANT_CHANNELS; i++) 
+  {
+    ret+=fprintf(f,  " %02d | %0.4f |  %05u  | %03u\n", i, ds->thresholds[i] *2.5/1677215, ds->scalers[i], ds->prescalers[i]+1); 
+  }
+  return ret; 
+}
+
+int rno_g_daqstatus_write(rno_g_file_handle_t h, const rno_g_daqstatus_t * ds) 
+{
+  io_header_t hd = {.magic = DAQSTATUS_MAGIC, .version = DAQSTATUS_VER }; 
+  uint32_t sum = init_cksum; 
+  do_write(h, sizeof(hd), &hd,0); 
+  int wr = do_write(h, sizeof(rno_g_daqstatus_t), ds,&sum); 
+  do_write(h, sizeof(sum),&sum,0); 
+  return wr; 
+}
+
+int rno_g_daqstatus_read(rno_g_file_handle_t h, rno_g_daqstatus_t *ds)
+{
+  io_header_t hd; 
+  int rd = do_read(h, sizeof(hd), &hd,0); 
+  if (!rd) return 0; 
+
+  if (hd.magic != DAQSTATUS_MAGIC)
+  {
+    //this is not a header! 
+    fprintf(stderr,"Wrong magic! Got %hx, expected %hx\n", hd.magic, DAQSTATUS_MAGIC); 
+    return -1; 
+  }
+
+  uint32_t sum = init_cksum; 
+  uint32_t wanted_sum = 0; 
+  rd = 0; 
+  int rdsum = 0;
+  // here we handle converting to the newest kind of daqstatus
+  switch (hd.version) 
+  {
+
+    case DAQSTATUS_VER:
+      {
+        rd = do_read(h,sizeof(*ds),ds, &sum); 
+        rdsum = do_read(h,sizeof(wanted_sum), &wanted_sum,0); 
+        if (!rdsum || sum!=wanted_sum) 
+        {
+          fprintf(stderr,"Checksum error. Got %x, wnated %x\n", sum,wanted_sum); 
+          return -1; 
+        }
+        return rd; 
+      }
+    default: 
+      fprintf(stderr,"Unknown daqstatus version %d\n", hd.version); 
+  }
+  return 0; 
+}
+
+
+
 
