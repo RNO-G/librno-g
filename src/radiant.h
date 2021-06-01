@@ -366,7 +366,7 @@ int radiant_set_trigger_thresholds(radiant_dev_t * bd, int ichan_start, int chan
 
 typedef enum
 {
-  RADIANT_THRESHOLD_UNKNOWN=0xffffffff; 
+  RADIANT_THRESHOLD_UNKNOWN=0xffffffff 
 } e_radiant_thresh_consts; 
 int radiant_get_trigger_thresholds(radiant_dev_t * bd, int ichan_start, int ichan_end, uint32_t * threshold_V); 
 

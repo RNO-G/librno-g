@@ -1062,7 +1062,7 @@ radiant_dev_t * radiant_open(const char *spi_device, const char * uart_device, i
   dev->vbias[0] = -1; 
   dev->vbias[1] = -1; 
 
-  for (in i = 0; i < RNO_G_NUM_RADIANT_CHANNELS; i++) 
+  for (int i = 0; i < RNO_G_NUM_RADIANT_CHANNELS; i++) 
   {
     dev->thresh[i] = RADIANT_THRESHOLD_UNKNOWN; 
   } 
