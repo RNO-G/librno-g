@@ -177,7 +177,7 @@ int rno_g_pedestal_read(rno_g_file_handle_t handle, rno_g_pedestal_t * pedestal)
 
 typedef struct rno_g_daqstatus 
 {
-  uint32_t when; 
+  double when; 
   uint32_t thresholds[RNO_G_NUM_RADIANT_CHANNELS]; 
   uint16_t scalers[RNO_G_NUM_RADIANT_CHANNELS]; 
   uint8_t prescalers[RNO_G_NUM_RADIANT_CHANNELS]; 
