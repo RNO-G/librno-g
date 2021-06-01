@@ -17,6 +17,7 @@
 #include <signal.h>
 #include <assert.h> 
 #include <errno.h> 
+#include <math.h> 
 
 
 
@@ -149,15 +150,27 @@ typedef enum
   RAD_REG_EV_SYSCLK                   =  0x30008, 
   RAD_REG_EV_LASTSYSCLK               =  0x3000c, 
   RAD_REG_EV_FIFO_BASE                =  0x30100, 
-  RAD_REG_TRIGTHRESH_BASE             = 0x30200, 
-  RAD_REG_TRIGTHRESH_INCR             = 0x04,
+  RAD_REG_TRIG_THRESH_OEB             = 0x30204, 
+  RAD_REG_TRIG_THRESH_BASE            = 0x30300, 
+  RAD_REG_TRIG_THRESH_INCR            = 0x04,
+
+  RAD_REG_TRIG_OVLDCFG                = 0x30400, 
+  RAD_REG_TRIG_OVLDCTRL               = 0x30404, 
+
   RAD_REG_TRIG_MASTEREN               = 0x30600, 
   RAD_REG_TRIG_TRIGINEN               = 0x30604, 
   RAD_REG_TRIG_PULSECTRL              = 0x30608, 
+
   RAD_REG_TRIG_TRIGEN0                = 0x30700, 
   RAD_REG_TRIG_TRIGMASKB0             = 0x30704, 
   RAD_REG_TRIG_TRIGWINDOW0            = 0x30708, 
   RAD_REG_TRIG_TRIGTHRESH0            = 0x3070c,  //this is number of channels that must pass
+
+  RAD_REG_TRIG_TRIGEN1                = 0x30710, 
+  RAD_REG_TRIG_TRIGMASKB1             = 0x30714, 
+  RAD_REG_TRIG_TRIGWINDOW1            = 0x30718, 
+  RAD_REG_TRIG_TRIGTHRESH1            = 0x3071c,  
+
 
   //SCALER space
   RAD_REG_SCALER_BASE                 = 0x40000 , 
@@ -238,6 +251,7 @@ struct radiant_dev
   //the board manager date veesion
   date_version_t bm_dateversion; 
   date_version_t rad_dateversion; 
+  uint32_t rad_dateversion_int; 
   uint32_t cpldctrl; 
 
   // the gpio statuses. This is read on startup and (hopefully!) kept in sync so we don't have to keep reading it. 
@@ -259,6 +273,9 @@ struct radiant_dev
   double last_trig_thresh_updated; 
   const rno_g_pedestal_t * peds; 
   uint16_t vbias[2]; 
+  uint32_t triginen; 
+  uint32_t trigAen; 
+  uint32_t trigBen; 
 }; 
 
 
@@ -914,6 +931,8 @@ radiant_dev_t * radiant_open(const char *spi_device, const char * uart_device, i
     return 0; 
   }
 
+  dev->rad_dateversion_int=10000*dev->rad_dateversion.major + 100 * dev->rad_dateversion.minor + dev->rad_dateversion.rev; 
+
   //read in the radiant CPLD_CTRL, check the programmed bits 
   nb = radiant_get_mem(dev, DEST_FPGA, RAD_REG_CPLD_CTRL, 4, (uint8_t*) &dev->cpldctrl); 
   {
@@ -935,6 +954,31 @@ radiant_dev_t * radiant_open(const char *spi_device, const char * uart_device, i
     return 0; 
   }
 
+  if (dev->rad_dateversion_int > 227) 
+  {
+    nb = radiant_get_mem(dev, DEST_FPGA, RAD_REG_TRIG_TRIGINEN, 4, (uint8_t*) &dev->triginen); 
+    if (nb!=4) 
+    {
+      fprintf(stderr, "Could not read TRIGINEN from RADIANT\n"); 
+      radiant_close(dev); 
+      return 0; 
+    }
+    nb = radiant_get_mem(dev, DEST_FPGA, RAD_REG_TRIG_TRIGEN0, 4, (uint8_t*) &dev->trigAen); 
+    if (nb!=4) 
+    {
+      fprintf(stderr, "Could not read TRIGINEN0 from RADIANT\n"); 
+      radiant_close(dev); 
+      return 0; 
+    }
+    nb = radiant_get_mem(dev, DEST_FPGA, RAD_REG_TRIG_TRIGEN1, 4, (uint8_t*) &dev->trigBen); 
+    if (nb!=4) 
+    {
+      fprintf(stderr, "Could not read TRIGINEN1 from RADIANT\n"); 
+      radiant_close(dev); 
+      return 0; 
+    }
+
+  }
 
 
   if (read_bm_gpios(dev))
@@ -1722,7 +1766,7 @@ int radiant_dma_setup_event(radiant_dev_t*bd, uint32_t mask)
   //set the first one for the event fifo. this looks like the right place 
   radiant_dma_desc_t desc = {.addr=RAD_REG_EV_FIFO_BASE, .incr=1, .length=sizeof(struct fw_event_header)/sizeof(uint32_t)}; 
   radiant_dma_set_descriptor(bd, idesc++, desc); 
-//  int last = 31 - __builtin_clz(mask); 
+  int last = 31 - __builtin_clz(mask); 
 
 
   for (int i = 0; i < 24; i++) 
@@ -1731,18 +1775,11 @@ int radiant_dma_setup_event(radiant_dev_t*bd, uint32_t mask)
     {
       radiant_dma_desc_t this_desc = {.addr=RAD_REG_LAB_RAM_BASE+i*RAD_REG_LAB_RAM_INCR, .incr=0, .length=bd->readout_nsamp/2}; 
       desc.addr = RAD_REG_LAB_RAM_BASE  + RAD_REG_LAB_RAM_INCR*i; 
-//      if (i == last) this_desc.last = 1; 
+      if (i == last) this_desc.last = 1; 
       radiant_dma_set_descriptor(bd, idesc++, this_desc); 
     }
   }
 
-  //set up a descriptor for the thresholds (do we really want to read this all the time ? it adds a slight amount of overhead) 
-  //may make sense to only occassionally read via uart considering we'll to change? 
-  desc.addr = RAD_REG_TRIGTHRESH_BASE; 
-  desc.length = sizeof (struct fw_trigthresh) / sizeof(uint32_t); 
-  desc.incr =1 ; 
-  desc.last = 1; 
-  radiant_dma_set_descriptor(bd, idesc++, desc); 
   radiant_dma_config_t dma_cfg; 
   radiant_fill_dma_config(&dma_cfg, RADIANT_DMA_EVENT_MODE); 
   radiant_configure_dma(bd, &dma_cfg); //this should probably already have been done but whatever... 
@@ -1751,7 +1788,7 @@ int radiant_dma_setup_event(radiant_dev_t*bd, uint32_t mask)
 
 
 
-int radiant_force_trigger(radiant_dev_t * bd, int howmany, int block) 
+int radiant_internal_trigger(radiant_dev_t * bd, int howmany, int block) 
 {
 
   if (!howmany) return -1; 
@@ -1780,6 +1817,82 @@ int radiant_force_trigger(radiant_dev_t * bd, int howmany, int block)
 
   return ret; 
 }
+
+
+int radiant_soft_trigger(radiant_dev_t *bd) 
+{
+  if (!bd) return -1; 
+
+  //if version is pre 0.2.27, then use internal trigger
+  if (bd->rad_dateversion_int <= 227) return radiant_internal_trigger(bd,1,0); 
+
+  uint32_t mem = 1; 
+  return 4!=radiant_set_mem(bd, DEST_FPGA, RAD_REG_TRIG_OVLDCTRL, 4, (uint8_t*) &mem); 
+}
+
+int radiant_cpu_clear(radiant_dev_t *bd) 
+{
+  if (!bd || bd->rad_dateversion_int <=227) return -1; 
+
+  uint32_t mem = 2; 
+  return 4!=radiant_set_mem(bd, DEST_FPGA, RAD_REG_TRIG_OVLDCTRL, 4, (uint8_t*) &mem); 
+}
+
+
+
+const uint32_t enable_mask = RADIANT_TRIG_EN | RADIANT_TRIG_EXT | RADIANT_TRIG_PPS | RADIANT_TRIGOUT_EN | RADIANT_TRIGOUT_SOFT | RADIANT_TRIGOUT_PPS | RADIANT_TRIG_CPUFLOW; 
+int radiant_trigger_enable(radiant_dev_t *bd, int enables) 
+{
+  if (!bd || bd->rad_dateversion_int <=227) return -1; 
+
+  uint32_t mem = 0; 
+  if (4!=radiant_get_mem(bd, DEST_FPGA, RAD_REG_TRIG_OVLDCFG, 4, (uint8_t*) &mem)) 
+  {
+    return  enables == RADIANT_TRIG_QUERY ? RADIANT_TRIG_QUERY : 1; 
+  }
+
+  if (enables == RADIANT_TRIG_QUERY) 
+  {
+    return mem & enable_mask; 
+  }
+
+  //Clear the enable mask 
+  mem &=~enable_mask; 
+
+  //set the new mask 
+  mem |= (enables & enable_mask); 
+  return  4!=radiant_set_mem(bd, DEST_FPGA, RAD_REG_TRIG_OVLDCFG, 4, (uint8_t*) &mem);
+}
+
+int radiant_trigout_set_length(radiant_dev_t * bd, int ns) 
+{
+  if (!bd || bd->rad_dateversion_int <=227) return -1; 
+  if (ns < 0 || ns >=320) return -2; 
+
+  uint32_t mem = 0; 
+  if (4!=radiant_get_mem(bd, DEST_FPGA, RAD_REG_TRIG_OVLDCFG, 4, (uint8_t*) &mem)) return 1; 
+  int cycles = ns/10; 
+  const uint32_t trigout_len_mask = (0x1f << 24); 
+  mem &=~trigout_len_mask; 
+  mem |= cycles << 24; 
+  return (4!=radiant_set_mem(bd, DEST_FPGA, RAD_REG_TRIG_OVLDCFG, 4, (uint8_t*) &mem)) ; 
+}
+
+int radiant_trigout_get_length(radiant_dev_t * bd, int * ns) 
+{
+  if (!bd || bd->rad_dateversion_int <=227) return -1; 
+  if (!ns) return -1; 
+
+  uint32_t mem = 0; 
+  if (4!=radiant_get_mem(bd, DEST_FPGA, RAD_REG_TRIG_OVLDCFG, 4, (uint8_t*) &mem)) return 1; 
+  int cycles = (mem >> 24) & 0x1f; 
+  *ns= cycles*10; 
+  return 0; 
+}
+
+
+
+
 
 int radiant_labs_clear(radiant_dev_t *dev) 
 {
@@ -1833,11 +1946,11 @@ int radiant_labs_stop(radiant_dev_t *dev)
 }
 
 
-/* I don't know what register to check yet... */ 
 int radiant_check_avail(radiant_dev_t * bd) 
 {
-
-  return bd!=0; 
+  uint32_t mem = 0; 
+  if (4!= radiant_get_mem( bd, DEST_FPGA, RAD_REG_SPIDMA_CONFIG, 4, (uint8_t*) &mem)) return -1; 
+  return  !!(mem & (1<<30)); 
 }
 
 //not exposed for now since only used for pedestals right now... 
@@ -1860,7 +1973,7 @@ static int calram_zero(radiant_dev_t * bd)
  
   uint8_t oldmode = bd->calram; 
   bd->calram = CALRAM_MODE_ZERO; 
-  for (int i = 0; i < 4; i++) radiant_force_trigger(bd,1,1); 
+  for (int i = 0; i < 4; i++) radiant_internal_trigger(bd,1,1); 
   bd->calram = oldmode; 
   radiant_labs_stop(bd); 
   return 0; 
@@ -1917,7 +2030,7 @@ int radiant_compute_pedestals(radiant_dev_t *bd, uint32_t mask, uint16_t ntrigge
   {
     //need 4 triggers / cycle to fill
     int todo = nleft < 32 ? nleft : 32; 
-    radiant_force_trigger(bd, todo*4, 1); 
+    radiant_internal_trigger(bd, todo*4, 1); 
     nleft-=todo; 
   }
   radiant_labs_stop(bd); 
@@ -2031,15 +2144,35 @@ const rno_g_pedestal_t *  radiant_get_pedestals(radiant_dev_t* bd)
 
 int radiant_set_nbuffers_per_readout(radiant_dev_t *bd, int nbuffers) 
 {
-  if (nbuffers == 1 || nbuffers == 2) 
+  if (nbuffers <1 || nbuffers >2) 
+  {
+    return 0x90991e5; //they do nothing 
+  }
+
+  int ret = 0; 
+  if (bd->rad_dateversion_int <= 227)
+  {
+    uint32_t mem = nbuffers== 1 ? RADIANT_TRIG_ONEBUFMODE : RADIANT_TRIG_TWOBUFMODE; 
+    ret = (4!=radiant_set_mem(bd, DEST_FPGA, RAD_REG_LAB_CTRL_TRIGGER, 4, (uint8_t*) &mem)); 
+  }
+  else 
+  {
+    uint32_t mem = 0; 
+    if (4!=radiant_get_mem(bd, DEST_FPGA, RAD_REG_TRIG_OVLDCFG, 4, (uint8_t*) &mem)) return -1; 
+    //clear the buffer bits 
+
+    const uint32_t buffer_bits = 0x3 << 17; 
+    mem&=~buffer_bits; 
+    mem|= nbuffers << 17 ; 
+    ret = 4!=radiant_set_mem(bd, DEST_FPGA, RAD_REG_TRIG_OVLDCFG, 4, (uint8_t*) &mem); 
+  }
+
+  if (!ret) 
   {
     bd->nbuffers_per_readout = nbuffers; 
     bd->readout_nsamp = nbuffers * RADIANT_NSAMP_PER_BUF; 
-    uint32_t mem = nbuffers== 1 ? RADIANT_TRIG_ONEBUFMODE : RADIANT_TRIG_TWOBUFMODE; 
-    return 4!=radiant_set_mem(bd, DEST_FPGA, RAD_REG_LAB_CTRL_TRIGGER, 4, (uint8_t*) &mem); 
   }
-
-  return 0x90991e5; //they do nothing 
+  return ret; 
 }
 
 
@@ -2140,8 +2273,118 @@ int radiant_current_pps(radiant_dev_t * bd, uint32_t *pps, uint32_t *sysclk_last
 }
 
 
+int radiant_configure_rf_trigger(radiant_dev_t *bd, radiant_trig_sel_t which, 
+                                 uint32_t contributing_channels, 
+                                 uint8_t required_coincident_channels, 
+                                 float coincidence_window_ns)
+{
+  if (!bd || bd->rad_dateversion_int <=227) return -1; 
+
+  //see if  trigger is enabled
+  uint32_t mem = 0; 
+  if (4!= radiant_get_mem(bd, DEST_FPGA, RAD_REG_TRIG_MASTEREN, 4, (uint8_t*) &mem)) return 1; 
+  int trig_enabled = mem; 
+  mem = 0;
+  if (4!= radiant_set_mem(bd, DEST_FPGA, RAD_REG_TRIG_MASTEREN, 4, (uint8_t*) &mem)) return 1; 
+
+  contributing_channels &=0xffffff; 
+  if (!required_coincident_channels) contributing_channels = 0; 
+
+  // enable this trigger or not depending on the channels in it 
+  mem = (!!contributing_channels) << 31; 
+  
+  if ( 4!= radiant_set_mem(bd, DEST_FPGA, 
+      which == RADIANT_TRIG_A ? RAD_REG_TRIG_TRIGEN0 : RAD_REG_TRIG_TRIGEN1, 
+      4, (uint8_t*) &mem)) return 1; 
+  
+  //set the mask 
+  if ( 4!= radiant_set_mem(bd, DEST_FPGA, 
+      which == RADIANT_TRIG_A ? RAD_REG_TRIG_TRIGMASKB0 : RAD_REG_TRIG_TRIGMASKB1, 
+      4, (uint8_t*) &contributing_channels)) return 1; 
+ 
+  if (which == RADIANT_TRIG_A) bd->trigAen = contributing_channels; 
+  else bd->trigBen = contributing_channels; 
+
+  bd->triginen = (bd->trigAen | bd->trigBen) & 0xffffff; 
+
+  //set the global trigger enables
+  if ( 4!= radiant_set_mem(bd, DEST_FPGA, RAD_REG_TRIG_TRIGINEN, 4, (uint8_t*) &bd->triginen)) return 1; 
+ 
+  //set the threshhold
+
+  if (required_coincident_channels) required_coincident_channels-=1; 
+  if ( 4!= radiant_set_mem(bd, DEST_FPGA, 
+      which == RADIANT_TRIG_A ? RAD_REG_TRIG_TRIGTHRESH0 : RAD_REG_TRIG_TRIGTHRESH1, 
+      4, (uint8_t*) &required_coincident_channels)) return 1; 
+ 
+
+  //set the window. First calculate the cycles we wnat 
+
+  if (coincidence_window_ns < 17.5) coincidence_window_ns = 17.5; 
+  if (coincidence_window_ns > 327.5) coincidence_window_ns = 327.5; 
+  int cycles = round(coincidence_window_ns/2.5) - 7; 
+
+  uint32_t win[4] = {0}; 
+  int iwin = 0;
+  while (cycles > 0 && iwin < 4) 
+  {
+    win[iwin] = cycles & 0x1f; 
+    cycles-=win[iwin]; 
+    iwin++; 
+  }
+
+  mem = win[0] | (win[1] << 5) |( win[2] << 10) | (win[3] << 15); 
+  if ( 4!= radiant_set_mem(bd, DEST_FPGA, 
+      which == RADIANT_TRIG_A ? RAD_REG_TRIG_TRIGWINDOW0 : RAD_REG_TRIG_TRIGWINDOW1, 
+      4, (uint8_t*) &mem)) return 1; 
+ 
+
+  //now reenable the trigger if it was enabled, or if we have enabled a trigger
+  if (trig_enabled || contributing_channels) 
+  {
+    mem = 1;
+    if (4!= radiant_set_mem(bd, DEST_FPGA, RAD_REG_TRIG_MASTEREN, 4, (uint8_t*) &mem)) return 1; 
+  }
+
+  return 0; 
+}
 
 
+int radiant_set_trigger_thresholds(radiant_dev_t * bd, int ichan_start, int ichan_end, const float  * threshold_V) 
+{
+  if (ichan_start < 0 || ichan_end > 24 || ichan_start > ichan_end || !bd || !threshold_V) return -1; 
+
+  uint32_t vals[24]; 
+
+  for (int ichan = ichan_start; ichan <=ichan_end; ichan++) 
+  {
+    if (threshold_V[ichan] > 2.5) vals[ichan] = 16777215; 
+    else if (threshold_V[ichan] < 0 ) vals[ichan] = 0; 
+    else vals[ichan] = (threshold_V[ichan] / 2.5 ) * (16777215); 
+  }
+
+  int nchan = (ichan_end-ichan_start)+1; 
+
+  return (4*nchan!=radiant_set_mem(bd, DEST_FPGA, RAD_REG_TRIG_THRESH_BASE+RAD_REG_TRIG_THRESH_INCR * ichan_start, 4*nchan, (uint8_t*) (vals + ichan_start))); 
+}
+
+int radiant_get_trigger_thresholds(radiant_dev_t * bd, int ichan_start, int ichan_end, float  * threshold_V) 
+{
+  if (ichan_start < 0 || ichan_end > 24 || ichan_start > ichan_end || !bd || !threshold_V) return -1; 
+
+  uint32_t vals[24]; 
+
+  int nchan = (ichan_end-ichan_start)+1; 
+
+  if  (4*nchan!=radiant_get_mem(bd, DEST_FPGA, RAD_REG_TRIG_THRESH_BASE+RAD_REG_TRIG_THRESH_INCR * ichan_start, 4*nchan, (uint8_t*) (vals + ichan_start))) return -1; 
+
+  for (int ichan = ichan_start; ichan <=ichan_end; ichan++) 
+  {
+    threshold_V[ichan-ichan_start] = vals[ichan]*2.5/(1677215); 
+  }
+
+  return 0; 
+}
 
 
 

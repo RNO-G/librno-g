@@ -98,7 +98,7 @@ void radiant_set_run_number(radiant_dev_t * bd, int run);
 /** 
  * Check if an event is available, returning the number of bytes available to read 
  * @param bd The opaque handle for the board
- * @returns the number of bytes available to read (or negative on error) 
+ * @returns 1 if event available, 0 if not, negative on error
  *
  **/ 
 int radiant_check_avail(radiant_dev_t * bd); 
@@ -108,10 +108,8 @@ int radiant_labs_clear(radiant_dev_t*bd);
 int radiant_labs_stop(radiant_dev_t*bd); 
 
 /** 
- * High-level read event interface (if there's anything to read). 
- * Note that this optimistically tries to read the header without first checking 
- * if there's * anything to read so if there is no data available it takes a 
- * little bit longer than radiant_check_avail().  
+ * High-level read event interface
+ * THIS DOESN'T ACTUALLY CHECK IF THERE'S ANYTHING TO READ. DO THAT EITHER WITH check_avail or poll. 
  *
  * @param bd opaque handle for the board
  * @param hd The RNO-G header to populate (if there's something available) 
@@ -120,8 +118,14 @@ int radiant_labs_stop(radiant_dev_t*bd);
  */
 int radiant_read_event(radiant_dev_t * bd, rno_g_header_t * hd, rno_g_waveform_t *wf); 
 
-/* Send a force trigger. Max on howmany is 256*/ 
-int radiant_force_trigger(radiant_dev_t *bd, int howmany, int block); 
+/* Send an INTERNAL (not a SOFT trigger, this is used internally for calram and such. This may be removed from the API in the future. Max on howmany is 256
+ * DOES not automatically generate a DMA read; 
+ * */ 
+int radiant_internal_trigger(radiant_dev_t *bd, int howmany, int block); 
+
+
+/** Sends a soft trrgger */
+int radiant_soft_trigger(radiant_dev_t *bd); 
 
 
 
@@ -346,6 +350,54 @@ typedef enum radiant_dest
 int radiant_set_mem(radiant_dev_t* bd, radiant_dest_t dest, uint32_t addr, uint8_t len, const uint8_t * bytes); 
 int radiant_get_mem(radiant_dev_t* bd, radiant_dest_t dest, uint32_t addr, uint8_t len, uint8_t * bytes); 
 
+
+int radiant_set_trigger_thresholds(radiant_dev_t * bd, int ichan_start, int chan_end,  const float * threshold_V); 
+int radiant_get_trigger_thresholds(radiant_dev_t * bd, int ichan_start, int ichan_end, float * threshold_V); 
+
+typedef enum
+{
+  RADIANT_TRIG_EN = 1, //global enable
+  RADIANT_TRIG_EXT = 2, //extin trig enable
+  RADIANT_TRIG_PPS = 4, //pps trig enable
+  RADIANT_TRIGOUT_EN = 256, //global enable
+  RADIANT_TRIGOUT_SOFT = 512, //global enable
+  RADIANT_TRIGOUT_PPS = 1024, //global enable
+  RADIANT_TRIG_CPUFLOW = 65536, //global enable
+  RADIANT_TRIG_QUERY = 16777216 // If set, will ignore rest of bits and just return what is currently set(or RADIANT_TRIG_QUERY if there's an error)
+ 
+} e_radiant_trig_enables;
+
+int radiant_trigger_enable(radiant_dev_t * bd, int enables); 
+
+/** Sets the trigout length, will be rounded to nearest 10 ns */ 
+int radiant_trigout_set_length(radiant_dev_t *bd, int ns);
+int radiant_trigout_get_length(radiant_dev_t *bd, int * ns);
+
+
+int radiant_cpu_clear(radiant_dev_t *bd); 
+
+typedef enum radiant_trig_sel
+{
+  RADIANT_TRIG_A, 
+  RADIANT_TRIG_B 
+} radiant_trig_sel_t; 
+
+
+/** Note that this will temporary disable internal triggering while setup 
+ *
+ * This configures RF trigger A or B
+ * @param bd the radaiant handle
+ * @param which RADIANT_TRIG_A or RADIANT_TRIG_B
+ * @param contributing_channels_mask mask of channels that contribute to this trigger. Set to 0 to disable this trigger. 
+ * @param required_coincident_channels the threshold for number of coincident channels 
+ * @param coincidence_window_ns the length of the coincidence window in nanoseconds. This will be rounded to the nearest 2.5 ns. Min is 17.5 ns, max is 327.5
+ *
+ **/
+int radiant_configure_rf_trigger(radiant_dev_t * bd, 
+    radiant_trig_sel_t which, 
+    uint32_t contributing_channels_mask, 
+    uint8_t required_coincident_channels, 
+    float coincidence_window_ns); 
 
 
 /** 
