@@ -380,7 +380,7 @@ int rno_g_daqstatus_dump(FILE *f, const rno_g_daqstatus_t* ds)
   int ns = (ds->when-tm)*1e9; 
   const char * timestr = ctime_r((time_t*) &tm, ctime_buf);
   int ret = fprintf(f,"DAQSTATUS, period=%f s, recorded at %sfractional sec=0.%09d\n",ds->scaler_period,timestr,ns); 
-  fprintf(f,  "==CHAN===THRESH(V)=====SCALER===PRESCALER\n"); 
+  fprintf(f,  "==CH==THRESH(V)==SCALER==PRESCALER\n"); 
   for (int i = 0; i < RNO_G_NUM_RADIANT_CHANNELS; i++) 
   {
     ret+=fprintf(f,  " %02d | %0.4f |  %05u  | %03u\n", i, ds->thresholds[i] *2.5/1677215, ds->scalers[i], ds->prescalers[i]+1); 
