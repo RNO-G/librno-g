@@ -1790,11 +1790,6 @@ int radiant_internal_trigger(radiant_dev_t * bd, int howmany, int block)
   // inferred from python code. TODO: learn more
   uint32_t mem = 2 | ((howmany-1) << 8); 
 
-  if (bd->calram == CALRAM_MODE_NONE && bd->nbuffers_per_readout == 2) 
-  {
-    mem |= RADIANT_TRIG_TWOBUFMODE; 
-  }
-
   int ret =  4!=radiant_set_mem(bd, DEST_FPGA, RAD_REG_LAB_CTRL_TRIGGER, 4,(uint8_t*)  &mem); 
 
   if (block) 
@@ -1898,6 +1893,13 @@ int radiant_trigger_enable(radiant_dev_t *bd, int enables, uint32_t disable_mask
 
   //set the new mask 
   mem |= (enables & enable_mask); 
+
+  //set the number of buffers
+
+  const uint32_t buffer_bits = 0x3 << 17; 
+  mem&=~buffer_bits; 
+  mem |= (bd->nbuffers_per_readout-1) << 17; 
+
   return  4!=radiant_set_mem(bd, DEST_FPGA, RAD_REG_TRIG_OVLDCFG, 4, (uint8_t*) &mem);
 
 
@@ -1979,7 +1981,7 @@ int radiant_labs_stop(radiant_dev_t *dev)
   }
 
   //make we sure in single-buffer mode! 
-  if (dev->rad_dateversion_int <= 227) radiant_set_nbuffers_per_readout(dev,1); 
+  radiant_set_nbuffers_per_readout(dev,1); 
 
   return 0; 
 }
@@ -2183,28 +2185,13 @@ const rno_g_pedestal_t *  radiant_get_pedestals(radiant_dev_t* bd)
 
 int radiant_set_nbuffers_per_readout(radiant_dev_t *bd, int nbuffers) 
 {
-  if (nbuffers <1 || nbuffers >4 || (nbuffers > 2 && bd->rad_dateversion_int <=227))
+  if (nbuffers <1 || nbuffers >2 )
   {
     return 0x90991e5; //they do nothing 
   }
 
-  int ret; 
-  if (bd->rad_dateversion_int <= 227)
-  {
-    uint32_t mem = nbuffers== 1 ? RADIANT_TRIG_ONEBUFMODE : RADIANT_TRIG_TWOBUFMODE; 
-    ret = (4!=radiant_set_mem(bd, DEST_FPGA, RAD_REG_LAB_CTRL_TRIGGER, 4, (uint8_t*) &mem)); 
-  }
-  else 
-  {
-    uint32_t mem = 0; 
-    if (4!=radiant_get_mem(bd, DEST_FPGA, RAD_REG_TRIG_OVLDCFG, 4, (uint8_t*) &mem)) return -1; 
-    //clear the buffer bits 
-
-    const uint32_t buffer_bits = 0x3 << 17; 
-    mem&=~buffer_bits; 
-    mem|= (nbuffers-1) << 17 ; 
-    ret = 4!=radiant_set_mem(bd, DEST_FPGA, RAD_REG_TRIG_OVLDCFG, 4, (uint8_t*) &mem); 
-  }
+  uint32_t mem = nbuffers== 1 ? RADIANT_TRIG_ONEBUFMODE : RADIANT_TRIG_TWOBUFMODE; 
+  int  ret = (4!=radiant_set_mem(bd, DEST_FPGA, RAD_REG_LAB_CTRL_TRIGGER, 4, (uint8_t*) &mem)); 
 
   if (!ret) 
   {
@@ -2367,7 +2354,7 @@ int radiant_configure_rf_trigger(radiant_dev_t *bd, radiant_trig_sel_t which,
   int iwin = 0;
   while (cycles > 0 && iwin < 4) 
   {
-    win[iwin] = cycles & 0x1f; 
+    win[iwin] = cycles > 0x1f ? 0x1f : cycles; 
     cycles-=win[iwin]; 
     iwin++; 
   }

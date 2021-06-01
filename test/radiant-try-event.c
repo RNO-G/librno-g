@@ -180,10 +180,11 @@ int main(int nargs, char ** args)
   //this seems to clear the extra triggers too? 
   radiant_reset_counters(rad); 
 
-  radiant_labs_start(rad); 
-
   radiant_set_nbuffers_per_readout(rad, nbuffers); 
   radiant_dma_setup_event(rad, 0xffffff); 
+
+  radiant_labs_start(rad); 
+
 
   int enables = 0; 
 
@@ -285,6 +286,8 @@ int main(int nargs, char ** args)
   rno_g_close_handle(&eh); 
   rno_g_close_handle(&hh); 
   rno_g_close_handle(&dsh); 
+
+  radiant_dma_setup_event(rad, 0xffffff); 
  
   radiant_close(rad); 
 }
