@@ -95,7 +95,7 @@ $(BUILD_DIR)/rno_g.so:  src/rno-g-pybind.cc  $(INCLUDES) $(BUILD_DIR)/librno-g.s
 
 $(BUILD_DIR)/radiant.so:  src/radiant-pybind.cc  $(INCLUDES) $(BUILD_DIR)/librno-g.so $(BUILD_DIR)/libradiant.so | $(BUILD_DIR)
 	@echo Generating Python bindings for radiant. This might take a while if you are on the BBB
-	@c++ $(CXXFLAGS) -shared -std=c++11 $(PYBIND_INCLUDES) $< -o $@ -L$(BUILD_DIR) -lrno-g -lradiant
+	@c++ $(CXXFLAGS) -shared -std=c++11 $(PYBIND_INCLUDES) $< -o $@ -L$(BUILD_DIR) -lrno-g -lradiant -lm
 
 $(BUILD_DIR)/%.o: src/%.c $(DAQ_INCLUDES) | $(BUILD_DIR)
 	@echo Compiling $@
@@ -103,7 +103,7 @@ $(BUILD_DIR)/%.o: src/%.c $(DAQ_INCLUDES) | $(BUILD_DIR)
 
 $(BUILD_DIR)/test/%: test/%.c $(INCLUDES) $(DAQ_INCLUDES) $(BUILD_DIR)/librno-g.so $(BUILD_DIR)/libradiant.so | $(BUILD_DIR)
 	@echo Compiling $@
-	@cc  -o $@ $(CFLAGS) -Isrc/ -L$(BUILD_DIR) -lradiant -lrno-g -lz $< 
+	@cc  -o $@ $(CFLAGS) -Isrc/ -L$(BUILD_DIR) -lradiant -lrno-g -lz -lm $< 
 
 $(BUILD_DIR)/test/%: test/%.py $(INCLUDES) $(DAQ_INCLUDES) $(BUILD_DIR)/librno-g.so  $(BUILD_DIR)/_rno_g.so $(BUILD_DIR)/libradiant.so | $(BUILD_DIR)
 	ln  $@ $<
