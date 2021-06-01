@@ -131,6 +131,7 @@ int main(int nargs, char ** args)
       {
         mincoincident = atoi(args[++i]); 
       }
+      else usage(); 
     }
     else 
     {
