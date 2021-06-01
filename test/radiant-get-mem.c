@@ -7,7 +7,7 @@
 
 int main(int nargs, char ** args) 
 {
-  radiant_dev_t * rad = radiant_open("/dev/spi/0.0", "/dev/ttyRadiant",0);
+  radiant_dev_t * rad = radiant_open("/dev/spi/0.0", "/dev/ttyRadiant",0,-61);
  
   if (nargs < 2) 
   {
