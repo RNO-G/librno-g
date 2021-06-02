@@ -60,7 +60,7 @@ int main(int nargs, char ** args)
 
   radiant_trigger_enable(rad, RADIANT_TRIG_EN,0); 
 
-  while (T <= stop)
+  while ( (step >= 0 && T <= stop) || ( step < 0 && T>=stop))
   {
     printf("====THRESHOLD IS %f V====\n", T); 
     for (int i = 0; i < 24; i++) 
