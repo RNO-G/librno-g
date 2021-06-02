@@ -1198,7 +1198,7 @@ int radiant_dump(radiant_dev_t *dev, FILE * stream, int flags)
 
   uint32_t ovldchcfg;
   radiant_get_mem(dev, DEST_FPGA, RAD_REG_TRIG_OVLDCHCFG,4,(uint8_t*) &ovldchcfg); 
-  fprintf(stream, "    OVLDCTRLSTAT:  (0x%x): 0x%x\n", RAD_REG_TRIG_OVLDCHCFG, ovldchcfg); 
+  fprintf(stream, "    OVLDCHCFG:  (0x%x): 0x%x\n", RAD_REG_TRIG_OVLDCHCFG, ovldchcfg); 
 
   uint32_t mastern;
   radiant_get_mem(dev, DEST_FPGA, RAD_REG_TRIG_MASTEREN,4,(uint8_t*) &mastern); 
