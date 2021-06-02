@@ -13,6 +13,15 @@ int main(int nargs, char ** args)
 {
   int bias = 0; 
   int nbuffers = 2;
+  double start = 0.5; 
+  double stop =1.5; 
+  double step = 0.01; 
+  double period = 1; 
+
+  if (nargs > 1) start = atof(args[1]); 
+  if (nargs > 2) stop = atof(args[2]); 
+  if (nargs > 3) step = atof(args[3]); 
+  if (nargs > 4) period = atof(args[4]); 
 
   radiant_dev_t * rad = radiant_open("/dev/spi/0.0", "/dev/ttyRadiant", 46, -61);
 
@@ -30,7 +39,7 @@ int main(int nargs, char ** args)
   float thresh[24]; 
   rno_g_daqstatus_t ds; 
 
-  double T = 0.05; 
+  double T = start; 
 
   radiant_labs_stop(rad); 
 
@@ -41,18 +50,17 @@ int main(int nargs, char ** args)
   }
 
   //start with well known period
-  radiant_set_scaler_period(rad,1.); 
-
+  radiant_set_scaler_period(rad,period); 
 
   radiant_reset_counters(rad); 
   radiant_set_nbuffers_per_readout(rad, nbuffers); 
   radiant_dma_setup_event(rad, 0xffffff); 
+  radiant_configure_rf_trigger(rad, RADIANT_TRIG_A, 0xffffff, 23, 100.); 
   radiant_labs_start(rad); 
 
-  radiant_configure_rf_trigger(rad, RADIANT_TRIG_A, 0xffffff, 23, 100.); 
   radiant_trigger_enable(rad, RADIANT_TRIG_EN,0); 
 
-  while (T < 1.5)
+  while (T <= stop)
   {
     printf("====THRESHOLD IS %f V====\n", T); 
     for (int i = 0; i < 24; i++) 
@@ -71,14 +79,16 @@ int main(int nargs, char ** args)
       if (ds.scalers[i] > 32767 && ds.prescalers[i] < 255)
       {
         all_ok = 0;
-        printf("Increasing prescaler for CH %d to %d\n", i, ds.prescalers[i]+1); 
-        radiant_set_prescaler(rad,i,ds.prescalers[i]+1); 
+        int to = 1.5*(ds.prescalers[i]+1); 
+        if (to > 255) to = 255; 
+        printf("Increasing prescaler for CH %d to %d\n", i, to); 
+        radiant_set_prescaler(rad,i,to); 
       }
     }
 
     if (!all_ok) 
       continue; 
-    T+=0.05; 
+    T+=step; 
   }
 
 
