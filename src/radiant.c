@@ -2518,13 +2518,10 @@ int radiant_set_trigger_thresholds(radiant_dev_t * bd, int ichan_start, int icha
 
     //cache the threshold 
     bd->thresh[i] = vals[i-ichan_start]; 
+    if (4 != radiant_set_mem(bd,DEST_FPGA, RAD_REG_TRIG_THRESH_BASE+RAD_REG_TRIG_THRESH_INCR*i, 4, (uint8_t*) &vals[i-ichan_start])) return 1; 
   }
 
-  //otehrwise make sure they are enabled
-
-  int nchan = (ichan_end-ichan_start)+1; 
-  if (4*nchan!=radiant_set_mem(bd, DEST_FPGA, RAD_REG_TRIG_THRESH_BASE+RAD_REG_TRIG_THRESH_INCR * ichan_start, 4*nchan, (uint8_t*) (vals))) return 1; 
-
+  //otherwise make sure they are enabled
   if (new_oeb != oeb)
   {
 //    printf("new_oeb: %x  old_oeb: %x\n", new_oeb, oeb) ; 
