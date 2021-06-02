@@ -620,7 +620,6 @@ int radiant_read_event(radiant_dev_t * bd, rno_g_header_t * hd, rno_g_waveform_t
     {
       Ns[1+iactual] = 2*nsamples; 
       bufs[1+iactual] = (uint8_t*) wf->radiant_waveforms[i]; 
-    //  ret = radiant_read(bd, 1, &Ns[iactual],&bufs[iactual]); 
       iactual++; 
     }
   }
@@ -631,7 +630,7 @@ int radiant_read_event(radiant_dev_t * bd, rno_g_header_t * hd, rno_g_waveform_t
   struct timespec end; 
 
   clock_gettime(CLOCK_REALTIME, &start); 
-  int ret = radiant_read(bd, 2+nactual, Ns,bufs); 
+  int ret = radiant_read(bd, 1+nactual, Ns,bufs); 
   clock_gettime(CLOCK_REALTIME, &end); 
 
   
