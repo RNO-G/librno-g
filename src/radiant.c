@@ -1852,6 +1852,7 @@ int radiant_dma_setup_event(radiant_dev_t*bd, uint32_t mask)
   radiant_dma_txn_count_reset(bd); 
   radiant_dma_engine_reset(bd); 
   radiant_dma_tx_reset(bd); 
+  radiant_dma_rx_reset(bd); 
   
 
   int idesc = 0; 
