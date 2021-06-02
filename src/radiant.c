@@ -1169,6 +1169,82 @@ int radiant_dump(radiant_dev_t *dev, FILE * stream, int flags)
     printf ("     DMA_DESC_%02d (at 0x%x):   addr: 0x%x , incr: %d, len: %d, last:%d\n", i, addr, dma.address << 2, dma.increment, dma.cyclecount+1, dma.last); 
   }
 
+  uint32_t evctrl;
+  radiant_get_mem(dev, DEST_FPGA, RAD_REG_EV_CTRL,4,(uint8_t*) &evctrl); 
+  fprintf(stream, "    EVCNTRL:  (0x%x): %u\n", RAD_REG_EV_CTRL, evctrl); 
+
+  uint32_t pps;
+  radiant_get_mem(dev, DEST_FPGA, RAD_REG_EV_PPS,4,(uint8_t*) &pps); 
+  fprintf(stream, "    PPSCNT:  (0x%x): %u\n", RAD_REG_EV_PPS, pps); 
+
+  uint32_t sysclkcnt;
+  radiant_get_mem(dev, DEST_FPGA, RAD_REG_EV_SYSCLK,4,(uint8_t*) &sysclkcnt); 
+  fprintf(stream, "    SYSCLKCNT:  (0x%x): %u\n", RAD_REG_EV_SYSCLK, sysclkcnt); 
+
+  uint32_t lastclkcnt;
+  radiant_get_mem(dev, DEST_FPGA, RAD_REG_EV_LASTSYSCLK,4,(uint8_t*) &lastclkcnt); 
+  fprintf(stream, "    LASTCLKCNT:  (0x%x): %u\n", RAD_REG_EV_LASTSYSCLK, lastclkcnt); 
+
+  uint32_t oeb;
+  radiant_get_mem(dev, DEST_FPGA, RAD_REG_TRIG_THRESH_OEB,4,(uint8_t*) &oeb); 
+  fprintf(stream, "    TRIGTHRESHOEB:  (0x%x): %u\n", RAD_REG_TRIG_THRESH_OEB, oeb); 
+
+  uint32_t ovldcfg;
+  radiant_get_mem(dev, DEST_FPGA, RAD_REG_TRIG_OVLDCFG,4,(uint8_t*) &ovldcfg); 
+  fprintf(stream, "    OVLDCFG:  (0x%x): %u\n", RAD_REG_TRIG_OVLDCFG, ovldcfg); 
+
+  uint32_t ovldctrl;
+  radiant_get_mem(dev, DEST_FPGA, RAD_REG_TRIG_OVLDCTRL,4,(uint8_t*) &ovldctrl); 
+  fprintf(stream, "    OVLDCTRLSTAT:  (0x%x): %u\n", RAD_REG_TRIG_OVLDCTRL, ovldctrl); 
+
+  uint32_t ovldchcfg;
+  radiant_get_mem(dev, DEST_FPGA, RAD_REG_TRIG_OVLDCHCFG,4,(uint8_t*) &ovldchcfg); 
+  fprintf(stream, "    OVLDCTRLSTAT:  (0x%x): %u\n", RAD_REG_TRIG_OVLDCHCFG, ovldchcfg); 
+
+  uint32_t mastern;
+  radiant_get_mem(dev, DEST_FPGA, RAD_REG_TRIG_MASTEREN,4,(uint8_t*) &mastern); 
+  fprintf(stream, "    TRIGMASTEREN:  (0x%x): %u\n", RAD_REG_TRIG_MASTEREN, mastern); 
+
+
+  uint32_t triginen;
+  radiant_get_mem(dev, DEST_FPGA, RAD_REG_TRIG_TRIGINEN,4,(uint8_t*) &triginen); 
+  fprintf(stream, "    TRIGINEN:  (0x%x): %u\n", RAD_REG_TRIG_TRIGINEN, triginen); 
+
+  uint32_t trigen0;
+  radiant_get_mem(dev, DEST_FPGA, RAD_REG_TRIG_TRIGEN0,4,(uint8_t*) &trigen0); 
+  fprintf(stream, "    TRIGEN0:  (0x%x): %u\n", RAD_REG_TRIG_TRIGEN0, trigen0); 
+
+  uint32_t trigmaskb0;
+  radiant_get_mem(dev, DEST_FPGA, RAD_REG_TRIG_TRIGMASKB0,4,(uint8_t*) &trigmaskb0); 
+  fprintf(stream, "    TRIGMASKB0:  (0x%x): %u\n", RAD_REG_TRIG_TRIGMASKB0, trigmaskb0); 
+
+  uint32_t trigwin0;
+  radiant_get_mem(dev, DEST_FPGA, RAD_REG_TRIG_TRIGWINDOW0,4,(uint8_t*) &trigwin0); 
+  fprintf(stream, "    TRIGWIN0:  (0x%x): %u\n", RAD_REG_TRIG_TRIGWINDOW0, trigwin0); 
+
+  uint32_t trigthresh0;
+  radiant_get_mem(dev, DEST_FPGA, RAD_REG_TRIG_TRIGTHRESH0,4,(uint8_t*) &trigthresh0); 
+  fprintf(stream, "    TRIGTHRESH0:  (0x%x): %u\n", RAD_REG_TRIG_TRIGTHRESH0, trigthresh0); 
+
+  uint32_t trigen1;
+  radiant_get_mem(dev, DEST_FPGA, RAD_REG_TRIG_TRIGEN1,4,(uint8_t*) &trigen1); 
+  fprintf(stream, "    TRIGEN1:  (0x%x): %u\n", RAD_REG_TRIG_TRIGEN1, trigen1); 
+
+  uint32_t trigmaskb1;
+  radiant_get_mem(dev, DEST_FPGA, RAD_REG_TRIG_TRIGMASKB1,4,(uint8_t*) &trigmaskb1); 
+  fprintf(stream, "    TRIGMASKB1:  (0x%x): %u\n", RAD_REG_TRIG_TRIGMASKB1, trigmaskb1); 
+
+  uint32_t trigwin1;
+  radiant_get_mem(dev, DEST_FPGA, RAD_REG_TRIG_TRIGWINDOW1,4,(uint8_t*) &trigwin1); 
+  fprintf(stream, "    TRIGWIN1:  (0x%x): %u\n", RAD_REG_TRIG_TRIGWINDOW1, trigwin1); 
+
+  uint32_t trigthresh1;
+  radiant_get_mem(dev, DEST_FPGA, RAD_REG_TRIG_TRIGTHRESH1,4,(uint8_t*) &trigthresh1); 
+  fprintf(stream, "    TRIGTHRESH1:  (0x%x): %u\n", RAD_REG_TRIG_TRIGTHRESH1, trigthresh1); 
+
+
+
+
 
   return 0;
 }
