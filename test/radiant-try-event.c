@@ -26,18 +26,18 @@ static int instrumented_poll(radiant_dev_t * rad, int timeout)
 
 int usage() 
 {
-  printf("radiant-try-event [-N NEVENTS=100] [-b buffers=2] [-M TRIGMASK=0x37b000] [-W TRIGWINDOW=20] [-T THRESH=0.2] [-M MINCOINCIDENT =3] [-B BIAS=1550]  [-z] [-f] [-c] [-h]\n"); 
-  printf("  -N NEVENTS number of events"); 
-  printf("  -b BUFFERS number of buffers"); 
-  printf("  -M TRIGMASK  trigger mask used (default 0x37b000)"); 
-  printf("  -W TRIGWINDOW  ns for trig window") ;
-  printf("  -T TRIGTHRESH  V") ;
-  printf("  -M MINCOINCIDENT  minimum concident") ;
-  printf("  -B BIAS  the DAC count for the biask") ;
-  printf("  -z gzip poutput"); ;
-  printf("  -f force triggers"); 
-  printf("  -c trigger clear mode"); 
-  printf("  -h this message"); 
+  printf("radiant-try-event [-N NEVENTS=100] [-b buffers=2] [-M TRIGMASK=0x37b000] [-W TRIGWINDOW=20] [-T THRESH=0.2] [-C MINCOINCIDENT =3] [-B BIAS=1550]  [-z] [-f] [-c] [-h]\n"); 
+  printf("  -N NEVENTS number of events\n"); 
+  printf("  -b BUFFERS number of buffers\n"); 
+  printf("  -M TRIGMASK  trigger mask used (default 0x37b000)\n"); 
+  printf("  -W TRIGWINDOW  ns for trig window\n") ;
+  printf("  -T TRIGTHRESH  V\n") ;
+  printf("  -C MINCOINCIDENT  minimum concident\n") ;
+  printf("  -B BIAS  the DAC count for the bias\n") ;
+  printf("  -z gzip poutput\n"); ;
+  printf("  -f force triggers\n"); 
+  printf("  -c trigger clear mode\n"); 
+  printf("  -h this message\n"); 
   exit(1); 
 
 }
@@ -110,7 +110,7 @@ int main(int nargs, char ** args)
       {
         N = atoi(args[++i]);
       }
-      if (!strcmp(args[i],"-b"))
+      else if (!strcmp(args[i],"-b"))
       {
         nbuffers = atoi(args[++i]);
       }
@@ -127,7 +127,7 @@ int main(int nargs, char ** args)
       {
         trigthresh = atof(args[++i]); 
       }
-      else if (!strcmp(args[i],"-M"))
+      else if (!strcmp(args[i],"-C"))
       {
         mincoincident = atoi(args[++i]); 
       }
@@ -180,42 +180,33 @@ int main(int nargs, char ** args)
 
   //this seems to clear the extra triggers too? 
   radiant_reset_counters(rad); 
-
   radiant_set_nbuffers_per_readout(rad, nbuffers); 
   radiant_dma_setup_event(rad, 0xffffff); 
-
-  radiant_labs_start(rad); 
-
-
-  int enables = 0; 
+  int enables = RADIANT_TRIGOUT_EN| RADIANT_TRIGOUT_SOFT | RADIANT_TRIG_EN; 
 
   printf("\nStarting %s readout using %d buffer%s!\n", gzipped ? "gzipped" : "uncompresed", nbuffers, nbuffers == 2 ? "s" : ""); 
   if (force) 
   {
     printf("Using force triggers\n"); 
   }
-  else
+
+  printf("Using RF trigger settings:  MASK: 0x%x, THRESH: %f V, WINDOW: %f ns, MINCOINC: %d\n", trigmask, trigthresh, trigwindow, mincoincident); 
+
+  //let's set the thresholds now (for all channels) 
+  
+  float all_thresh[RNO_G_NUM_RADIANT_CHANNELS]; 
+  for (int i = 0; i < RNO_G_NUM_RADIANT_CHANNELS; i++) 
   {
-    printf("Using RF triggers:  MASK: 0x%x, THRESH: %f V, WINDOW: %f ns, MINCOINC: %d\n", trigmask, trigthresh, trigwindow, mincoincident); 
-
-    //let's set the thresholds now (for all channels) 
-    
-    float all_thresh[RNO_G_NUM_RADIANT_CHANNELS]; 
-    for (int i = 0; i < RNO_G_NUM_RADIANT_CHANNELS; i++) 
-    {
-      all_thresh[i] = trigthresh; 
-
-    }
-
-    enables |= RADIANT_TRIG_EN; 
-    radiant_set_trigger_thresholds_float(rad,0, RNO_G_NUM_RADIANT_CHANNELS-1, all_thresh); 
-
-    //we'll use TRIG A
-    radiant_configure_rf_trigger(rad,RADIANT_TRIG_A, trigmask, mincoincident, trigwindow); 
-
-    //make sure TRIG B isn't doing anything
-    radiant_configure_rf_trigger(rad,RADIANT_TRIG_B, 0, 0, 0); 
+        all_thresh[i] = trigthresh; 
   }
+
+  radiant_set_trigger_thresholds_float(rad,0, RNO_G_NUM_RADIANT_CHANNELS-1, all_thresh); 
+
+      //we'll use TRIG A
+  radiant_configure_rf_trigger(rad,RADIANT_TRIG_A, trigmask, mincoincident, trigwindow); 
+
+      //make sure TRIG B isn't doing anything
+  radiant_configure_rf_trigger(rad,RADIANT_TRIG_B, 0, 0, 0); 
 
 
 
@@ -225,8 +216,7 @@ int main(int nargs, char ** args)
     enables |= RADIANT_TRIG_CPUFLOW; 
   }
 
-  radiant_trigger_enable(rad, enables,0); 
-
+  radiant_labs_start(rad); 
 
 
   rno_g_file_handle_t hh;
@@ -241,6 +231,8 @@ int main(int nargs, char ** args)
   signal(SIGINT, sighandler); 
   struct timespec start;
   struct timespec stop;
+
+  radiant_trigger_enable(rad,enables,0);
   clock_gettime(CLOCK_REALTIME,&start);
 
   int i = 0;
@@ -252,24 +244,28 @@ int main(int nargs, char ** args)
 
     if (force) 
     {
+      printf("Sending force trigger\n"); 
       radiant_soft_trigger(rad); 
     }
 
     maybe_dump_daqstatus(rad,dsh,&ds);
 
-    while(!instrumented_poll(rad,100) && !quit) 
+    while(!instrumented_poll(rad, clearmode ? 0 :  100) && !quit) 
     {
-      maybe_dump_daqstatus(rad,dsh,&ds);
+      if (maybe_dump_daqstatus(rad,dsh,&ds))
+      {
+        radiant_dump(rad,stdout,0); 
+      }
+      int bsy,clear_pending;; 
+      radiant_trigger_busy(rad, &bsy, &clear_pending); 
+      printf("OVERLORDSTAT is: bsy: %d, clear_pending: %d\n",  bsy, clear_pending); 
+      if (clear_pending) radiant_cpu_clear(rad); 
+      else if (clearmode) usleep(10000); //make up for the short poll 
     }
 
     if (quit) break; 
 
     radiant_read_event(rad, &hd, &wf); 
-
-    if (clearmode) 
-    {
-      radiant_cpu_clear(rad); 
-    }
 
     rno_g_header_dump(stdout, &hd);
     rno_g_header_write(hh, &hd); 
