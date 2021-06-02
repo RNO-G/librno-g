@@ -383,7 +383,14 @@ int rno_g_daqstatus_dump(FILE *f, const rno_g_daqstatus_t* ds)
   fprintf(f,  "==CH==THRESH(V)==SCALER==PRESCALER\n"); 
   for (int i = 0; i < RNO_G_NUM_RADIANT_CHANNELS; i++) 
   {
-    ret+=fprintf(f,  " %02d | %0.4f |  %05u  | %03u\n", i, ds->thresholds[i] *2.5/1677215, ds->scalers[i], ds->prescalers[i]+1); 
+    if (ds->thresholds[i] == 0xffffffff) 
+    {
+      ret+=fprintf(f,  " %02d | ?????? |  %05u  | %03u\n", i, ds->scalers[i], ds->prescalers[i]+1); 
+    }
+    else
+    {
+      ret+=fprintf(f,  " %02d | %0.4f  |  %05u  | %03u\n", i, ds->thresholds[i] *2.5/16777215, ds->scalers[i], ds->prescalers[i]+1); 
+    }
   }
   return ret; 
 }
