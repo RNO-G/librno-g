@@ -248,7 +248,10 @@ int main(int nargs, char ** args)
       radiant_soft_trigger(rad); 
     }
 
-    maybe_dump_daqstatus(rad,dsh,&ds);
+    if (maybe_dump_daqstatus(rad,dsh,&ds))
+    {
+        radiant_dump(rad,stdout,0); 
+    }
 
     while(!instrumented_poll(rad, clearmode ? 0 :  100) && !quit) 
     {
@@ -259,8 +262,11 @@ int main(int nargs, char ** args)
       int bsy,clear_pending;; 
       radiant_trigger_busy(rad, &bsy, &clear_pending); 
       printf("OVERLORDSTAT is: bsy: %d, clear_pending: %d\n",  bsy, clear_pending); 
-      if (clear_pending) radiant_cpu_clear(rad); 
-      else if (clearmode) usleep(10000); //make up for the short poll 
+      if (clearmode) 
+      {
+        if (clear_pending) radiant_cpu_clear(rad); 
+        else  usleep(10000); //make up for the short poll 
+      }
     }
 
     if (quit) break; 
