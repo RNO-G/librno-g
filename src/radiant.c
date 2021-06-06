@@ -472,12 +472,12 @@ static void roll16(uint16_t * v, int shift, int N)  //using
 static void andall16_0x0fff(uint16_t *v, int N) 
 {
 
-  static uint16x8_t vandme_0x0fff = { 0x0fff, 0x0fff, 0x0fff, 0x0fff,
-                                          0x0fff, 0x0fff, 0x0fff, 0x0fff}; 
   static const uint16_t andme = 0x0fff; 
 
   int i = 0;
 #if defined(__arm__) && !defined(NOVECTORIZE) 
+  static uint16x8_t vandme_0x0fff = { 0x0fff, 0x0fff, 0x0fff, 0x0fff,
+                                      0x0fff, 0x0fff, 0x0fff, 0x0fff}; 
 //we'll use ARM NEON intrinsics. Since usually this will be a multiple of 32, we'll use vandq_u16 unrolled by 4 
   int Niter = N/32; 
 
