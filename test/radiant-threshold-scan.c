@@ -90,6 +90,7 @@ int main(int nargs, char ** args)
     usleep(3*period*1e6+5000); 
     radiant_read_daqstatus(rad, &ds);
     rno_g_daqstatus_dump(stdout, &ds); 
+    rno_g_daqstatus_write(h,&ds); 
 
     int all_ok = 1; 
     for (int i = 0; i < 24; i++) 
