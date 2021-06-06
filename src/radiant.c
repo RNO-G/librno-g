@@ -2403,25 +2403,91 @@ int radiant_current_pps(radiant_dev_t * bd, uint32_t *pps, uint32_t *sysclk_last
 }
 
 
+int radiant_set_global_trigger_mask(radiant_dev_t *bd, uint32_t mask)
+{
+  if (!bd) return -1; 
+
+  mask &= 0xffffff; 
+
+  //check that we actually ahve to set it 
+  radiant_get_global_trigger_mask(bd,0,1); //this will force update bd->triginen 
+
+  if (mask != bd->triginen) 
+  {
+    //have to temporarily disable the trigger if it's enabled 
+    uint32_t was_enabled = 0; 
+
+    if (radiant_get_l0_enable(bd,&was_enabled)) return 1; 
+
+    if (was_enabled) 
+    {
+      if (radiant_set_l0_enable(bd,0)) return 1; 
+    }
+
+    
+    //set the global trigger enables
+    if ( 4!= radiant_set_mem(bd, DEST_FPGA, RAD_REG_TRIG_TRIGINEN, 4, (uint8_t*) &mask)) return 1; 
+    bd->triginen = mask; 
+
+    if (was_enabled) 
+    {
+      if (radiant_set_l0_enable(bd,1)) return 1; 
+    }
+  }
+  return 0; 
+}
+
+int radiant_get_global_trigger_mask(radiant_dev_t *bd, uint32_t * mask, int force)
+{
+
+  if (force) 
+  {
+    if ( 4!= radiant_get_mem(bd, DEST_FPGA, RAD_REG_TRIG_TRIGINEN, 4, (uint8_t*) &bd->triginen)) return 1; 
+  }
+
+  if (mask) 
+  {
+    *mask = bd->triginen; 
+  }
+
+  return 0; 
+}
+
+int radiant_get_l0_enable(radiant_dev_t * bd, uint32_t * en) 
+{
+  return (4!= radiant_get_mem(bd, DEST_FPGA, RAD_REG_TRIG_MASTEREN, 4, (uint8_t*) en)); 
+}
+
+int radiant_set_l0_enable(radiant_dev_t *bd, uint32_t en) 
+{
+  en &=1; 
+  return (4!= radiant_set_mem(bd, DEST_FPGA, RAD_REG_TRIG_MASTEREN, 4, (uint8_t*) &en)) ; 
+}
+
+
 int radiant_configure_rf_trigger(radiant_dev_t *bd, radiant_trig_sel_t which, 
                                  uint32_t contributing_channels, 
                                  uint8_t required_coincident_channels, 
                                  float coincidence_window_ns)
 {
   if (!bd || bd->rad_dateversion_int <=227) return -1; 
+  int update_global_bit = contributing_channels >> 31; 
 
   //see if  trigger is enabled
-  uint32_t mem = 0; 
-  if (4!= radiant_get_mem(bd, DEST_FPGA, RAD_REG_TRIG_MASTEREN, 4, (uint8_t*) &mem)) return 1; 
-  int trig_enabled = mem; 
-  mem = 0;
-  if (4!= radiant_set_mem(bd, DEST_FPGA, RAD_REG_TRIG_MASTEREN, 4, (uint8_t*) &mem)) return 1; 
+  uint32_t trig_enabled = 0; 
+  if (radiant_get_l0_enable(bd,&trig_enabled)) return 1; 
+
+  //disable it if it's on
+  if (trig_enabled) 
+  {
+    if (radiant_set_l0_enable(bd,0)) return 1; 
+  }
 
   contributing_channels &=0xffffff; 
   if (!required_coincident_channels) contributing_channels = 0; 
 
   // enable this trigger or not depending on if there are any channels enabled 
-  mem = (!!contributing_channels) << 31; 
+  uint32_t mem = (!!contributing_channels) << 31; 
   
   if ( 4!= radiant_set_mem(bd, DEST_FPGA, 
       which == RADIANT_TRIG_A ? RAD_REG_TRIG_TRIGEN0 : RAD_REG_TRIG_TRIGEN1, 
@@ -2435,11 +2501,24 @@ int radiant_configure_rf_trigger(radiant_dev_t *bd, radiant_trig_sel_t which,
   if (which == RADIANT_TRIG_A) bd->trigAen = contributing_channels; 
   else bd->trigBen = contributing_channels; 
 
-  bd->triginen = (bd->trigAen | bd->trigBen) & 0xffffff; 
 
-  //set the global trigger enables
-  if ( 4!= radiant_set_mem(bd, DEST_FPGA, RAD_REG_TRIG_TRIGINEN, 4, (uint8_t*) &bd->triginen)) return 1; 
- 
+  //Check that the global trigger is enabled for all channels, complain if not
+  if ( (~bd->triginen) & contributing_channels) 
+  {
+
+    if (update_global_bit) 
+    {
+      radiant_set_global_trigger_mask(bd, bd->triginen | contributing_channels); 
+    }
+    else
+    {
+      fprintf(stderr,"WARNING: RF trigger %d has channel enabled not enabled in global trigger mask!\n", which);;
+      fprintf(stderr,"  triginen: 0x%x, triginen%d: 0x%x\n", bd->triginen, which, contributing_channels);  
+    }
+  }
+
+
+
   //set the threshhold
 
   if (required_coincident_channels) required_coincident_channels-=1; 
@@ -2472,8 +2551,7 @@ int radiant_configure_rf_trigger(radiant_dev_t *bd, radiant_trig_sel_t which,
   //now reenable the trigger if it was enabled, or if we have enabled a trigger
   if (trig_enabled || contributing_channels) 
   {
-    mem = 1;
-    if (4!= radiant_set_mem(bd, DEST_FPGA, RAD_REG_TRIG_MASTEREN, 4, (uint8_t*) &mem)) return 1; 
+    if (radiant_set_l0_enable(bd,1)) return 1; 
   }
 
   return 0; 

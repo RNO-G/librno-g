@@ -410,21 +410,58 @@ typedef enum radiant_trig_sel
 } radiant_trig_sel_t; 
 
 
-/** Note that this will temporary disable internal triggering while setup 
+/** Set the global trigger mask. Channels not in the global trigger mask will not count scalres
+ * or contribute to RF triggers.
+ * This will only set it if it's different from current, and temporarily disable the global trigger enable. 
  *
- * This configures RF trigger A or B
- * @param bd the radaiant handle
+ * */ 
+int radiant_set_global_trigger_mask(radiant_dev_t * bd, uint32_t mask); 
+
+
+/** Gets the global trigger mask.
+ *  If force is 0, will populate mask with cached value. Non-zero force forces an update. 
+ *
+ */ 
+int radiant_get_global_trigger_mask(radiant_dev_t * bd, uint32_t * mask, int force); 
+
+/** 
+ *  This enables or disables  the l0 trigger. This must be enabled for the scalers to work and for the
+ *  actual trigger that causes recording to work. 
+ */
+int radiant_set_l0_enable(radiant_dev_t * bd, uint32_t enable); 
+
+/** 
+ *  This gets the state of the l0 trigger. 
+ **/
+
+int radiant_get_l0_enable(radiant_dev_t * bd, uint32_t * enable); 
+
+
+/** 
+ *
+ * This configures RF trigger A or B. 
+ *
+ * Note that if the contributing channels are not already in the global trigger mask, 
+ * this will complain but not do anything about it UNLESS the top bit of contributing_channels_mask
+ * is set, in which case it will update TRIGINEN without complaining.  
+ *
+ * Note that this will temporary disable l0 triggering while setup is happening. 
+ *
+ * Note also that if the l0 enable was off before this, it will be turned on afterwards 
+ * if contributing_channels is non-zero. 
+ *
+ *
+ * @param bd the radiant handle
  * @param which RADIANT_TRIG_A or RADIANT_TRIG_B
- * @param contributing_channels_mask mask of channels that contribute to this trigger. Set to 0 to disable this trigger. 
+ * @param contributing_channels_mask mask of channels that contribute to this trigger. Set to 0 to disable this trigger.  Set the top bit to 1 to force this to add any unenabled channels to the global trigger mask. 
  * @param required_coincident_channels the threshold for number of coincident channels 
  * @param coincidence_window_ns the length of the coincidence window in nanoseconds. This will be rounded to the nearest 2.5 ns. Min is 17.5 ns, max is 327.5
  *
  **/
-int radiant_configure_rf_trigger(radiant_dev_t * bd, 
-    radiant_trig_sel_t which, 
-    uint32_t contributing_channels_mask, 
-    uint8_t required_coincident_channels, 
-    float coincidence_window_ns); 
+int radiant_configure_rf_trigger(radiant_dev_t * bd, radiant_trig_sel_t which, 
+    uint32_t contributing_channels_mask, uint8_t required_coincident_channels, 
+    float coincidence_window_ns
+    ); 
 
 
 /** 
