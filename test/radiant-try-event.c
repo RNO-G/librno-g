@@ -31,7 +31,7 @@ int usage()
   printf("  -b BUFFERS number of buffers\n"); 
   printf("  -M TRIGMASK  trigger mask used (default 0x37b000)\n"); 
   printf("  -W TRIGWINDOW  ns for trig window\n") ;
-  printf("  -T TRIGTHRESH  V\n") ;
+  printf("  -T TRIGTHRESH  V (0 to keep whatever is current) \n") ;
   printf("  -C MINCOINCIDENT  minimum concident\n") ;
   printf("  -B BIAS  the DAC count for the bias\n") ;
   printf("  -z gzip poutput\n"); ;
@@ -75,7 +75,7 @@ int main(int nargs, char ** args)
   int clearmode = 0; 
   uint32_t trigmask = 0x37b000; 
   float trigwindow = 20; 
-  float trigthresh = 0.2; 
+  float trigthresh = 0; 
   uint8_t mincoincident = 3; 
   uint16_t bias = 1550; 
 
@@ -194,13 +194,16 @@ int main(int nargs, char ** args)
 
   //let's set the thresholds now (for all channels) 
   
-  float all_thresh[RNO_G_NUM_RADIANT_CHANNELS]; 
-  for (int i = 0; i < RNO_G_NUM_RADIANT_CHANNELS; i++) 
+  if (trigthresh) 
   {
-        all_thresh[i] = trigthresh; 
-  }
+    float all_thresh[RNO_G_NUM_RADIANT_CHANNELS]; 
+    for (int i = 0; i < RNO_G_NUM_RADIANT_CHANNELS; i++) 
+    {
+          all_thresh[i] = trigthresh; 
+    }
 
-  radiant_set_trigger_thresholds_float(rad,0, RNO_G_NUM_RADIANT_CHANNELS-1, all_thresh); 
+    radiant_set_trigger_thresholds_float(rad,0, RNO_G_NUM_RADIANT_CHANNELS-1, all_thresh); 
+  }
 
       //we'll use TRIG A
   radiant_configure_rf_trigger(rad,RADIANT_TRIG_A, trigmask, mincoincident, trigwindow); 
@@ -283,6 +286,9 @@ int main(int nargs, char ** args)
   printf("Elapsed time: %g, (%g Hz)\n",  time, i/time); 
   printf("  Note: for fastest speed, don't let this print to your terminal!!!\n"); 
 
+
+  //disable trigger
+  radiant_trigger_enable(rad,0,0);
 
   radiant_labs_stop(rad); 
 
