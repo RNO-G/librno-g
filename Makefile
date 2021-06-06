@@ -1,5 +1,6 @@
 BUILD_DIR=build
-PREFIX=/rno-g
+RNO_G_INSTALL_DIR?=/rno-g/
+PREFIX?=$(RNO_G_INSTALL_DIR)
 CFLAGS=-fPIC -Og -Wall -Wextra -g -std=gnu11
 CXXFLAGS+=-fPIC -Og -Wall -Wextra -g
 
