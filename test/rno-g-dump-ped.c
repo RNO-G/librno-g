@@ -7,7 +7,7 @@
 int main(int nargs, char ** args) 
 {
 
-  rno_g_pedestal_t wf; 
+  rno_g_pedestal_tpedwf; 
   for (int i = 1; i < nargs; i++) 
   {
 
@@ -15,9 +15,9 @@ int main(int nargs, char ** args)
 
     rno_g_file_handle_t h = {.type = RNO_G_GZIP, .handle.gz = f}; 
 
-    while (rno_g_pedestal_read(h, &wf) >0 )
+    while (rno_g_pedestal_read(h, &ped) >0 )
     {
-      rno_g_pedestal_dump(stdout,&wf); 
+      rno_g_pedestal_dump(stdout,&ped); 
     }
 
     gzclose(f); 
