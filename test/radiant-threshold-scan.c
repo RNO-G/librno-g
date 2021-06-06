@@ -8,11 +8,18 @@
 #include <signal.h> 
 #include <math.h> 
 
+volatile int quit = 0; 
+
+void sighandler(int sig) 
+{
+  printf("Got signal %d, stopping\n", sig); 
+  quit =1; 
+}
+
 
 int main(int nargs, char ** args) 
 {
   int bias = 0; 
-  int nbuffers = 2;
   double start = 0.5; 
   double stop =1.5; 
   double step = 0.01; 
@@ -44,7 +51,9 @@ int main(int nargs, char ** args)
 
   double T = start; 
 
-  radiant_labs_stop(rad); 
+  //set up the output file 
+  rno_g_file_handle_t h; 
+  rno_g_init_handle(&h,"thscan.dat","w"); 
 
   //Start with well known prescaler
   for (int i = 0; i < 24; i++) 
@@ -55,20 +64,23 @@ int main(int nargs, char ** args)
   //start with well known period
   radiant_set_scaler_period(rad,period); 
 
+
+  //ok I don't need all of this but this will set TRIGINEN properly at least! 
   radiant_reset_counters(rad); 
-  radiant_set_nbuffers_per_readout(rad, nbuffers); 
-  radiant_dma_setup_event(rad, 0xffffff); 
-  radiant_configure_rf_trigger(rad, RADIANT_TRIG_A, 0xffffff, 23, 100.); 
-  radiant_labs_start(rad); 
+  radiant_set_global_trigger_mask(rad,0xffffff); 
+  radiant_set_l0_enable(rad,1); 
 
-  radiant_trigger_enable(rad, RADIANT_TRIG_EN,0); 
+
   int thisN = N; 
-
   float goal_adj_scalers[RNO_G_NUM_RADIANT_CHANNELS] = {0}; 
   float goal_thresh[RNO_G_NUM_RADIANT_CHANNELS] = {0}; 
 
+  signal(SIGINT, sighandler); 
+
   while ( (step >= 0 && T <= stop) || ( step < 0 && T>=stop))
   {
+    if (quit) break; 
+
     printf("====THRESHOLD IS %f V====\n", T); 
     for (int i = 0; i < 24; i++) 
     {
@@ -106,6 +118,7 @@ int main(int nargs, char ** args)
     T+=step; 
     thisN = N; 
   }
+
   radiant_set_scaler_period(rad,1.); 
   //end with well known prescaler
   for (int i = 0; i < 24; i++) 
@@ -113,7 +126,7 @@ int main(int nargs, char ** args)
     radiant_set_prescaler(rad,i,0); 
   }
 
-   if (goal) 
+  if (goal && !stop) 
   {
     printf("Setting thresholds closet to goal (%f)\n", goal); 
     radiant_set_trigger_thresholds_float(rad,0,23,goal_thresh); 
@@ -122,9 +135,7 @@ int main(int nargs, char ** args)
     rno_g_daqstatus_dump(stdout, &ds); 
   }
 
+  rno_g_close_handle(&h); 
 
-
-  radiant_labs_stop(rad); 
   radiant_close(rad);
-
 }
