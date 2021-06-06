@@ -59,8 +59,10 @@ test: $(addprefix $(BUILD_DIR)/test/, $(TESTS) )
 		
 
 install: client
-	install $(BUILD_DIR)/librno-g.so $(PREFIX)/lib 
-	install $(INCLUDES) $(PREFIX)/include 
+	mkdir -p $(PREFIX)/lib
+	mkdir -p $(PREFIX)/include
+	install $(BUILD_DIR)/librno-g.so $(PREFIX)/lib/
+	install $(INCLUDES) $(PREFIX)/include/
 
 install-py: install
 
