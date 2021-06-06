@@ -1,5 +1,6 @@
 BUILD_DIR=build
-PREFIX=/rno-g
+RNO_G_INSTALL_DIR?=/rno-g/
+PREFIX?=$(RNO_G_INSTALL_DIR)
 CFLAGS=-fPIC -Og -Wall -Wextra -g -std=gnu11
 CXXFLAGS+=-fPIC -Og -Wall -Wextra -g
 
@@ -58,8 +59,10 @@ test: $(addprefix $(BUILD_DIR)/test/, $(TESTS) )
 		
 
 install: client
-	install $(BUILD_DIR)/librno-g.so $(PREFIX)/lib 
-	install $(INCLUDES) $(PREFIX)/include 
+	mkdir -p $(PREFIX)/lib
+	mkdir -p $(PREFIX)/include
+	install $(BUILD_DIR)/librno-g.so $(PREFIX)/lib/
+	install $(INCLUDES) $(PREFIX)/include/
 
 install-py: install
 
