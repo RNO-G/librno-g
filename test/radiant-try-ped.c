@@ -12,6 +12,7 @@ int main(void)
   if (!rad) return 1; 
   printf("!!!--------------------  AT PROGRAM START -------------!!!\n"); 
   radiant_dump(rad,stdout,0);
+  radiant_set_nbuffers_per_readout(rad,1); 
 
   rno_g_pedestal_t ped; 
   radiant_compute_pedestals(rad, 0xffffff, 512, &ped); 
