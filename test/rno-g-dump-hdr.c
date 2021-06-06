@@ -15,7 +15,7 @@ int main(int nargs, char ** args)
 
     rno_g_file_handle_t h = {.type = RNO_G_GZIP, .handle.gz = f}; 
 
-    while (rno_g_header_read(h, &hd))
+    while (rno_g_header_read(h, &hd) > 0)
     {
       rno_g_header_dump(stdout,&hd); 
     }

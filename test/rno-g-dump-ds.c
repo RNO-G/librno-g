@@ -7,17 +7,16 @@
 int main(int nargs, char ** args) 
 {
 
-  rno_g_waveform_t wf; 
+  rno_g_daqstatus_t ds; 
   for (int i = 1; i < nargs; i++) 
   {
 
     gzFile f = gzopen(args[i],"r"); 
-
     rno_g_file_handle_t h = {.type = RNO_G_GZIP, .handle.gz = f}; 
 
-    while (rno_g_waveform_read(h, &wf) > 0)
+    while (rno_g_daqstatus_read(h, &ds) >0)
     {
-      rno_g_waveform_dump(stdout,&wf); 
+      rno_g_daqstatus_dump(stdout,&ds); 
     }
 
     gzclose(f); 
