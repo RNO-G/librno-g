@@ -1,14 +1,19 @@
 
 R__LOAD_LIBRARY(librno-g.so) 
 R__LOAD_LIBRARY(libz.so) 
+R__LOAD_LIBRARY(libRootFftwWrapper.so) 
 #include <zlib.h> 
 #include "../src/rno-g.h" 
+#include "FFTtools.h" 
+#include "DigitalFilter.h" 
 TCanvas * c = 0; 
-    std::vector<TGraph*> gs; 
+std::vector<TGraph*> gs; 
+std::vector<TGraph*> envs; 
 
-void quick_plot(const char * file, int ev = 0, int symmetric=1, int Nev = 1, int save = false)
+void quick_plot(const char * file, int ev = 0, int symmetric=1, int Nev = 1, int save = false, int resfactor=1)
 {
 
+  FFTtools::ButterworthFilter but(FFTtools::LOWPASS, 2, 0.6/1.6); 
   gStyle->SetTitleFontSize(0.09); 
 
   gzFile f = gzopen(file,"r"); 
@@ -40,10 +45,12 @@ void quick_plot(const char * file, int ev = 0, int symmetric=1, int Nev = 1, int
     if (gs.size()) 
     {
       for (auto g: gs) delete g; 
+      for (auto env: envs) delete env; 
       gs.clear(); 
+      envs.clear(); 
     }
 
-    c = new TCanvas("quick_plot","Quick Plot", 1920+4,1080+28); 
+    c = new TCanvas("quick_plot","Quick Plot", 1920*resfactor+4,1080*resfactor+28); 
     c->Divide(4,6,0.001,0.001); 
 
 
@@ -65,7 +72,6 @@ void quick_plot(const char * file, int ev = 0, int symmetric=1, int Nev = 1, int
       g->GetXaxis()->SetTitleOffset(0.7);
       g->GetXaxis()->SetTitleSize(0.06);
       g->GetXaxis()->SetLabelSize(0.05);
-
 
       bool all_zeroes = true; 
 
@@ -90,13 +96,22 @@ void quick_plot(const char * file, int ev = 0, int symmetric=1, int Nev = 1, int
         }
       }
 
-
+//      TGraph * filtered = new TGraph(g->GetN(), g->GetX(), g->GetY()); 
+      TGraph * env = FFTtools::getHilbertEnvelope(g); 
+      but.filterGraph(env); 
+      envs.push_back(env); 
       gs.push_back(g); 
     }
 
 
-    double umin = symmetric ? - TMath::Max(-abs_min, abs_max) : abs_min; 
-    double umax = symmetric ? TMath::Max(-abs_min, abs_max) : abs_max; 
+    double umin = symmetric==1 ? - TMath::Max(-abs_min, abs_max) : abs_min; 
+    double umax = symmetric==1 ? TMath::Max(-abs_min, abs_max) : abs_max; 
+    if (symmetric < 0) 
+    {
+      umin = symmetric; 
+      umax = -symmetric; 
+    }
+
     printf("%g %g %g %g\n", umin,umax,abs_min,abs_max); 
     umin-= 0.1 * (umax-umin); 
     umax+= 0.1 * (umax-umin); 
@@ -115,9 +130,13 @@ void quick_plot(const char * file, int ev = 0, int symmetric=1, int Nev = 1, int
       TText * t = new TText(4*g->GetN()/5.,1.01*umax, Form("RMS=%g", g->GetRMS(2))); 
       t->SetTextSize(0.09); 
       g->Draw("alp"); 
+      TGraph * env = envs[icd-1]; 
+      env->SetLineColor(3); 
+      env->SetLineStyle(3); 
+      env->Draw("lsame"); 
       t->Draw(); 
     }
 
-    if (save) c->SaveAs(Form("c%d.png", ev+iev)); 
+    if (save) c->SaveAs(Form("out/c%d.png", ev+iev)); 
   }
 }
