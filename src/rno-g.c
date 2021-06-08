@@ -432,7 +432,7 @@ int rno_g_daqstatus_read(rno_g_file_handle_t h, rno_g_daqstatus_t *ds)
         rdsum = do_read(h,sizeof(wanted_sum), &wanted_sum,0); 
         if (!rdsum || sum!=wanted_sum) 
         {
-          fprintf(stderr,"Checksum error. Got %x, wnated %x\n", sum,wanted_sum); 
+          fprintf(stderr,"Checksum error. Got %x, wanted %x\n", sum,wanted_sum); 
           return -1; 
         }
         return rd; 
