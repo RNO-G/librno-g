@@ -35,7 +35,9 @@ void quick_threshold_scan(const char * file, int plotmask = 0xffffff)
       double V = ds.thresholds[i] * 2.5/(16777215.); 
 
       int railed = ds.scalers[i] == 65535; 
-      double adj_scaler = ds.scalers[i] / ds.scaler_period * (1+ds.prescalers[i]); 
+      double period = ds.scaler_period; 
+      if (!period) period = 1;  //PPS
+      double adj_scaler = ds.scalers[i] / period * (1+ds.prescalers[i]); 
       printf("%d %g %g %d\n", i, V, adj_scaler, railed); 
       gs[i]->SetPoint(gs[i]->GetN(), V, adj_scaler == 0 ? gRandom->Uniform(0.4,0.6) : adj_scaler); 
       gs[i]->SetPointError(gs[i]->GetN()-1,0,0,adj_scaler ? 0.0 :  gs[i]->GetY()[gs[i]->GetN()-1]-0.01, railed? 2e8-adj_scaler :  0.0); 
@@ -51,7 +53,7 @@ void quick_threshold_scan(const char * file, int plotmask = 0xffffff)
   bg.SetStats(0); 
   bg.DrawCopy(); 
 
-  TLegend * leg = new TLegend(0.1,0.5,0.5,0.9); 
+  TLegend * leg = new TLegend(0.6,0.2,0.8,0.4); 
   for (int i = 0; i < RNO_G_NUM_RADIANT_CHANNELS; i++) 
   {
     if (plotmask & (1 << i))
