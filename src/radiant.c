@@ -2649,7 +2649,7 @@ int radiant_get_scaler_period(radiant_dev_t * bd, float *period)
   else
   {
     mem &=(0x7fffffff); 
-    *period = mem *1e-6; 
+    *period = mem *1e-6/2.5;  // 400 ns period! 
   }
   return 0; 
 

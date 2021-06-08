@@ -14,7 +14,7 @@
 #define HEADER_VER 0
 #define WF_VER 0 
 #define PED_VER 1 
-#define DAQSTATUS_VER 0 
+#define DAQSTATUS_VER 1 
 
 #define HEADER_MAGIC 0xead1 
 #define WAVEFORM_MAGIC 0xafd1 
@@ -438,9 +438,11 @@ int rno_g_daqstatus_read(rno_g_file_handle_t h, rno_g_daqstatus_t *ds)
   switch (hd.version) 
   {
 
+    case 0: 
     case DAQSTATUS_VER:
       {
         rd = do_read(h,sizeof(*ds),ds, &sum); 
+        if (hd.version == 0) ds->scaler_period /=2.5; 
         rdsum = do_read(h,sizeof(wanted_sum), &wanted_sum,0); 
         if (!rdsum || sum!=wanted_sum) 
         {
