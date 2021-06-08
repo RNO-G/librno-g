@@ -375,12 +375,24 @@ int rno_g_pedestal_read(rno_g_file_handle_t h, rno_g_pedestal_t * pd)
 
 int rno_g_daqstatus_dump(FILE *f, const rno_g_daqstatus_t* ds) 
 {
-  char ctime_buf[32]; 
-  int tm = ds->when; 
-  int ns = (ds->when-tm)*1e9; 
-  const char * timestr = ctime_r((time_t*) &tm, ctime_buf);
-  int ret = fprintf(f,"DAQSTATUS, period=%f s, recorded at %sfractional sec=0.%09d\n",ds->scaler_period,timestr,ns); 
-  fprintf(f,  "==CH==THRESH(V)==SCALER==PRESCALER\n"); 
+  int when = ds->when; 
+  int ns = (ds->when-when)*1e9; 
+  struct tm when_tm; 
+  gmtime_r((time_t*)&when, &when_tm); 
+  int ret = fprintf(f,"DAQSTATUS, period="); 
+  if (!ds->scaler_period) 
+  {
+    ret+=fprintf(f,"PPS"); 
+  }
+  else
+  {
+    ret+=fprintf(f,"%f s", ds->scaler_period);  
+  }
+  ret += fprintf(f,", recorded at %04d-%02d-%02d %02d:%02d:%02d.%09dZ\n", 
+                 when_tm.tm_year + 1900, 1+when_tm.tm_mon, when_tm.tm_mday, when_tm.tm_hour, 
+                 when_tm.tm_min, when_tm.tm_sec,  ns); 
+  ret+=fprintf(f,  "==CH==THRESH(V)==SCALER==PRESCALER\n"); 
+
   for (int i = 0; i < RNO_G_NUM_RADIANT_CHANNELS; i++) 
   {
     if (ds->thresholds[i] == 0xffffffff) 
