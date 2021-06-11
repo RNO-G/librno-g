@@ -106,7 +106,7 @@ typedef enum
   RAD_REG_DATEVERSION                 = 0x4, 
   RAD_REG_CPLD_CTRL                   = 0x8, 
   RAD_REG_CHANNEL_DIS                 = 0xc, 
-  RAD_REG_PPSEL                       = 0x10, 
+  RAD_REG_PPSSEL                      = 0x10, 
   RAD_REG_RESET_MODE                  = 0x14, 
   RAD_REG_LED                         = 0x18, 
   RAD_REG_JTAG_LEFT                   = 0x1c, 
@@ -2722,6 +2722,17 @@ int radiant_read_daqstatus(radiant_dev_t * bd, rno_g_daqstatus_t * ds)
 }
 
 
+int radiant_set_pps_config(radiant_dev_t *bd, radiant_pps_config_t cfg) 
+{
+  static_assert(sizeof(cfg) == sizeof(uint32_t), "radiant pps config wrong size"); 
+  return radiant_set_mem(bd, DEST_FPGA, RAD_REG_PPSSEL, sizeof(cfg), (uint8_t*) &cfg); 
+}
+
+int radiant_get_pps_config(radiant_dev_t *bd, radiant_pps_config_t * cfg) 
+{
+  static_assert(sizeof(*cfg) == sizeof(uint32_t), "radiant pps config wrong size"); 
+  return radiant_get_mem(bd, DEST_FPGA, RAD_REG_PPSSEL, sizeof(*cfg), (uint8_t*) cfg); 
+}
 
 
 
