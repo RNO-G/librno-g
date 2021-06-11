@@ -19,7 +19,6 @@ void sighandler(int sig)
 
 int main(int nargs, char ** args) 
 {
-  int bias = 0; 
   double start = 0.5; 
   double stop =1.5; 
   double step = 0.01; 
@@ -37,15 +36,6 @@ int main(int nargs, char ** args)
 
   if (!rad) return 1; 
 
-  if (bias) 
-  {
-    printf("Setting DC bias to %u\n",bias); 
-    //set reasonable dc bias
-    radiant_set_dc_bias(rad,bias,bias); 
-    sleep(1); 
-  }
-
-
   float thresh[24]; 
   rno_g_daqstatus_t ds; 
 
@@ -62,7 +52,21 @@ int main(int nargs, char ** args)
   }
 
   //start with well known period
+  if (period == 0)  
+  {
+
+    // force the internal pps, for now... TODO: maybe set it back at tne end if it was different? *shrugs* 
+    radiant_pps_config_t pps; 
+    radiant_get_pps_config(rad, &pps); 
+    if (!pps.use_internal_pps)
+    {
+      pps.use_internal_pps = 1; 
+      radiant_set_pps_config(rad,pps); 
+    }
+  }
+
   radiant_set_scaler_period(rad,period); 
+  if (period == 0) period = 1; //this is PPS
 
 
   //ok I don't need all of this but this will set TRIGINEN properly at least! 
@@ -74,6 +78,8 @@ int main(int nargs, char ** args)
   int thisN = N; 
   float goal_adj_scalers[RNO_G_NUM_RADIANT_CHANNELS] = {0}; 
   float goal_thresh[RNO_G_NUM_RADIANT_CHANNELS] = {0}; 
+
+  radiant_dump(rad,stdout,0); 
 
   signal(SIGINT, sighandler); 
 
@@ -127,7 +133,7 @@ int main(int nargs, char ** args)
     radiant_set_prescaler(rad,i,0); 
   }
 
-  if (goal && !stop) 
+  if (goal && !quit) 
   {
     printf("Setting thresholds closet to goal (%f)\n", goal); 
     radiant_set_trigger_thresholds_float(rad,0,23,goal_thresh); 
