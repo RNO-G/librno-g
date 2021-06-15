@@ -8,7 +8,7 @@
 #include <signal.h> 
 
 
-static int instrumented_poll(radiant_dev_t * rad, int timeout) 
+static int instrumented_poll(radiant_dev_t * rad, int timeout, int verbose) 
 {
   struct timespec start;
   struct timespec stop;
@@ -16,17 +16,23 @@ static int instrumented_poll(radiant_dev_t * rad, int timeout)
   int ret = radiant_poll_trigger_ready(rad,timeout); 
   clock_gettime(CLOCK_REALTIME,&stop);
 
-  printf("Time spent in poll: %g\n", stop.tv_sec - start.tv_sec + 1e-9*(stop.tv_nsec - start.tv_nsec)); 
+  if (verbose) printf("Time spent in poll: %g\n", stop.tv_sec - start.tv_sec + 1e-9*(stop.tv_nsec - start.tv_nsec)); 
 
   return ret; 
 
 
 }
 
+double get_now() 
+{
+  struct timespec spec; 
+  clock_gettime(CLOCK_REALTIME, &spec); 
+  return spec.tv_sec + 1e-9 * spec.tv_nsec; 
+}
 
 int usage() 
 {
-  printf("radiant-try-event [-N NEVENTS=100] [-b buffers=2] [-M TRIGMASK=0x37b000] [-W TRIGWINDOW=20] [-T THRESH=0.2] [-C MINCOINCIDENT =3] [-B BIAS=1550]  [-z] [-f] [-c] [-h]\n"); 
+  printf("radiant-try-event [-N NEVENTS=100] [-b buffers=2] [-M TRIGMASK=0x37b000] [-W TRIGWINDOW=20] [-T THRESH=0.2] [-C MINCOINCIDENT =3] [-B BIAS=1550]  [-z] [-f] [-I INTERVAL=0] [-p]  [-c] [-h]\n"); 
   printf("  -N NEVENTS number of events\n"); 
   printf("  -b BUFFERS number of buffers\n"); 
   printf("  -M TRIGMASK  trigger mask used (default 0x37b000)\n"); 
@@ -36,7 +42,13 @@ int usage()
   printf("  -B BIAS  the DAC count for the bias\n") ;
   printf("  -z gzip poutput\n"); ;
   printf("  -f force triggers\n"); 
+  printf("  -I force trigger interval (default 0 means as fast as possible) \n"); 
+  printf("  -p PPS triggers enabled\n"); 
+  printf("  -i Use internal PPS\n"); 
+  printf("  -P poll amount = 100\n"); 
+  printf("  -x external triggers\n"); 
   printf("  -c trigger clear mode\n"); 
+  printf("  -v verbose\n"); 
   printf("  -h this message\n"); 
   exit(1); 
 
@@ -71,6 +83,10 @@ int main(int nargs, char ** args)
   int N = 100; 
   int nbuffers = 2; 
   int gzipped = 0;
+  int verbose = 0; 
+  int enable_pps = 0; 
+  int enable_ext = 0; 
+  double force_interval = 0; 
   int force = 0; 
   int clearmode = 0; 
   uint32_t trigmask = 0x37b000; 
@@ -78,6 +94,9 @@ int main(int nargs, char ** args)
   float trigthresh = 0; 
   uint8_t mincoincident = 3; 
   uint16_t bias = 1550; 
+  double last_force = 0; 
+  double poll_amount = 0.1; 
+  int internal_pps = 0; 
 
   for (int i = 1; i < nargs; i++) 
   {
@@ -93,11 +112,24 @@ int main(int nargs, char ** args)
     {
       force = 1; 
     }
-
+    else if (!strcmp(args[i],"-p"))
+    {
+      enable_pps = 1; 
+    }
+     else if (!strcmp(args[i],"-i"))
+    {
+      internal_pps = 1; 
+    }
+ 
     else if (!strcmp(args[i],"-z"))
     {
       gzipped = 1; 
     }
+    else if (!strcmp(args[i],"-v"))
+    {
+      verbose = 1; 
+    }
+
 
     else if (!strcmp(args[i],"-c"))
     {
@@ -123,6 +155,10 @@ int main(int nargs, char ** args)
       {
         trigwindow = atof(args[++i]); 
       }
+      else if (!strcmp(args[i],"-I"))
+      {
+        force_interval = atof(args[++i]); 
+      }
       else if (!strcmp(args[i],"-T"))
       {
         trigthresh = atof(args[++i]); 
@@ -131,6 +167,11 @@ int main(int nargs, char ** args)
       {
         mincoincident = atoi(args[++i]); 
       }
+      else if (!strcmp(args[i],"-P"))
+      {
+        poll_amount = atoi(args[++i]); 
+      }
+ 
       else usage(); 
     }
     else 
@@ -219,6 +260,26 @@ int main(int nargs, char ** args)
     enables |= RADIANT_TRIG_CPUFLOW; 
   }
 
+  if (enable_pps) 
+  {
+    enables |= RADIANT_TRIG_PPS; 
+
+    radiant_pps_config_t ppsconf; 
+    radiant_get_pps_config(rad,&ppsconf); 
+    ppsconf.use_internal_pps = internal_pps; 
+    radiant_set_pps_config(rad,ppsconf); 
+    printf("%s PPS is on\n", internal_pps ? "INTERNAL" : "EXTERNAL" ); 
+
+  }
+
+  if (enable_ext) 
+  {
+    printf("EXT is on\n"); 
+    enables |= RADIANT_TRIG_EXT; 
+
+  }
+
+
   radiant_labs_start(rad); 
 
 
@@ -245,18 +306,12 @@ int main(int nargs, char ** args)
     printf("====%d=====\n",i); 
 
 
-    if (force) 
-    {
-      printf("Sending force trigger\n"); 
-      radiant_soft_trigger(rad); 
-    }
-
     if (maybe_dump_daqstatus(rad,dsh,&ds))
     {
         radiant_dump(rad,stdout,0); 
     }
 
-    while(!instrumented_poll(rad, clearmode ? 0 :  100) && !quit) 
+    while(!instrumented_poll(rad, clearmode ? 0 :  poll_amount*1000, verbose) && !quit) 
     {
       if (maybe_dump_daqstatus(rad,dsh,&ds))
       {
@@ -264,11 +319,22 @@ int main(int nargs, char ** args)
       }
       int bsy,clear_pending;; 
       radiant_trigger_busy(rad, &bsy, &clear_pending); 
-      printf("OVERLORDSTAT is: bsy: %d, clear_pending: %d\n",  bsy, clear_pending); 
+      if (verbose) printf("OVERLORDSTAT is: bsy: %d, clear_pending: %d\n",  bsy, clear_pending); 
       if (clearmode) 
       {
         if (clear_pending) radiant_cpu_clear(rad); 
-        else  usleep(10000); //make up for the short poll 
+        else  usleep(1e6*poll_amount); //make up for the short poll 
+      }
+
+      if (force) 
+      {
+        double now = get_now(); 
+        if (now > last_force + force_interval) 
+        {
+          printf("Sending force trigger\n"); 
+          radiant_soft_trigger(rad); 
+          last_force = now; 
+        }
       }
     }
 
