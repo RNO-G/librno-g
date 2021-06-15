@@ -2675,9 +2675,9 @@ int radiant_set_scaler_period(radiant_dev_t * bd, float period)
   else
   {
     const uint32_t max_uperiod = ( 1u << 31) -1; 
-    const float max_period = max_uperiod * 1e-6; 
+    const float max_period = max_uperiod * 1e-6/2.5; 
     if (period > max_period) period = max_period; 
-    uint32_t uperiod = period*1e6; 
+    uint32_t uperiod = period*1e6*2.5; 
     if (uperiod > max_uperiod) uperiod = max_uperiod; //just in case
     mem = uperiod; 
   }
