@@ -1168,6 +1168,11 @@ int radiant_dump(radiant_dev_t *dev, FILE * stream, int flags)
     printf ("     DMA_DESC_%02d (at 0x%x):   addr: 0x%x , incr: %d, len: %d, last:%d\n", i, addr, dma.address << 2, dma.increment, dma.cyclecount+1, dma.last); 
   }
 
+  uint32_t ppssel;
+  radiant_get_mem(dev, DEST_FPGA, RAD_REG_PPSSEL,4,(uint8_t*) &ppssel); 
+  fprintf(stream, "    PPSSEL:  (0x%x): 0x%x\n", RAD_REG_PPSSEL, ppssel); 
+
+
   uint32_t evctrl;
   radiant_get_mem(dev, DEST_FPGA, RAD_REG_EV_CTRL,4,(uint8_t*) &evctrl); 
   fprintf(stream, "    EVCNTRL:  (0x%x): 0x%x\n", RAD_REG_EV_CTRL, evctrl); 
@@ -1176,6 +1181,7 @@ int radiant_dump(radiant_dev_t *dev, FILE * stream, int flags)
   radiant_get_mem(dev, DEST_FPGA, RAD_REG_EV_PPS,4,(uint8_t*) &pps); 
   fprintf(stream, "    PPSCNT:  (0x%x): 0x%x\n", RAD_REG_EV_PPS, pps); 
 
+ 
   uint32_t sysclkcnt;
   radiant_get_mem(dev, DEST_FPGA, RAD_REG_EV_SYSCLK,4,(uint8_t*) &sysclkcnt); 
   fprintf(stream, "    SYSCLKCNT:  (0x%x): 0x%x\n", RAD_REG_EV_SYSCLK, sysclkcnt); 

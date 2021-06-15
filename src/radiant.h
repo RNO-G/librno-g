@@ -485,10 +485,10 @@ int radiant_set_td_bias(radiant_dev_t * bd, int chan,  uint16_t val);
 
 typedef struct
 {
-  uint32_t use_internal_pps : 1;   //if 1, uses internal pps, otherwise external (board default 0)
-  uint32_t enable_sync_out : 1;  //if 1, enables sync out (don't do on revc), defaults off 
-  uint32_t reserved : 22;       //unused for now
   uint32_t pps_holdoff : 8 ;  //holdoff before accepting another pps in approximate units of 0.65 ms. (board default 10)
+  uint32_t reserved : 22;       //unused for now
+  uint32_t enable_sync_out : 1;  //if 1, enables sync out (don't do on revc), defaults off 
+  uint32_t use_internal_pps : 1;   //if 1, uses internal pps, otherwise external (board default 0)
 } radiant_pps_config_t; 
 
 int radiant_set_pps_config( radiant_dev_t *bd, radiant_pps_config_t cfg); 
