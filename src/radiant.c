@@ -1132,6 +1132,13 @@ int radiant_dump(radiant_dev_t *dev, FILE * stream, int flags)
                   !!(sgpio_status & SGPIO_BIT_CALPULSE), !!(sgpio_status & SGPIO_BIT_N_CALPULSE), 
                   !!(sgpio_status & SGPIO_BIT_SG_ENABLE),!!(sgpio_status & SGPIO_BIT_N_SG_ENABLE));
 
+  float v10, v18, v25, left, right; 
+  radiant_bm_analog_read(dev, RADIANT_BM_ANALOG_V10, &v10);
+  radiant_bm_analog_read(dev, RADIANT_BM_ANALOG_V18, &v18);
+  radiant_bm_analog_read(dev, RADIANT_BM_ANALOG_V25, &v25);
+  radiant_bm_analog_read(dev, RADIANT_BM_ANALOG_LEFTMON, &left);
+  radiant_bm_analog_read(dev, RADIANT_BM_ANALOG_RIGHTMON, &right);
+  fprintf(stream, "    ANALOG: V1.0: %f, V1.8: %f, V2.5: %f, LEFTMON: %f, RIGHTMON: %f\n", v10,v18,v25,left,right); 
 
   fprintf(stream, "    CPLDCTRL (cached): %x\n", dev->cpldctrl); 
 
