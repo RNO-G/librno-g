@@ -1043,7 +1043,7 @@ radiant_dev_t * radiant_open(const char *spi_device, const char * uart_device, i
     //make sure it has the right value
     sprintf(buf,"echo %d > /sys/class/gpio/gpio%d/value", spi_en_gpio < 0 ? 0 : 1, gpionum); 
     system(buf);
-    dev->cleanup_spi_gpio = gpionum; 
+//    dev->cleanup_spi_gpio = gpionum;
   }
   else dev->cleanup_spi_gpio = 0; 
 
