@@ -32,7 +32,7 @@ double get_now()
 
 int usage() 
 {
-  printf("radiant-try-event [-N NEVENTS=100] [-b buffers=2] [-M TRIGMASK=0x37b000] [-W TRIGWINDOW=20] [-T THRESH=0.2] [-C MINCOINCIDENT =3] [-B BIAS=1550]  [-z] [-f] [-I INTERVAL=0] [-p]  [-c] [-h]\n"); 
+  printf("radiant-try-event [-N NEVENTS=100] [-b buffers=2] [-M TRIGMASK=0x37b000] [-W TRIGWINDOW=20] [-T THRESH=0.2] [-C MINCOINCIDENT =3] [-B BIAS=1100]  [-z] [-f] [-I INTERVAL=0] [-p]  [-c] [-h]\n"); 
   printf("  -N NEVENTS number of events\n"); 
   printf("  -b BUFFERS number of buffers\n"); 
   printf("  -M TRIGMASK  trigger mask used (default 0x37b000)\n"); 
@@ -45,7 +45,7 @@ int usage()
   printf("  -I force trigger interval (default 0 means as fast as possible) \n"); 
   printf("  -p PPS triggers enabled\n"); 
   printf("  -i Use internal PPS\n"); 
-  printf("  -P poll amount = 100\n"); 
+  printf("  -P poll amount = 0.1\n"); 
   printf("  -x external triggers\n"); 
   printf("  -c trigger clear mode\n"); 
   printf("  -v verbose\n"); 
@@ -93,9 +93,9 @@ int main(int nargs, char ** args)
   float trigwindow = 20; 
   float trigthresh = 0; 
   uint8_t mincoincident = 3; 
-  uint16_t bias = 1550; 
+  uint16_t bias = 1100; 
   double last_force = 0; 
-  double poll_amount = 0.1; 
+  double poll_amount = 0.01; 
   int internal_pps = 0; 
 
   for (int i = 1; i < nargs; i++) 
@@ -129,6 +129,11 @@ int main(int nargs, char ** args)
     {
       verbose = 1; 
     }
+    else if (!strcmp(args[i],"-x"))
+    {
+      enable_ext = 1; 
+    }
+
 
 
     else if (!strcmp(args[i],"-c"))
@@ -245,6 +250,10 @@ int main(int nargs, char ** args)
 
     radiant_set_trigger_thresholds_float(rad,0, RNO_G_NUM_RADIANT_CHANNELS-1, all_thresh); 
   }
+
+  //and make sure our mask is enabled globally 
+  radiant_set_global_trigger_mask(rad,trigmask); 
+
 
       //we'll use TRIG A
   radiant_configure_rf_trigger(rad,RADIANT_TRIG_A, trigmask, mincoincident, trigwindow); 
