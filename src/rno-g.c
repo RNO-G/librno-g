@@ -344,9 +344,10 @@ int rno_g_waveform_dump(FILE * f, const rno_g_waveform_t * waveform)
 
 int rno_g_pedestal_dump(FILE *f, const rno_g_pedestal_t *pedestal) 
 {
-  char ctime_buf[32]; 
-  const char * timestr = ctime_r((time_t*) &pedestal->when, ctime_buf);
-  int ret = fprintf(f,"PEDESTAL of %d events recorded at %s\n", pedestal->nevents, timestr); 
+  char ctime_buf[32] = {0} ; 
+  time_t when = pedestal->when;
+  ctime_r(&when, ctime_buf);
+  int ret = fprintf(f,"PEDESTAL of %d events recorded at %s\n", pedestal->nevents,ctime_buf); 
   ret += fprintf(f,"VBIAS,%d,%d\n", pedestal->vbias[0], pedestal->vbias[1]); 
 
   for (int i = 0; i < RNO_G_NUM_RADIANT_CHANNELS; i++) 

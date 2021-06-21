@@ -7,7 +7,7 @@
 int main(int nargs, char ** args) 
 {
 
-  rno_g_pedestal_tpedwf; 
+  rno_g_pedestal_t ped; 
   for (int i = 1; i < nargs; i++) 
   {
 
