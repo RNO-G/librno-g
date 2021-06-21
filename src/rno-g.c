@@ -480,6 +480,8 @@ int rno_g_daqstatus_dump(FILE *f, const rno_g_daqstatus_t* ds)
   ret += fprintf(f,", recorded at %04d-%02d-%02d %02d:%02d:%02d.%09dZ\n", 
                  when_tm.tm_year + 1900, 1+when_tm.tm_mon, when_tm.tm_mday, when_tm.tm_hour, 
                  when_tm.tm_min, when_tm.tm_sec,  ns); 
+  ret+=  fprintf(f," FLOWERTIME: %lu\n", ds->lt_scaler_ncycles); 
+  ret+=fprintf(f,  "========== RADIANT================\n"); 
   ret+=fprintf(f,  "==CH==THRESH(V)==SCALER==PRESCALER\n"); 
 
   for (int i = 0; i < RNO_G_NUM_RADIANT_CHANNELS; i++) 
@@ -493,6 +495,14 @@ int rno_g_daqstatus_dump(FILE *f, const rno_g_daqstatus_t* ds)
       ret+=fprintf(f,  " %02d | %0.4f  |  %05u  | %03u\n", i, ds->radiant_thresholds[i] *2.5/16777215, ds->radiant_scalers[i], ds->radiant_prescalers[i]+1); 
     }
   }
+
+  ret+=fprintf(f,  "==========++FLOWER=============\n"); 
+  ret+=fprintf(f,  "==CH==SERVO_THRESH==TRIGGER_THRESH==SCAL\n"); 
+  for (int i = 0; i < RNO_G_NUM_LT_CHANNELS; i++)
+  {
+    ret+=fprintf(f,  " %d |  %d     |  %d    |  ???? |\n", i, ds->lt_servo_thresholds[i], ds->lt_trigger_thresholds[i]); 
+  }
+
   return ret; 
 }
 
