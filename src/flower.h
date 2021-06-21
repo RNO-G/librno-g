@@ -26,6 +26,8 @@ int flower_soft_trigger(flower_dev_t*dev, int trig);
 
 int flower_configure_trigger(flower_dev_t* dev, rno_g_lt_simple_trigger_config_t cfg); 
 
+int flower_set_thresholds(flower_dev_t *dev, const uint8_t * trigger_thresholds, const uint8_t * servo_thresholds, uint8_t mask); 
+
 int flower_fill_daqstatus(flower_dev_t *dev, rno_g_daqstatus_t * ds); 
 
 int flower_fill_header(flower_dev_t *dev, rno_g_header_t * hd); 

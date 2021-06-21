@@ -63,6 +63,8 @@ struct flower_dev
   } fwdate;
 
   rno_g_lt_simple_trigger_config_t trig_cfg; 
+  uint8_t trig_thresh[4]; 
+  uint8_t servo_thresh[4]; 
 
 };
 
@@ -135,6 +137,22 @@ flower_dev_t * flower_open(const char * spi_device, int spi_en_gpio)
   
   flower_read_register(dev, FLWR_REG_FW_VER, &dev->fwver.word); 
   flower_read_register(dev, FLWR_REG_FW_DATE, &dev->fwdate.word); 
+
+  //read in the current thresholds 
+  flower_word_t thresh_word; 
+  for (int i = 0; i < 4; i++) 
+  {
+    flower_read_register(dev, FLWR_REG_TRIG_CH0_THR+i, &thresh_word); 
+    dev->trig_thresh[i] = thresh_word.bytes[3]; 
+    dev->servo_thresh[i] = thresh_word.bytes[2]; 
+  }
+
+  //read in the trigger configuration 
+  flower_word_t cfg_word; 
+  flower_read_register(dev,FLWR_REG_TRIG_PARAM, &cfg_word); 
+  dev->trig_cfg.vpp_mode = cfg_word.bytes[1]; 
+  dev->trig_cfg.window = cfg_word.bytes[2];  
+  dev->trig_cfg.num_coinc = cfg_word.bytes[3]; 
   return dev; 
 }
 
@@ -183,22 +201,36 @@ int flower_soft_trigger(flower_dev_t * dev, int trig)
   return write_word(dev,&word); 
 }
 
+int flower_set_thresholds(flower_dev_t *dev, const uint8_t * trigger_thresholds, const uint8_t * servo_thresholds, uint8_t mask) 
+{
+
+  flower_word_t words[4] = {0}; 
+
+  int ii = 0; 
+  for (int i = 0; i < 4; i++) 
+  {
+    if (mask & (1 << i)) 
+    {
+      words[ii].bytes[0] = FLWR_REG_TRIG_CH0_THR+i; 
+      words[ii].bytes[2] = servo_thresholds[i]; 
+      words[ii].bytes[3] = trigger_thresholds[i]; 
+      dev->trig_thresh[i] = trigger_thresholds[i];
+      dev->servo_thresh[i] = servo_thresholds[i];
+      ii++; 
+    }
+  }
+  return write_words(dev, ii, words); 
+}
+
 int flower_configure_trigger(flower_dev_t * dev, rno_g_lt_simple_trigger_config_t  cfg) 
 {
   int ret = 0;
-  flower_word_t words[5] = {0}; 
-  for (int i = 0; i < 4; i++) 
-  {
-    words[i].bytes[0] = FLWR_REG_TRIG_CH0_THR+i; 
-    words[i].bytes[2] = cfg.servo_thresh[i]; 
-    words[i].bytes[3] = cfg.trig_thresh[i]; 
-  }
-  words[4].bytes[0] = FLWR_REG_TRIG_PARAM;
-  words[4].bytes[1] = cfg.vpp_mode; 
-  words[4].bytes[2] = cfg.window; 
-  words[4].bytes[3] = cfg.num_coinc; 
-
-  ret = write_words(dev,5,words); 
+  flower_word_t word = {0}; 
+  word.bytes[0] = FLWR_REG_TRIG_PARAM;
+  word.bytes[1] = cfg.vpp_mode; 
+  word.bytes[2] = cfg.window; 
+  word.bytes[3] = cfg.num_coinc; 
+  ret = write_word(dev,&word); 
   if (!ret) dev->trig_cfg = cfg; 
   return ret; 
 }

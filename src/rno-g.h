@@ -102,9 +102,7 @@ typedef enum rno_g_flags
 
 typedef struct rno_g_lt_simple_trigger_config
 {
-  uint8_t trig_thresh[4]; 
-  uint8_t servo_thresh[4]; 
-  uint8_t window; 
+ uint8_t window; 
   uint8_t num_coinc : 3; // require > number of coincidences  
   uint8_t vpp_mode : 1; 
 } rno_g_lt_simple_trigger_config_t;
@@ -207,6 +205,8 @@ typedef struct rno_g_daqstatus
   float radiant_scaler_period; 
   uint64_t lt_scaler_when; 
   uint16_t lt_scalers[RNO_G_NUM_LT_SCALERS];  
+  uint8_t  lt_trigger_thresholds[4]; 
+  uint8_t  lt_servo_thresholds[4]; 
   uint8_t station;
 } rno_g_daqstatus_t; 
 
