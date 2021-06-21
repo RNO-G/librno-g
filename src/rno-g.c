@@ -11,10 +11,10 @@
  *
  */
 
-#define HEADER_VER 0
-#define WF_VER 0 
-#define PED_VER 1 
-#define DAQSTATUS_VER 1 
+#define HEADER_VER 1
+#define WF_VER 2 
+#define PED_VER 2 
+#define DAQSTATUS_VER 2 
 
 #define HEADER_MAGIC 0xead1 
 #define WAVEFORM_MAGIC 0xafd1 
@@ -106,6 +106,39 @@ int rno_g_header_dump(FILE *f, const rno_g_header_t *header)
   return ret; 
 }
 
+typedef struct rno_g_header_v0
+{
+  uint32_t event_number;  //!< Event number (per run, 0-indexed) 
+  uint32_t trigger_number;//!< Trigger  number (per run, 0-indexed), including triggers not read out due to deadtime
+  uint32_t run_number;    //!< Run number , assigned at startup 
+
+  uint32_t trigger_mask;  //!< Which channels (or beams?) caused the trigger
+  uint32_t trigger_value; //!< Relevant for LT trigger only, probably. Something like the beam power? 
+  uint32_t sys_clk;  //!< Trigger time tag  (number of clock cycles since start of run or since PPS? If since start of run, may need to be 64-bit) 
+  uint32_t pps_count;     //!< Number of PPS's since start of run
+  uint32_t readout_time_secs; // !< readout START time in secondpart
+  uint32_t readout_time_nsecs; // !< readout START time, nanosecond part 
+  uint32_t readout_elapsed_nsecs; // How long it took to do the readout syscall 
+  uint32_t sysclk_last_pps;  //!< sysclk time at last PPS
+  uint32_t sysclk_last_last_pps; //!< sysclk time at last last PPS
+  uint32_t raw_tinfo;       //!< the raw trigger info. To  be figured out. 
+  uint32_t raw_evstatus;    //!< the raw event status flags. To be figured out. 
+
+  uint8_t station_number; //!< The station number. 
+
+  /** Trigger type. See rno_g_trigger_type_t  Or-able */ 
+  uint8_t trigger_type; 
+
+  /** Various flags for the event. See rno_g_flags_t orable */ 
+  uint8_t flags; 
+  uint8_t pretrigger_windows; //!< Number of pretrigger windows? 
+  uint8_t radiant_start_windows[RNO_G_NUM_RADIANT_CHANNELS][2]; //!<this encodes buffer number too. There are two of these because of 2048-sample readout works. The second one will be 0xff (255) if we are in 1024-mode. 
+  uint16_t radiant_nsamples; //!< Number of samples per channel in RADIANT board (could just keep this in waveform if we wanted)
+  uint16_t lt_nsamples; //!< Number of samples per channel in low-threshold board  (could just keep this in waveform if we wanted)
+} rno_g_header_v0_t; 
+
+
+
 int rno_g_header_read(rno_g_file_handle_t h, rno_g_header_t *header)
 {
   io_header_t hd; 
@@ -126,22 +159,31 @@ int rno_g_header_read(rno_g_file_handle_t h, rno_g_header_t *header)
   // here we handle converting to the newest kind of header
   switch (hd.version) 
   {
-
+    case 0: 
+    {
+      //I THINK we can just get away with zeroing and reading hdv0 amount
+      memset(header,0, sizeof(*header)); 
+      rd = do_read(h,sizeof(rno_g_header_v0_t),header, &sum); 
+      break; 
+    }
     case HEADER_VER:
-      {
-        rd = do_read(h,sizeof(*header),header, &sum); 
-        rdsum = do_read(h,sizeof(wanted_sum), &wanted_sum,0); 
-        if (!rdsum || sum!=wanted_sum) 
-        {
-          fprintf(stderr,"Checksum error. Got %x, wnated %x\n", sum,wanted_sum); 
-          return -1; 
-        }
-        return rd; 
-      }
+    {
+      rd = do_read(h,sizeof(*header),header, &sum); 
+      break; 
+    }
     default: 
       fprintf(stderr,"Uknown header version %d\n", hd.version); 
+      return 0; 
   }
-  return 0; 
+
+  rdsum = do_read(h,sizeof(wanted_sum), &wanted_sum,0); 
+  if (!rdsum || sum!=wanted_sum) 
+  {
+    fprintf(stderr,"Checksum error. Got %x, wnated %x\n", sum,wanted_sum); 
+    return -1; 
+  }
+
+  return rd; 
 }
 
 
@@ -175,6 +217,17 @@ int rno_g_waveform_write(rno_g_file_handle_t h, const rno_g_waveform_t *wf)
   return wr;
 }
 
+typedef struct rno_g_waveform_v1
+{
+  uint32_t event_number; //!< For matching
+  uint32_t run_number;   //!< For matching
+  uint16_t radiant_nsamples; //!< Number of samples per channel for RADIANT
+  uint16_t lt_nsamples; //!< Number of samples per channel for lowthresh
+  int16_t radiant_waveforms[RNO_G_NUM_RADIANT_CHANNELS][RNO_G_MAX_RADIANT_NSAMPLES]; //unrolled. 
+  uint8_t lt_waveforms[RNO_G_NUM_LT_CHANNELS][RNO_G_MAX_LT_NSAMPLES]; // 8-bit digitizer 
+  uint8_t station; 
+} rno_g_waveform_v1_t; 
+
 
 int rno_g_waveform_read(rno_g_file_handle_t h, rno_g_waveform_t *wf)
 {
@@ -197,6 +250,7 @@ int rno_g_waveform_read(rno_g_file_handle_t h, rno_g_waveform_t *wf)
   // here we handle converting to the newest kind of waveform
   switch (hd.version) 
   {
+    case 1: 
     case WF_VER:
       {
         rd = do_read(h,N_BEFORE_DATA,wf,&sum); 
@@ -207,6 +261,15 @@ int rno_g_waveform_read(rno_g_file_handle_t h, rno_g_waveform_t *wf)
          for (ichan = 0; ichan < RNO_G_NUM_LT_CHANNELS; ichan++)
         {
           rd+= do_read(h,wf->lt_nsamples, wf->lt_waveforms[ichan], &sum);
+        }
+
+        if (hd.version > 1) 
+        {
+          rd+= do_read(h,sizeof(wf->station), &wf->station,&sum); 
+        }
+        else
+        {
+          wf->station =0; 
         }
         
         rdsum = do_read(h, sizeof(wanted_sum),&wanted_sum,0); 
@@ -319,6 +382,16 @@ typedef struct rno_g_pedestal_v0
   uint16_t pedestals[RNO_G_NUM_RADIANT_CHANNELS][RNO_G_PEDESTAL_NSAMPLES]; 
 } rno_g_pedestal_v0_t; 
 
+typedef struct rno_g_pedestal_v1
+{
+  uint32_t when; 
+  uint32_t nevents; 
+  uint32_t mask : 24; 
+  uint8_t flags; //TBD 
+  int16_t vbias[2];  //signed so that we can have -1 as unknown
+  uint16_t pedestals[RNO_G_NUM_RADIANT_CHANNELS][RNO_G_PEDESTAL_NSAMPLES]; 
+} rno_g_pedestal_v1_t; 
+
 
 int rno_g_pedestal_read(rno_g_file_handle_t h, rno_g_pedestal_t * pd) 
 {
@@ -342,25 +415,40 @@ int rno_g_pedestal_read(rno_g_file_handle_t h, rno_g_pedestal_t * pd)
     case 0: 
     {
       rno_g_pedestal_v0_t pdv0; 
-      rd = do_read(h, sizeof(rno_g_pedestal_v0_t), &pdv0, &sum); 
-      rdsum = do_read(h, sizeof(wanted_sum),&wanted_sum,0); 
+      rd += do_read(h, sizeof(rno_g_pedestal_v0_t), &pdv0, &sum); 
       pd->when = pdv0.when; 
       pd->nevents = pdv0.nevents; 
       pd->mask = pdv0.mask; 
       pd->flags = pdv0.flags; 
       pd->vbias[0]=-1;
       pd->vbias[1]=-1;
+      pd->station = 0;
       memcpy(pd->pedestals, pdv0.pedestals, sizeof(pd->pedestals)); 
       break; 
     }
+    case 1:
+    {
+      rno_g_pedestal_v1_t pdv1; 
+      rd += do_read(h, sizeof(rno_g_pedestal_v1_t), &pdv1, &sum); 
+      pd->when = pdv1.when; 
+      pd->nevents = pdv1.nevents; 
+      pd->mask = pdv1.mask; 
+      pd->flags = pdv1.flags; 
+      pd->vbias[0]= pdv1.vbias[0];
+      pd->vbias[1]= pdv1.vbias[1]; 
+      pd->station = 0; 
+      memcpy(pd->pedestals, pdv1.pedestals, sizeof(pd->pedestals)); 
+      break;
+    }
     case PED_VER: 
       rd += do_read(h, sizeof(rno_g_pedestal_t), pd, &sum); 
-      rdsum = do_read(h, sizeof(wanted_sum),&wanted_sum,0); 
       break; 
     default: 
       fprintf(stderr,"Unknown pedestal version %d\n", hd.version); 
       return 0; 
   }
+
+  rdsum = do_read(h, sizeof(wanted_sum),&wanted_sum,0); 
   if (!rdsum || sum != wanted_sum) 
   {
      fprintf(stderr,"Checksum error. Got %x, wanted %x\n", sum,wanted_sum); 
@@ -379,14 +467,14 @@ int rno_g_daqstatus_dump(FILE *f, const rno_g_daqstatus_t* ds)
   int ns = (ds->when-when)*1e9; 
   struct tm when_tm; 
   gmtime_r((time_t*)&when, &when_tm); 
-  int ret = fprintf(f,"DAQSTATUS, period="); 
-  if (!ds->scaler_period) 
+  int ret = fprintf(f,"DAQSTATUS, radiant_period="); 
+  if (!ds->radiant_scaler_period) 
   {
     ret+=fprintf(f,"PPS"); 
   }
   else
   {
-    ret+=fprintf(f,"%f s", ds->scaler_period);  
+    ret+=fprintf(f,"%f s", ds->radiant_scaler_period);  
   }
   ret += fprintf(f,", recorded at %04d-%02d-%02d %02d:%02d:%02d.%09dZ\n", 
                  when_tm.tm_year + 1900, 1+when_tm.tm_mon, when_tm.tm_mday, when_tm.tm_hour, 
@@ -395,13 +483,13 @@ int rno_g_daqstatus_dump(FILE *f, const rno_g_daqstatus_t* ds)
 
   for (int i = 0; i < RNO_G_NUM_RADIANT_CHANNELS; i++) 
   {
-    if (ds->thresholds[i] == 0xffffffff) 
+    if (ds->radiant_thresholds[i] == 0xffffffff) 
     {
-      ret+=fprintf(f,  " %02d | ?????? |  %05u  | %03u\n", i, ds->scalers[i], ds->prescalers[i]+1); 
+      ret+=fprintf(f,  " %02d | ?????? |  %05u  | %03u\n", i, ds->radiant_scalers[i], ds->radiant_prescalers[i]+1); 
     }
     else
     {
-      ret+=fprintf(f,  " %02d | %0.4f  |  %05u  | %03u\n", i, ds->thresholds[i] *2.5/16777215, ds->scalers[i], ds->prescalers[i]+1); 
+      ret+=fprintf(f,  " %02d | %0.4f  |  %05u  | %03u\n", i, ds->radiant_thresholds[i] *2.5/16777215, ds->radiant_scalers[i], ds->radiant_prescalers[i]+1); 
     }
   }
   return ret; 
@@ -416,6 +504,16 @@ int rno_g_daqstatus_write(rno_g_file_handle_t h, const rno_g_daqstatus_t * ds)
   do_write(h, sizeof(sum),&sum,0); 
   return wr; 
 }
+
+typedef struct rno_g_daqstatus_v1
+{
+  double when; 
+  uint32_t thresholds[RNO_G_NUM_RADIANT_CHANNELS]; 
+  uint16_t scalers[RNO_G_NUM_RADIANT_CHANNELS]; 
+  uint8_t prescalers[RNO_G_NUM_RADIANT_CHANNELS]; 
+  float scaler_period; 
+} rno_g_daqstatus_v1_t; 
+
 
 int rno_g_daqstatus_read(rno_g_file_handle_t h, rno_g_daqstatus_t *ds)
 {
@@ -439,22 +537,39 @@ int rno_g_daqstatus_read(rno_g_file_handle_t h, rno_g_daqstatus_t *ds)
   {
 
     case 0: 
+    case 1: 
+      {
+        //zero out struct before copying the parts we know
+        memset(ds,0,sizeof(*ds)); 
+        rno_g_daqstatus_v1_t dsv1; 
+        rd = do_read(h,sizeof(dsv1),&dsv1, &sum); 
+        if (hd.version == 0) dsv1.scaler_period /=2.5; 
+        ds->when = dsv1.when; 
+        ds->radiant_scaler_period = dsv1.scaler_period; 
+        memcpy(ds->radiant_thresholds, dsv1.thresholds, sizeof(ds->radiant_thresholds));
+        memcpy(ds->radiant_scalers, dsv1.scalers, sizeof(ds->radiant_scalers));
+        memcpy(ds->radiant_prescalers, dsv1.prescalers, sizeof(ds->radiant_prescalers));
+        break;
+
+      }
     case DAQSTATUS_VER:
       {
         rd = do_read(h,sizeof(*ds),ds, &sum); 
-        if (hd.version == 0) ds->scaler_period /=2.5; 
-        rdsum = do_read(h,sizeof(wanted_sum), &wanted_sum,0); 
-        if (!rdsum || sum!=wanted_sum) 
-        {
-          fprintf(stderr,"Checksum error. Got %x, wanted %x\n", sum,wanted_sum); 
-          return -1; 
-        }
-        return rd; 
+        break;
       }
     default: 
       fprintf(stderr,"Unknown daqstatus version %d\n", hd.version); 
+      return 0; 
   }
-  return 0; 
+
+  rdsum = do_read(h,sizeof(wanted_sum), &wanted_sum,0); 
+  if (!rdsum || sum!=wanted_sum) 
+  {
+    fprintf(stderr,"Checksum error. Got %x, wanted %x\n", sum,wanted_sum); 
+    return -1; 
+  }
+
+  return rd; 
 }
 
 

@@ -754,8 +754,7 @@ static int export_gpio_if_not_exported(int gpionum)
           char cmdbuf[128]; 
           sprintf(cmdbuf,"echo %d > /sys/class/gpio/export", gpionum); 
           system(cmdbuf); 
-          usleep(10000); //wait to make sure it come up 
-
+          usleep(100000); //wait to make sure it come up 
           return access(buf, F_OK); 
     }
     return 0; 
@@ -2713,15 +2712,15 @@ int radiant_read_daqstatus(radiant_dev_t * bd, rno_g_daqstatus_t * ds)
   struct timespec start; 
   struct timespec end; 
 
-  memcpy(ds->prescalers, bd->prescal, RNO_G_NUM_RADIANT_CHANNELS); 
+  memcpy(ds->radiant_prescalers, bd->prescal, RNO_G_NUM_RADIANT_CHANNELS); 
 
   clock_gettime(CLOCK_REALTIME,&start); 
   //TODO just cache these... no need to readback  
   //TODO: check return values
-  radiant_get_scaler_period(bd,&ds->scaler_period); 
-  radiant_get_trigger_thresholds(bd,0, RNO_G_NUM_RADIANT_CHANNELS-1, ds->thresholds); 
+  radiant_get_scaler_period(bd,&ds->radiant_scaler_period); 
+  radiant_get_trigger_thresholds(bd,0, RNO_G_NUM_RADIANT_CHANNELS-1, ds->radiant_thresholds); 
 
-  radiant_get_scalers(bd,0, RNO_G_NUM_RADIANT_CHANNELS-1, ds->scalers); 
+  radiant_get_scalers(bd,0, RNO_G_NUM_RADIANT_CHANNELS-1, ds->radiant_scalers); 
   clock_gettime(CLOCK_REALTIME,&end); 
 
   ds->when = 0.5 * ( start.tv_nsec*1e-9 + end.tv_nsec*1e-9+start.tv_sec + end.tv_sec); 

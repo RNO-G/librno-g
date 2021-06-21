@@ -32,12 +32,12 @@ void quick_threshold_scan(const char * file, int plotmask = 0xffffff)
   {
     for (int i = 0; i < RNO_G_NUM_RADIANT_CHANNELS; i++) 
     {
-      double V = ds.thresholds[i] * 2.5/(16777215.); 
+      double V = ds.radiant_thresholds[i] * 2.5/(16777215.); 
 
-      int railed = ds.scalers[i] == 65535; 
-      double period = ds.scaler_period; 
+      int railed = ds.radiant_scalers[i] == 65535; 
+      double period = ds.radiant_scaler_period; 
       if (!period) period = 1;  //PPS
-      double adj_scaler = ds.scalers[i] / period * (1+ds.prescalers[i]); 
+      double adj_scaler = ds.radiant_scalers[i] / period * (1+ds.radiant_prescalers[i]); 
       printf("%d %g %g %d\n", i, V, adj_scaler, railed); 
       gs[i]->SetPoint(gs[i]->GetN(), V, adj_scaler == 0 ? gRandom->Uniform(0.4,0.6) : adj_scaler); 
       gs[i]->SetPointError(gs[i]->GetN()-1,0,0,adj_scaler ? 0.0 :  gs[i]->GetY()[gs[i]->GetN()-1]-0.01, railed? 2e8-adj_scaler :  0.0); 
@@ -49,7 +49,7 @@ void quick_threshold_scan(const char * file, int plotmask = 0xffffff)
 
   if (c) delete c; 
   c = new TCanvas("cscan","Scan"); 
-  TH2F bg("hbg",Form("period=%g s; threshold [V]; adjusted scaler[Hz]",ds.scaler_period), 10, gs[0]->GetX()[0], gs[0]->GetX()[gs[0]->GetN()-1], 1000, 0.01, 2e8); 
+  TH2F bg("hbg",Form("period=%g s; threshold [V]; adjusted scaler[Hz]",ds.radiant_scaler_period), 10, gs[0]->GetX()[0], gs[0]->GetX()[gs[0]->GetN()-1], 1000, 0.01, 2e8); 
   bg.SetStats(0); 
   bg.DrawCopy(); 
 

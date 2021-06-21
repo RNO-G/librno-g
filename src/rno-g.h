@@ -32,6 +32,7 @@ extern "C"
 
 #define RNO_G_MAX_LT_NSAMPLES 512
 #define RNO_G_NUM_LT_CHANNELS 4 
+#define RNO_G_NUM_LT_SCALERS 24 
 
 
 
@@ -80,14 +81,15 @@ int rno_g_close_handle(rno_g_file_handle_t * h);
 
 typedef enum rno_g_trigger_type 
 {
-    RNO_G_TRIGGER_SOFT        = 1 << 0,  /**< This was a software trigger */
-    RNO_G_TRIGGER_EXT         = 1 << 1,  /**< This was an external trigger */
-    RNO_G_TRIGGER_RF_LT       = 1 << 2,  /**< This was an RF trigger from the LT board*/
-    RNO_G_TRIGGER_RF_RADIANT  = 1 << 3,  /**< This was an RF trigger from the RAdiant*/
-    RNO_G_TRIGGER_RF_FOLLOWUP = 1 << 4   /**< This is a ``followup" trigger*/
-
+    RNO_G_TRIGGER_SOFT         = 1 << 0,  /**< This was a software trigger */
+    RNO_G_TRIGGER_EXT          = 1 << 1,  /**< This was an external trigger */
+    RNO_G_TRIGGER_RF_LT_SIMPLE = 1 << 2,  /**< This was an RF trigger from the LT board*/
+    RNO_G_TRIGGER_RF_LT_PHASED = 1 << 3,  /**< This was an RF trigger from the LT board*/
+    RNO_G_TRIGGER_RF_RADIANT0  = 1 << 4,  /**< This was an RF trigger from the RADIANT's trigger 0*/
+    RNO_G_TRIGGER_RF_RADIANT1  = 1 << 5,  /**< This was an RF trigger from the RADIANT's trigger 1*/
       //this will be stored as a uint8_t, so can fit a few more 
 } rno_g_trigger_type_t ; 
+
 
 
 typedef enum rno_g_flags
@@ -97,6 +99,22 @@ typedef enum rno_g_flags
     //this will be stored as a uint8_t, so can fit a few more 
 }rno_g_flags_t; 
 
+
+typedef struct rno_g_lt_simple_trigger_config
+{
+  uint8_t trig_thresh[4]; 
+  uint8_t servo_thresh[4]; 
+  uint8_t window; 
+  uint8_t num_coinc : 3; // require > number of coincidences  
+  uint8_t vpp_mode : 1; 
+} rno_g_lt_simple_trigger_config_t;
+
+typedef struct radiant_trigger_config
+{
+  uint32_t mask : 24; 
+  uint8_t ncoinc: 5; // if 0, then disabled
+  uint8_t window: 7; //ns = 17.5 + 2.5 * window, max = 124
+} rno_g_radiant_trigger_config_t; 
 
  /** 
   * The RNO-G event header. Each event has one of these.
@@ -134,6 +152,9 @@ typedef struct rno_g_header
   uint16_t radiant_nsamples; //!< Number of samples per channel in RADIANT board (could just keep this in waveform if we wanted)
   uint16_t lt_nsamples; //!< Number of samples per channel in low-threshold board  (could just keep this in waveform if we wanted)
 
+  rno_g_lt_simple_trigger_config_t lt_simple_trigger_cfg; 
+  rno_g_radiant_trigger_config_t radiant_trigger_cfg[2]; 
+
 } rno_g_header_t; 
 
 //write in ascii format 
@@ -147,9 +168,10 @@ typedef struct rno_g_waveform
   uint32_t event_number; //!< For matching
   uint32_t run_number;   //!< For matching
   uint16_t radiant_nsamples; //!< Number of samples per channel for RADIANT
-  uint16_t lt_nsamples; //!< Number of samples per channel for RADIANT
+  uint16_t lt_nsamples; //!< Number of samples per channel for lowthresh
   int16_t radiant_waveforms[RNO_G_NUM_RADIANT_CHANNELS][RNO_G_MAX_RADIANT_NSAMPLES]; //unrolled. 
   uint8_t lt_waveforms[RNO_G_NUM_LT_CHANNELS][RNO_G_MAX_LT_NSAMPLES]; // 8-bit digitizer 
+  uint8_t station; 
 } rno_g_waveform_t; 
 
 //write in ascii format (e.g. for stdout) 
@@ -167,6 +189,7 @@ typedef struct rno_g_pedestal
   uint8_t flags; //TBD 
   int16_t vbias[2];  //signed so that we can have -1 as unknown
   uint16_t pedestals[RNO_G_NUM_RADIANT_CHANNELS][RNO_G_PEDESTAL_NSAMPLES]; 
+  uint8_t station; 
 } rno_g_pedestal_t; 
 
 int rno_g_pedestal_dump(FILE *f, const rno_g_pedestal_t * pedestal); 
@@ -178,18 +201,18 @@ int rno_g_pedestal_read(rno_g_file_handle_t handle, rno_g_pedestal_t * pedestal)
 typedef struct rno_g_daqstatus 
 {
   double when; 
-  uint32_t thresholds[RNO_G_NUM_RADIANT_CHANNELS]; 
-  uint16_t scalers[RNO_G_NUM_RADIANT_CHANNELS]; 
-  uint8_t prescalers[RNO_G_NUM_RADIANT_CHANNELS]; 
-  float scaler_period; 
+  uint32_t radiant_thresholds[RNO_G_NUM_RADIANT_CHANNELS]; 
+  uint16_t radiant_scalers[RNO_G_NUM_RADIANT_CHANNELS]; 
+  uint8_t radiant_prescalers[RNO_G_NUM_RADIANT_CHANNELS]; 
+  float radiant_scaler_period; 
+  uint64_t lt_scaler_when; 
+  uint16_t lt_scalers[RNO_G_NUM_LT_SCALERS];  
+  uint8_t station;
 } rno_g_daqstatus_t; 
 
 int rno_g_daqstatus_dump(FILE *f, const rno_g_daqstatus_t * ds); 
 int rno_g_daqstatus_write(rno_g_file_handle_t handle, const rno_g_daqstatus_t * ds);
 int rno_g_daqstatus_read(rno_g_file_handle_t handle, rno_g_daqstatus_t * ds);
-
-
-
 
 
 
