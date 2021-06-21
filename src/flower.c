@@ -281,6 +281,13 @@ int flower_fill_daqstatus(flower_dev_t *dev, rno_g_daqstatus_t *ds)
   flower_word_t dest[RNO_G_NUM_LT_SCALERS/2] = {0}; 
   flower_word_t dest_time[2] = {0}; 
 
+
+  for (int i = 0; i < 4; i++) 
+  {
+    ds->lt_trigger_thresholds[i] = dev->trig_thresh[i];
+    ds->lt_servo_thresholds[i] = dev->servo_thresh[i];
+  }
+
   //TODO can speed this up by interlacing reads and writes and caching the first part
   
   xfer[0].tx_buf = (uintptr_t) update_word.bytes; 
