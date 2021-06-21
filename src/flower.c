@@ -145,7 +145,6 @@ flower_dev_t * flower_open(const char * spi_device, int spi_en_gpio)
   dev->fwdate.date.year = (((uint32_t)word.bytes[1]) << 4) | (word.bytes[2] >> 4); 
   
 
-
   //read in the current thresholds 
   flower_word_t thresh_word; 
   for (int i = 0; i < 4; i++) 
@@ -338,6 +337,14 @@ int flower_dump(FILE * f, flower_dev_t *dev)
                 dev->fwdate.word.word,
                 dev->fwdate.word.bytes[0], dev->fwdate.word.bytes[1], 
                 dev->fwdate.word.bytes[2], dev->fwdate.word.bytes[3]); 
+  ret+= fprintf(f,"  TRIGCONFIG:  window: %d, num_coinc: %d, vpp_mode: %d\n", 
+                dev->trig_cfg.window, dev->trig_cfg.num_coinc, dev->trig_cfg.vpp_mode); 
+
+  for (int i = 0; i < 4; i++) 
+  {
+     ret+= fprintf(f,"  THRESH_CH%d:  servo:  %d, trig: %d\n", i, dev->servo_thresh[i], dev->trig_thresh[i]);
+  }
+ 
   return ret; 
 }
 
