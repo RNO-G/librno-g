@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <stdlib.h> 
 #include <fcntl.h> 
+#include <endian.h>
 #include <sys/types.h> 
 
 
@@ -42,11 +43,11 @@ struct flower_dev
   {
     struct 
     {
+      uint8_t addr;
+      uint8_t major;
+      uint8_t reserved; 
       uint8_t rev : 4; 
       uint8_t minor : 4; 
-      uint8_t reserved; 
-      uint8_t major;
-      uint8_t addr;
     } ver; 
     flower_word_t word; 
   } fwver; 
@@ -55,7 +56,7 @@ struct flower_dev
   {
     struct 
     {
-      uint8_t year; 
+      uint16_t year; 
       uint8_t day; 
       uint8_t month; 
     } date; 
@@ -137,6 +138,13 @@ flower_dev_t * flower_open(const char * spi_device, int spi_en_gpio)
   
   flower_read_register(dev, FLWR_REG_FW_VER, &dev->fwver.word); 
   flower_read_register(dev, FLWR_REG_FW_DATE, &dev->fwdate.word); 
+  //have to finagle the date
+  flower_word_t word = dev->fwdate.word; 
+  dev->fwdate.date.day = word.bytes[3]; 
+  dev->fwdate.date.month = word.bytes[2] & 0xf; 
+  dev->fwdate.date.year = (((uint32_t)word.bytes[1]) << 4) | (word.bytes[2] >> 4); 
+  
+
 
   //read in the current thresholds 
   flower_word_t thresh_word; 
@@ -153,7 +161,7 @@ flower_dev_t * flower_open(const char * spi_device, int spi_en_gpio)
   dev->trig_cfg.vpp_mode = cfg_word.bytes[1]; 
   dev->trig_cfg.window = cfg_word.bytes[2];  
   dev->trig_cfg.num_coinc = cfg_word.bytes[3]; 
-  return dev; 
+    return dev; 
 }
 
 
@@ -320,8 +328,16 @@ int flower_dump(FILE * f, flower_dev_t *dev)
 {
   int ret = 0; 
   ret+= fprintf(f,"FLOWER HANDLE at 0x%p\n", dev); 
-  ret+= fprintf(f,"  FWVER:  %02d.%02d.%02d", dev->fwver.ver.major, dev->fwver.ver.minor, dev->fwver.ver.rev); 
-  ret+= fprintf(f,"  FWDATE:  %d-%02d-%02d", dev->fwdate.date.year, dev->fwdate.date.month, dev->fwdate.date.day); 
+  ret+= fprintf(f,"  FWVER:  %02d.%02d.%02d (0x%x, [0x%x,0x%x,0x%x,0x%x])\n", 
+                dev->fwver.ver.major, dev->fwver.ver.minor, dev->fwver.ver.rev, 
+                dev->fwver.word.word, 
+                dev->fwver.word.bytes[0], dev->fwver.word.bytes[1], 
+                dev->fwver.word.bytes[2], dev->fwver.word.bytes[3]); 
+  ret+= fprintf(f,"  FWDATE:  %d-%02d-%02d (0x%x, [0x%x,0x%x,0x%x,0x%x])\n", 
+                dev->fwdate.date.year, dev->fwdate.date.month, dev->fwdate.date.day, 
+                dev->fwdate.word.word,
+                dev->fwdate.word.bytes[0], dev->fwdate.word.bytes[1], 
+                dev->fwdate.word.bytes[2], dev->fwdate.word.bytes[3]); 
   return ret; 
 }
 
