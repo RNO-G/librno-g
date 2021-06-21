@@ -1091,7 +1091,7 @@ typedef enum
   SGPIO_BIT_CALPULSE  =16, 
   SGPIO_BIT_N_CALPULSE = 32, 
   SGPIO_BIT_SG_ENABLE = 64, 
-  SGPIO_BIT_N_SG_ENABLE= 128
+  SGPIO_BIT_SG_MUXOUT= 128
 } e_sig_bits; 
 
 
@@ -1126,11 +1126,11 @@ int radiant_dump(radiant_dev_t *dev, FILE * stream, int flags)
 
   uint8_t sgpio_status = dev->gpio_status[6]; 
   fprintf(stream, "    SIGGPIO: CAL_FIL0: %d, SIG_LE %d, CAL_FIL1: %d, N_CAL_FIL1: %d \n"
-                  "             CAL_PULSE: %d, N_CAL_PULSE: %d, SG_ENABLE: %d, N_SG_ENABLE: %d \n", 
+                  "             CAL_PULSE: %d, N_CAL_PULSE: %d, SG_ENABLE: %d, SG_MUXOUT: %d \n", 
                   !!(sgpio_status & SGPIO_BIT_CAL_FIL0), !!(sgpio_status & SGPIO_BIT_SIG_LE), 
                   !!(sgpio_status & SGPIO_BIT_CAL_FIL1), !!(sgpio_status & SGPIO_BIT_N_CAL_FIL1), 
                   !!(sgpio_status & SGPIO_BIT_CALPULSE), !!(sgpio_status & SGPIO_BIT_N_CALPULSE), 
-                  !!(sgpio_status & SGPIO_BIT_SG_ENABLE),!!(sgpio_status & SGPIO_BIT_N_SG_ENABLE));
+                  !!(sgpio_status & SGPIO_BIT_SG_ENABLE),!!(sgpio_status & SGPIO_BIT_SG_MUXOUT));
 
   float v10, v18, v25, left, right; 
   radiant_bm_analog_read(dev, RADIANT_BM_ANALOG_V10, &v10);
@@ -1636,16 +1636,11 @@ int radiant_configure_cal(radiant_dev_t *bd, const radiant_cal_config_t * cfg)
 int radiant_enable_cal(radiant_dev_t * bd, int enable) 
 {
   //clear the bits we might change
-  uint8_t cal_data  = bd->gpio_status[BM_REG_SIGPIO_IDX] & ~(SGPIO_BIT_SG_ENABLE | SGPIO_BIT_N_SG_ENABLE);  
+  uint8_t cal_data  = bd->gpio_status[BM_REG_SIGPIO_IDX] & ~(SGPIO_BIT_SG_ENABLE);  
   if (enable) 
   {
     cal_data |= SGPIO_BIT_SG_ENABLE ;
   }
-  else
-  {
-    cal_data |= SGPIO_BIT_N_SG_ENABLE ;
-  }
-
   bd->gpio_status[BM_REG_SIGPIO_IDX] = cal_data; 
   return write_bm_gpio(bd, 6); 
 }
