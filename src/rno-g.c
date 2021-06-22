@@ -211,6 +211,7 @@ int rno_g_waveform_write(rno_g_file_handle_t h, const rno_g_waveform_t *wf)
     wr += do_write(h, wf->lt_nsamples, wf->lt_waveforms[ichan],&sum); 
   }
 
+  wr += do_write(h, 1, &wf->station, &sum); 
 
   do_write(h, sizeof(sum),&sum,0); 
 
