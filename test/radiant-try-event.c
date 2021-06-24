@@ -203,6 +203,11 @@ int main(int nargs, char ** args)
   rno_g_init_handle(&ph, gzipped ? "/data/test/peds.dat.gz" : "/data/test/peds.dat", "w"); 
 
 
+  int sig_is_enabled = 0; 
+  radiant_cal_enabled(rad,&sig_is_enabled); 
+
+  if (sig_is_enabled) radiant_enable_cal(rad,0); 
+
   printf("Computing pedestals...\n");
   rno_g_pedestal_t ped; 
   rno_g_header_t hd;
@@ -214,6 +219,7 @@ int main(int nargs, char ** args)
   FILE * fpedscsv = fopen("peds.csv","w"); 
   radiant_set_pedestals(rad,&ped); 
 
+  if (sig_is_enabled) radiant_enable_cal(rad,1); 
   printf("Writing out pedestals...\n");
 
   rno_g_pedestal_dump(fpedscsv,  &ped); 

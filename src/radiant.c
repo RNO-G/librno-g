@@ -1644,6 +1644,12 @@ int radiant_enable_cal(radiant_dev_t * bd, int enable)
   return write_bm_gpio(bd, 6); 
 }
 
+int radiant_cal_enabled(radiant_dev_t *bd, int *enabled) 
+{
+  *enabled = !! ( bd->gpio_status[BM_REG_SIGPIO_IDX] & SGPIO_BIT_SG_ENABLE); 
+  return 0; 
+}
+
 static adf4350_dev adf4351; 
 static int already_setup_adf4351 = 0; 
 static adf4350_init_param adf4351_param =

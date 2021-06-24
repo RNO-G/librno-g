@@ -227,6 +227,9 @@ int radiant_configure_cal(radiant_dev_t *bd, const radiant_cal_config_t * cfg ) 
 //enables or disables the signal generator
 int radiant_enable_cal(radiant_dev_t* bd, int enable) ; 
 
+int radiant_cal_enabled(radiant_dev_t *bd, int *enabled);
+
+
 // sets the frequency of the sine wave
 int radiant_set_frequency(radiant_dev_t *bd, float freq_MHz, float * actual_freq_MHz); 
 
