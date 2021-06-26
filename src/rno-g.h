@@ -205,8 +205,8 @@ typedef struct rno_g_daqstatus
   float radiant_scaler_period; 
   uint64_t lt_scaler_ncycles; 
   uint16_t lt_scalers[RNO_G_NUM_LT_SCALERS];  
-  uint8_t  lt_trigger_thresholds[4]; 
-  uint8_t  lt_servo_thresholds[4]; 
+  uint8_t  lt_trigger_thresholds[RNO_G_NUM_LT_CHANNELS]; 
+  uint8_t  lt_servo_thresholds[RNO_G_NUM_LT_CHANNELS]; 
   uint8_t station;
 } rno_g_daqstatus_t; 
 
