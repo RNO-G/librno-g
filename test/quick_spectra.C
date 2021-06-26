@@ -7,6 +7,7 @@ R__LOAD_LIBRARY(libRootFftwWrapper.so)
 #include "../src/rno-g.h" 
 #include "FFTtools.h" 
 
+ std::vector<TGraph *> pows; 
 void quick_spectra(const char * file, int ev0 = 0, int maxEv = -1)
 {
 
@@ -33,7 +34,9 @@ void quick_spectra(const char * file, int ev0 = 0, int maxEv = -1)
 
   int Nev = 0;
 
-  std::vector<TGraph *> pows; 
+  for (auto g : pows) delete g; 
+  pows.clear(); 
+  
 
   for (int iev = 0; iev < maxEv ; iev++) 
   {
