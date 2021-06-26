@@ -32,7 +32,6 @@ extern "C"
 
 #define RNO_G_MAX_LT_NSAMPLES 512
 #define RNO_G_NUM_LT_CHANNELS 4 
-#define RNO_G_NUM_LT_SCALERS 24 
 
 
 
@@ -195,6 +194,24 @@ int rno_g_pedestal_write(rno_g_file_handle_t handle, const rno_g_pedestal_t * pe
 int rno_g_pedestal_read(rno_g_file_handle_t handle, rno_g_pedestal_t * pedestal);
 
 
+typedef struct rno_g_lt_scaler_group
+{
+  uint16_t trig_coinc; 
+  uint16_t trig_per_chan[RNO_G_NUM_LT_CHANNELS]; 
+  uint16_t servo_coinc; 
+  uint16_t servo_per_chan[RNO_G_NUM_LT_CHANNELS]; 
+
+} rno_g_lt_scaler_group_t; 
+
+typedef struct rno_g_lt_scalers
+{
+  rno_g_lt_scaler_group_t s_1Hz; 
+  rno_g_lt_scaler_group_t s_1Hz_gated; 
+  rno_g_lt_scaler_group_t s_100mHz; 
+  uint64_t ncycles : 48 ; 
+  uint16_t scaler_counter_1Hz : 16; 
+} rno_g_lt_scalers_t; 
+
 
 typedef struct rno_g_daqstatus 
 {
@@ -203,10 +220,9 @@ typedef struct rno_g_daqstatus
   uint16_t radiant_scalers[RNO_G_NUM_RADIANT_CHANNELS]; 
   uint8_t radiant_prescalers[RNO_G_NUM_RADIANT_CHANNELS]; 
   float radiant_scaler_period; 
-  uint64_t lt_scaler_ncycles; 
-  uint16_t lt_scalers[RNO_G_NUM_LT_SCALERS];  
   uint8_t  lt_trigger_thresholds[RNO_G_NUM_LT_CHANNELS]; 
   uint8_t  lt_servo_thresholds[RNO_G_NUM_LT_CHANNELS]; 
+  rno_g_lt_scalers_t lt_scalers; 
   uint8_t station;
 } rno_g_daqstatus_t; 
 
