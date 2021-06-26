@@ -257,12 +257,11 @@ int flower_close(flower_dev_t * dev)
 }
 
 
-
-static flower_word_t scal_sel_regs[RNO_G_NUM_LT_SCALERS]; 
+static flower_word_t scal_sel_regs[32]; 
 __attribute__((constructor)) 
 static void fill_scal_sel_regs() 
 {
-  for (int i = 0; i < RNO_G_NUM_LT_SCALERS; i++) 
+  for (int i = 0; i < 32; i++) 
   {
     scal_sel_regs[i].bytes[0] = FLWR_REG_SCAL_SEL;
     scal_sel_regs[i].bytes[3] = i; 
@@ -271,14 +270,17 @@ static void fill_scal_sel_regs()
 
 int flower_fill_daqstatus(flower_dev_t *dev, rno_g_daqstatus_t *ds)
 {
-  #define DSNMSG (3*(RNO_G_NUM_LT_SCALERS/2)+5)
+
+  #define DSNMSG (3*(32)+5)
+
   struct spi_ioc_transfer xfer[DSNMSG] = {0}; 
 
   static flower_word_t update_word = {.bytes = {FLWR_REG_SCAL_UPD,0,0,1}}; 
   static flower_word_t selectread_word = {.bytes = {FLWR_REG_SET_READ_REG,0,0, FLWR_REG_READ}};
   static flower_word_t update_tlow = {.bytes = {FLWR_REG_SET_READ_REG,0,0,FLWR_REG_SCAL_TIME_LOW}}; 
   static flower_word_t update_thigh = {.bytes = {FLWR_REG_SET_READ_REG,0,0,FLWR_REG_SCAL_TIME_HIGH}}; 
-  flower_word_t dest[RNO_G_NUM_LT_SCALERS/2] = {0}; 
+  flower_word_t dest[32] = {0}; 
+  uint16_t raw_scalers[64]; 
   flower_word_t dest_time[2] = {0}; 
 
 
@@ -303,7 +305,8 @@ int flower_fill_daqstatus(flower_dev_t *dev, rno_g_daqstatus_t *ds)
   xfer[4].rx_buf  = (uintptr_t) dest_time[1].bytes;
   xfer[4].len = sizeof(flower_word_t); 
 
-  for (int i = 0; i < RNO_G_NUM_LT_SCALERS/2; i++) 
+  //TODO skip unused scalers 
+  for (int i = 0; i <32; i++) 
   {
     xfer[3*i+5].tx_buf = (uintptr_t) scal_sel_regs[i].bytes; 
     xfer[3*i+5].len = sizeof(flower_word_t);
@@ -315,16 +318,25 @@ int flower_fill_daqstatus(flower_dev_t *dev, rno_g_daqstatus_t *ds)
 
   int ret = ioctl(dev->spi_fd, SPI_IOC_MESSAGE(DSNMSG), xfer); 
 
- //TODO: figure out exact amount
   if (ret > 0) 
   {
-    for (int i = 0; i < RNO_G_NUM_LT_SCALERS/2; i++) 
+    for (int i = 0; i < 32; i++) 
     {
       uint16_t low =  dest[i].bytes[3] | ((dest[i].bytes[2] & 0x0f ) << 8) ;
       uint16_t high = (dest[i].bytes[1] << 4)  | ((dest[i].bytes[2] & 0xf0)>>4); 
-      ds->lt_scalers[2*i] = low;
-      ds->lt_scalers[2*i+1] = high;
+      raw_scalers[2*i] = low;
+      raw_scalers[2*i+1] = high;
     }
+
+    ds->lt_scalers.s_1Hz.trig_coinc = raw_scalers[0];
+    ds->lt_scalers.s_1Hz.servo_coinc = raw_scalers[5];
+    ds->lt_scalers.s_1Hz_gated.trig_coinc = raw_scalers[12];
+    ds->lt_scalers.s_1Hz_gated.servo_coinc = raw_scalers[12+5];
+    ds->lt_scalers.s_100mHz.trig_coinc = raw_scalers[24];
+    ds->lt_scalers.s_100mHz.servo_coinc = raw_scalers[24+5];
+    ds->lt_scalers.ncycles = ( dest_time[0].word & 0xffffff ) | ((dest_time[1].word & (0xffffff)) << 24); 
+    ds->lt_scalers.scaler_counter_1Hz = raw_scalers[63]; 
+
     return 0; 
   }
   return ret ?: -1; 
