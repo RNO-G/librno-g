@@ -67,6 +67,11 @@ install: client
 install-py: install
 
 install-daq: install 
+	install $(BUILD_DIR)/libradiant.so $(PREFIX)/lib/
+	install $(BUILD_DIR)/libflower.so $(PREFIX)/lib/
+	install src/radiant.h src/flower.h $(PREFIX)/include/
+
+
 
 install-daq-py: install-daq 
 
