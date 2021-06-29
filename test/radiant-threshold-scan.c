@@ -37,7 +37,7 @@ int main(int nargs, char ** args)
   if (!rad) return 1; 
 
   float thresh[24]; 
-  rno_g_daqstatus_t ds; 
+  rno_g_daqstatus_t ds = {0};
 
   double T = start; 
 
