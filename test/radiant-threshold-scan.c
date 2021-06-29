@@ -101,16 +101,16 @@ int main(int nargs, char ** args)
     int all_ok = 1; 
     for (int i = 0; i < 24; i++) 
     {
-      if (ds.scalers[i] > 32767 && ds.prescalers[i] < 255)
+      if (ds.radiant_scalers[i] > 32767 && ds.radiant_prescalers[i] < 255)
       {
         all_ok = 0;
-        int to = 1.5*(ds.prescalers[i]+1); 
+        int to = 1.5*(ds.radiant_prescalers[i]+1); 
         if (to > 255) to = 255; 
         printf("Increasing prescaler for CH %d to %d\n", i, to); 
         radiant_set_prescaler(rad,i,to); 
       }
 
-      float adj_scaler  = ds.scalers[i] / period * (1+ds.prescalers[i]); 
+      float adj_scaler  = ds.radiant_scalers[i] / period * (1+ds.radiant_prescalers[i]); 
       if (goal && adj_scaler && ( goal_thresh[i] == 0 || ( fabs(adj_scaler - goal) < fabs(goal_adj_scalers[i] - goal))))
       {
         printf("Setting best thresh for %d to %f (adj_scaler=%f, prev=%f)\n", i, T, adj_scaler, goal_adj_scalers[i]); 
