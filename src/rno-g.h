@@ -76,6 +76,7 @@ typedef struct rno_g_file_handle
 
 int rno_g_init_handle(rno_g_file_handle_t * h, const char * name, const char * mode); 
 int rno_g_close_handle(rno_g_file_handle_t * h); 
+#define rno_g_handle_is_open(h) (h.handle.raw)
 
 
 typedef enum rno_g_trigger_type 
