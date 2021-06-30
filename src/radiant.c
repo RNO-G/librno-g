@@ -690,7 +690,7 @@ int radiant_read_event(radiant_dev_t * bd, rno_g_header_t * hd, rno_g_waveform_t
           if (val & 0x2000)//this is the STOP window. Means the START window is snext
           {
             hd->radiant_start_windows[ichan][ibuffer] =  buffer_number * RADIANT_NWIND_PER_BUF  + ((w+1) % (RADIANT_NWIND_PER_BUF)); 
-            nrotate = w * RADIANT_WINDOW_SIZE; 
+            nrotate = (w+1) * RADIANT_WINDOW_SIZE; 
             break; 
           }
         }

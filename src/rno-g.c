@@ -13,7 +13,7 @@
  */
 
 #define HEADER_VER 1
-#define WF_VER 2 
+#define WF_VER 3 
 #define PED_VER 2 
 #define DAQSTATUS_VER 2 
 
@@ -253,12 +253,24 @@ int rno_g_waveform_read(rno_g_file_handle_t h, rno_g_waveform_t *wf)
   switch (hd.version) 
   {
     case 1: 
+    case 2: 
     case WF_VER:
       {
         rd = do_read(h,N_BEFORE_DATA,wf,&sum); 
         for (ichan = 0; ichan < RNO_G_NUM_RADIANT_CHANNELS; ichan++)
         {
           rd+= do_read(h,2*wf->radiant_nsamples, wf->radiant_waveforms[ichan], &sum);
+          if ( hd.version < 3) 
+          {
+            //fix unwrapping bug
+            uint16_t tmp[128]; 
+            memcpy(tmp, wf->radiant_waveforms[ichan], 128*2); 
+            memmove(wf->radiant_waveforms[ichan], wf->radiant_waveforms[ichan]+128, (1024-128)*2); 
+            memcpy(wf->radiant_waveforms[ichan]+1024-128,tmp,128*2); 
+            memcpy(tmp, wf->radiant_waveforms[ichan]+1024, 128*2); 
+            memmove(wf->radiant_waveforms[ichan]+1024, wf->radiant_waveforms[ichan]+128+1024, (1024-128)*2); 
+            memcpy(wf->radiant_waveforms[ichan]+2048-128,tmp,128*2); 
+          }
         }
          for (ichan = 0; ichan < RNO_G_NUM_LT_CHANNELS; ichan++)
         {
