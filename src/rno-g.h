@@ -216,7 +216,8 @@ typedef struct rno_g_lt_scalers
 
 typedef struct rno_g_daqstatus 
 {
-  double when; 
+  double when_radiant; 
+  double when_lt; 
   uint32_t radiant_thresholds[RNO_G_NUM_RADIANT_CHANNELS]; 
   uint16_t radiant_scalers[RNO_G_NUM_RADIANT_CHANNELS]; 
   uint8_t radiant_prescalers[RNO_G_NUM_RADIANT_CHANNELS]; 

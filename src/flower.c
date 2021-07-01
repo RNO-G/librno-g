@@ -8,6 +8,7 @@
 #include <fcntl.h> 
 #include <endian.h>
 #include <sys/types.h> 
+#include <time.h>
 
 
 typedef enum
@@ -283,6 +284,9 @@ int flower_fill_daqstatus(flower_dev_t *dev, rno_g_daqstatus_t *ds)
   uint16_t raw_scalers[64]; 
   flower_word_t dest_time[2] = {0}; 
 
+  struct timespec start;
+  struct timespec end;
+  
 
   for (int i = 0; i < 4; i++) 
   {
@@ -316,7 +320,11 @@ int flower_fill_daqstatus(flower_dev_t *dev, rno_g_daqstatus_t *ds)
     xfer[3*i+7].len = sizeof(flower_word_t);
   }
 
+  clock_gettime(CLOCK_MONOTONIC,&start);
   int ret = ioctl(dev->spi_fd, SPI_IOC_MESSAGE(DSNMSG), xfer); 
+  clock_gettime(CLOCK_MONOTONIC,&end);
+
+  ds->when_lt = (start.tv_sec + end.tv_sec)/2. + 0.5e-9*(start.tv_nsec + end.tv_nsec); 
 
   if (ret > 0) 
   {

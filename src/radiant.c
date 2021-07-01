@@ -2729,7 +2729,7 @@ int radiant_read_daqstatus(radiant_dev_t * bd, rno_g_daqstatus_t * ds)
   radiant_get_scalers(bd,0, RNO_G_NUM_RADIANT_CHANNELS-1, ds->radiant_scalers); 
   clock_gettime(CLOCK_REALTIME,&end); 
 
-  ds->when = 0.5 * ( start.tv_nsec*1e-9 + end.tv_nsec*1e-9+start.tv_sec + end.tv_sec); 
+  ds->when_radiant = 0.5 * ( start.tv_nsec*1e-9 + end.tv_nsec*1e-9+start.tv_sec + end.tv_sec); 
 
   return 0;
 }

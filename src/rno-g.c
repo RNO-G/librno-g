@@ -15,7 +15,7 @@
 #define HEADER_VER 1
 #define WF_VER 3 
 #define PED_VER 2 
-#define DAQSTATUS_VER 2 
+#define DAQSTATUS_VER 3 
 
 #define HEADER_MAGIC 0xead1 
 #define WAVEFORM_MAGIC 0xafd1 
@@ -478,11 +478,12 @@ int rno_g_pedestal_read(rno_g_file_handle_t h, rno_g_pedestal_t * pd)
 
 int rno_g_daqstatus_dump(FILE *f, const rno_g_daqstatus_t* ds) 
 {
-  int when = ds->when; 
-  int ns = (ds->when-when)*1e9; 
-  struct tm when_tm; 
-  gmtime_r((time_t*)&when, &when_tm); 
-  int ret = fprintf(f,"DAQSTATUS, radiant_period="); 
+  int when_radiant = ds->when_radiant; 
+  int radiant_ns = (ds->when_radiant-when_radiant)*1e9; 
+  struct tm when_tm_radiant; 
+  gmtime_r((time_t*)&when_radiant, &when_tm_radiant); 
+  int ret=fprintf(f,  "========== RADIANT================\n"); 
+  ret    += fprintf(f,"DAQSTATUS, radiant_period="); 
   if (!ds->radiant_scaler_period) 
   {
     ret+=fprintf(f,"PPS"); 
@@ -492,9 +493,8 @@ int rno_g_daqstatus_dump(FILE *f, const rno_g_daqstatus_t* ds)
     ret+=fprintf(f,"%f s", ds->radiant_scaler_period);  
   }
   ret += fprintf(f,", recorded at %04d-%02d-%02d %02d:%02d:%02d.%09dZ\n", 
-                 when_tm.tm_year + 1900, 1+when_tm.tm_mon, when_tm.tm_mday, when_tm.tm_hour, 
-                 when_tm.tm_min, when_tm.tm_sec,  ns); 
-  ret+=fprintf(f,  "========== RADIANT================\n"); 
+                 when_tm_radiant.tm_year + 1900, 1+when_tm_radiant.tm_mon, when_tm_radiant.tm_mday, when_tm_radiant.tm_hour, 
+                 when_tm_radiant.tm_min, when_tm_radiant.tm_sec,  radiant_ns); 
   ret+=fprintf(f,  "==CH==THRESH(V)==SCALER==PRESCALER\n"); 
 
   for (int i = 0; i < RNO_G_NUM_RADIANT_CHANNELS; i++) 
@@ -509,7 +509,15 @@ int rno_g_daqstatus_dump(FILE *f, const rno_g_daqstatus_t* ds)
     }
   }
 
+  int when_lt = ds->when_lt; 
+  int lt_ns = (ds->when_lt - when_lt); 
+  struct tm when_tm_lt; 
+  gmtime_r((time_t*)&when_lt, &when_tm_lt); 
+
   ret+=fprintf(f,  "============FLOWER=============\n"); 
+  ret += fprintf(f,", recorded at %04d-%02d-%02d %02d:%02d:%02d.%09dZ\n", 
+                 when_tm_lt.tm_year + 1900, 1+when_tm_lt.tm_mon, when_tm_lt.tm_mday, when_tm_lt.tm_hour, 
+                 when_tm_lt.tm_min, when_tm_lt.tm_sec,  lt_ns); 
   uint64_t ncycles = ds->lt_scalers.ncycles; 
   ret+=fprintf(f,  "  ncycles: %" PRIu64 " , counter: %hu\n", ncycles, ds->lt_scalers.scaler_counter_1Hz); 
   ret+=fprintf(f,  "==CH==SERVO_THR==TRIG_THR=SERVO_SCAL_1HZ==SERVO_SCAL_0.1HZ==SERVO_SCAL_GATE==TRIG_SCAL_1HZ==TRIG_SCAL_0.1Hz==TRIG_SCAL_GATED\n"); 
@@ -547,6 +555,20 @@ typedef struct rno_g_daqstatus_v1
   float scaler_period; 
 } rno_g_daqstatus_v1_t; 
 
+typedef struct rno_g_daqstatus_v2
+{
+  double when; 
+  uint32_t radiant_thresholds[RNO_G_NUM_RADIANT_CHANNELS]; 
+  uint16_t radiant_scalers[RNO_G_NUM_RADIANT_CHANNELS]; 
+  uint8_t radiant_prescalers[RNO_G_NUM_RADIANT_CHANNELS]; 
+  float radiant_scaler_period; 
+  uint8_t  lt_trigger_thresholds[RNO_G_NUM_LT_CHANNELS]; 
+  uint8_t  lt_servo_thresholds[RNO_G_NUM_LT_CHANNELS]; 
+  rno_g_lt_scalers_t lt_scalers; 
+  uint8_t station;
+} rno_g_daqstatus_v2_t; 
+
+
 
 int rno_g_daqstatus_read(rno_g_file_handle_t h, rno_g_daqstatus_t *ds)
 {
@@ -577,13 +599,29 @@ int rno_g_daqstatus_read(rno_g_file_handle_t h, rno_g_daqstatus_t *ds)
         rno_g_daqstatus_v1_t dsv1; 
         rd = do_read(h,sizeof(dsv1),&dsv1, &sum); 
         if (hd.version == 0) dsv1.scaler_period /=2.5; 
-        ds->when = dsv1.when; 
+        ds->when_radiant = dsv1.when; 
         ds->radiant_scaler_period = dsv1.scaler_period; 
         memcpy(ds->radiant_thresholds, dsv1.thresholds, sizeof(ds->radiant_thresholds));
         memcpy(ds->radiant_scalers, dsv1.scalers, sizeof(ds->radiant_scalers));
         memcpy(ds->radiant_prescalers, dsv1.prescalers, sizeof(ds->radiant_prescalers));
         break;
 
+      }
+    case 2:
+      {
+        memset(ds,0,sizeof(*ds)); 
+        rno_g_daqstatus_v2_t dsv2; 
+        rd = do_read(h, sizeof(dsv2), &dsv2, &sum); 
+        ds->when_radiant = dsv2.when; 
+        memcpy(ds->radiant_thresholds, dsv2.radiant_thresholds, sizeof(ds->radiant_thresholds));
+        memcpy(ds->radiant_scalers, dsv2.radiant_scalers, sizeof(ds->radiant_scalers));
+        memcpy(ds->radiant_prescalers, dsv2.radiant_prescalers, sizeof(ds->radiant_prescalers));
+        ds->radiant_scaler_period = dsv2.radiant_scaler_period; 
+        memcpy(ds->lt_trigger_thresholds, dsv2.lt_trigger_thresholds, sizeof(ds->lt_trigger_thresholds));
+        memcpy(ds->lt_servo_thresholds, dsv2.lt_servo_thresholds, sizeof(ds->lt_servo_thresholds));
+        ds->lt_scalers = dsv2.lt_scalers; 
+        ds->station = dsv2.station; 
+        break; 
       }
     case DAQSTATUS_VER:
       {
