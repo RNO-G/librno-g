@@ -10,7 +10,7 @@ TCanvas * c = 0;
 std::vector<TGraph*> gs; 
 std::vector<TGraph*> envs; 
 
-void quick_plot(const char * file, int ev = 0, int symmetric=1, int Nev = 1, int save = false, int resfactor=1)
+void quick_plot(const char * file, int ev = 0, int symmetric=1, int Nev = 1, int save = false, int resfactor=1,int mask=16777215)
 {
 
   FFTtools::ButterworthFilter but(FFTtools::LOWPASS, 2, 0.6/1.6); 
@@ -24,6 +24,8 @@ void quick_plot(const char * file, int ev = 0, int symmetric=1, int Nev = 1, int
   
   rno_g_waveform_t wf;
 
+  int nplot = __builtin_popcount(mask); 
+  printf("nplot=%d\n", nplot); 
   int nskip = ev;
   //skip forward 
   while (nskip-->0) 
@@ -51,7 +53,15 @@ void quick_plot(const char * file, int ev = 0, int symmetric=1, int Nev = 1, int
     }
 
     c = new TCanvas("quick_plot","Quick Plot", 1920*resfactor+4,1080*resfactor+28); 
-    c->Divide(4,6,0.001,0.001); 
+    if (nplot > 12) 
+    {
+      c->Divide(4,ceil(nplot/4.),0.001,0.001); 
+    }
+    else 
+    {
+      c->Divide(2,ceil(nplot/2.),0.001,0.001); 
+    }
+
 
 
     double abs_max= -2048; 
@@ -60,6 +70,7 @@ void quick_plot(const char * file, int ev = 0, int symmetric=1, int Nev = 1, int
     for (int i = 0; i < 24; i++) 
     {
 
+      if (! ( mask & (1 << i))) continue; 
 
       TGraph * g = new TGraph(wf.radiant_nsamples); 
       g->SetTitle(Form("R%d, E%d, CH%d", wf.run_number, wf.event_number, i)); 
