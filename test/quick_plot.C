@@ -10,6 +10,9 @@ TCanvas * c = 0;
 std::vector<TGraph*> gs; 
 std::vector<TGraph*> envs; 
 
+
+int max_rms_sample = 400; 
+
 void quick_plot(const char * file, int ev = 0, int symmetric=1, int Nev = 1, int save = false, int resfactor=1,int mask=16777215)
 {
 
@@ -57,6 +60,10 @@ void quick_plot(const char * file, int ev = 0, int symmetric=1, int Nev = 1, int
     {
       c->Divide(4,ceil(nplot/4.),0.001,0.001); 
     }
+    else  if (nplot == 9) 
+    {
+      c->Divide(3,3,0.001,0.001); 
+    }
     else 
     {
       c->Divide(2,ceil(nplot/2.),0.001,0.001); 
@@ -74,15 +81,16 @@ void quick_plot(const char * file, int ev = 0, int symmetric=1, int Nev = 1, int
 
       TGraph * g = new TGraph(wf.radiant_nsamples); 
       g->SetTitle(Form("R%d, E%d, CH%d", wf.run_number, wf.event_number, i)); 
-      g->GetXaxis()->SetTitle("Sample");
+      g->GetXaxis()->SetTitle("sample");
       g->GetYaxis()->SetTitle("ADC");
 
       g->GetYaxis()->SetTitleOffset(0.6);
+      g->GetYaxis()->SetTitleOffset(0.65);
       g->GetYaxis()->SetTitleSize(0.06);
-      g->GetYaxis()->SetLabelSize(0.06);
+      g->GetYaxis()->SetLabelSize(0.055);
       g->GetXaxis()->SetTitleOffset(0.7);
       g->GetXaxis()->SetTitleSize(0.06);
-      g->GetXaxis()->SetLabelSize(0.05);
+      g->GetXaxis()->SetLabelSize(0.045);
 
       bool all_zeroes = true; 
 
@@ -135,11 +143,12 @@ void quick_plot(const char * file, int ev = 0, int symmetric=1, int Nev = 1, int
       gPad->SetGridy();
       gPad->SetTicky();
       gPad->SetRightMargin(0.02); 
-      gPad->SetBottomMargin(0.09); 
+      gPad->SetBottomMargin(0.1); 
       g->GetXaxis()->SetRangeUser( 0, g->GetN()); 
       g->GetYaxis()->SetRangeUser( umin, umax); 
-      TText * t = new TText(4*g->GetN()/5.,1.01*umax, Form("RMS=%g", g->GetRMS(2))); 
-      t->SetTextSize(0.09); 
+      int max_samp = max_rms_sample <= 0 || max_rms_sample > g->GetN() ? g->GetN() : max_rms_sample; 
+      TText * t = new TText(3.8*g->GetN()/5.,1.01*umax, Form("RMS=%g", TMath::RMS(max_samp, g->GetY()))); 
+      t->SetTextSize(0.07); 
       g->Draw("alp"); 
       TGraph * env = envs[icd-1]; 
       env->SetLineColor(3); 
