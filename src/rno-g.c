@@ -520,18 +520,18 @@ int rno_g_daqstatus_dump(FILE *f, const rno_g_daqstatus_t* ds)
                  when_tm_lt.tm_min, when_tm_lt.tm_sec,  lt_ns); 
   uint64_t ncycles = ds->lt_scalers.ncycles; 
   ret+=fprintf(f,  "  ncycles: %" PRIu64 " , counter: %hu\n", ncycles, ds->lt_scalers.scaler_counter_1Hz); 
-  ret+=fprintf(f,  "==CH==SERVO_THR==TRIG_THR=SERVO_SCAL_1HZ==SERVO_SCAL_0.1HZ==SERVO_SCAL_GATE==TRIG_SCAL_1HZ==TRIG_SCAL_0.1Hz==TRIG_SCAL_GATED\n"); 
+  ret+=fprintf(f,  "==CH==SERVO_THR==TRIG_THR=SERVO_SCAL_1HZ==SERVO_SCAL_0.1HZ==SERVO_SCAL_GATE==TRIG_SCAL_1HZ==TRIG_SCAL_100Hz==TRIG_SCAL_GATED\n"); 
   for (int i = 0; i < RNO_G_NUM_LT_CHANNELS; i++)
   {
     ret+=fprintf(f," %d  | %03d     | %03d   |      %04d   |      %04d         |       %04d     |      %04d    |      %04d      |   %04d        \n",
                      i, ds->lt_servo_thresholds[i], ds->lt_trigger_thresholds[i],
-                     ds->lt_scalers.s_1Hz.servo_per_chan[i], ds->lt_scalers.s_100mHz.servo_per_chan[i],ds->lt_scalers.s_1Hz_gated.servo_per_chan[i],
-                     ds->lt_scalers.s_1Hz.trig_per_chan[i], ds->lt_scalers.s_100mHz.trig_per_chan[i],ds->lt_scalers.s_1Hz_gated.trig_per_chan[i]);
+                     ds->lt_scalers.s_1Hz.servo_per_chan[i], ds->lt_scalers.s_100Hz.servo_per_chan[i],ds->lt_scalers.s_1Hz_gated.servo_per_chan[i],
+                     ds->lt_scalers.s_1Hz.trig_per_chan[i], ds->lt_scalers.s_100Hz.trig_per_chan[i],ds->lt_scalers.s_1Hz_gated.trig_per_chan[i]);
   }
 
   ret += fprintf(f,"coinc|         |          |      %04d   |      %04d         |       %04d     |      %04d    |      %04d      |   %04d        \n",
-                     ds->lt_scalers.s_1Hz.servo_coinc, ds->lt_scalers.s_100mHz.servo_coinc,ds->lt_scalers.s_1Hz_gated.servo_coinc,
-                     ds->lt_scalers.s_1Hz.trig_coinc, ds->lt_scalers.s_100mHz.trig_coinc,ds->lt_scalers.s_1Hz_gated.trig_coinc); 
+                     ds->lt_scalers.s_1Hz.servo_coinc, ds->lt_scalers.s_100Hz.servo_coinc,ds->lt_scalers.s_1Hz_gated.servo_coinc,
+                     ds->lt_scalers.s_1Hz.trig_coinc, ds->lt_scalers.s_100Hz.trig_coinc,ds->lt_scalers.s_1Hz_gated.trig_coinc); 
 
   return ret; 
 }

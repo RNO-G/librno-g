@@ -340,8 +340,8 @@ int flower_fill_daqstatus(flower_dev_t *dev, rno_g_daqstatus_t *ds)
     ds->lt_scalers.s_1Hz.servo_coinc = raw_scalers[5];
     ds->lt_scalers.s_1Hz_gated.trig_coinc = raw_scalers[12];
     ds->lt_scalers.s_1Hz_gated.servo_coinc = raw_scalers[12+5];
-    ds->lt_scalers.s_100mHz.trig_coinc = raw_scalers[24];
-    ds->lt_scalers.s_100mHz.servo_coinc = raw_scalers[24+5];
+    ds->lt_scalers.s_100Hz.trig_coinc = raw_scalers[24];
+    ds->lt_scalers.s_100Hz.servo_coinc = raw_scalers[24+5];
     ds->lt_scalers.ncycles = ( dest_time[0].word & 0xffffff ) | ((dest_time[1].word & (0xffffff)) << 24); 
     ds->lt_scalers.scaler_counter_1Hz = raw_scalers[63]; 
 
