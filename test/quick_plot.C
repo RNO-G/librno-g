@@ -11,9 +11,8 @@ std::vector<TGraph*> gs;
 std::vector<TGraph*> envs; 
 
 
-int max_rms_sample = 400; 
 
-void quick_plot(const char * file, int ev = 0, int symmetric=1, int Nev = 1, int save = false, int resfactor=1,int mask=16777215)
+void quick_plot(const char * file, int ev = 0, int symmetric=1, int Nev = 1, int save = false, int resfactor=1,int mask=16777215, int min_rms_sample = 0, int max_rms_sample = 400)
 {
 
   FFTtools::ButterworthFilter but(FFTtools::LOWPASS, 2, 0.6/1.6); 
@@ -60,6 +59,11 @@ void quick_plot(const char * file, int ev = 0, int symmetric=1, int Nev = 1, int
     {
       c->Divide(4,ceil(nplot/4.),0.001,0.001); 
     }
+    else  if (nplot == 12) 
+    {
+      c->Divide(3,4,0.001,0.001); 
+    }
+ 
     else  if (nplot == 9) 
     {
       c->Divide(3,3,0.001,0.001); 
@@ -146,8 +150,9 @@ void quick_plot(const char * file, int ev = 0, int symmetric=1, int Nev = 1, int
       gPad->SetBottomMargin(0.1); 
       g->GetXaxis()->SetRangeUser( 0, g->GetN()); 
       g->GetYaxis()->SetRangeUser( umin, umax); 
+      int min_samp = min_rms_sample < 0 ? 0 : min_rms_sample; 
       int max_samp = max_rms_sample <= 0 || max_rms_sample > g->GetN() ? g->GetN() : max_rms_sample; 
-      TText * t = new TText(3.8*g->GetN()/5.,1.01*umax, Form("RMS=%g", TMath::RMS(max_samp, g->GetY()))); 
+      TText * t = new TText(3.8*g->GetN()/5.,1.01*umax, Form("RMS=%g", TMath::RMS(max_samp-min_samp, g->GetY()+min_samp))); 
       t->SetTextSize(0.07); 
       g->Draw("alp"); 
       TGraph * env = envs[icd-1]; 
