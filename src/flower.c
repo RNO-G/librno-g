@@ -9,6 +9,7 @@
 #include <endian.h>
 #include <sys/types.h> 
 #include <time.h>
+#include <math.h>
 
 
 typedef enum
@@ -16,6 +17,8 @@ typedef enum
   FLWR_REG_FW_VER = 0x01,
   FLWR_REG_FW_DATE = 0x02,
   FLWR_REG_SCAL_RD = 0x03, 
+  FLWR_REG_DATA_CHUNK0 = 0x23,
+  FLWR_REG_DATA_CHUNK1 = 0x24,
   FLWR_REG_SCAL_UPD = 0x27,
   FLWR_REG_SCAL_SEL = 0x29, 
   FLWR_REG_CALPULSE=0x2a, 
@@ -27,7 +30,6 @@ typedef enum
   FLWR_REG_MODE = 0x42,
   FLWR_REG_RAM_ADDR = 0x45,
   FLWR_REG_READ = 0x47,
-  FLWR_REG_CHUNK = 0x49,
   FLWR_REG_TRIG_CH0_THR = 0x57,
   FLWR_REG_TRIG_CH1_THR = 0x58,
   FLWR_REG_TRIG_CH2_THR = 0x59,
@@ -67,6 +69,7 @@ struct flower_dev
   rno_g_lt_simple_trigger_config_t trig_cfg; 
   uint8_t trig_thresh[4]; 
   uint8_t servo_thresh[4]; 
+  int must_clear; 
 
 };
 
@@ -186,7 +189,6 @@ int flower_read_register(flower_dev_t*dev, uint8_t addr, flower_word_t * result)
 {
   if (addr <1 || addr > FLWR_REG_MAX) return -1; 
   struct spi_ioc_transfer xfer[2] = {0}; 
-
   flower_word_t word = {0} ;
   word.bytes[0] = FLWR_REG_SET_READ_REG ;
   word.bytes[3] = addr; 
@@ -375,4 +377,63 @@ int flower_dump(FILE * f, flower_dev_t *dev)
   return ret; 
 }
 
+static flower_word_t sw_trig_low = {.bytes={FLWR_REG_FORCE_TRIG,0,0,0}}; 
+static flower_word_t sw_trig_high = {.bytes={FLWR_REG_FORCE_TRIG,0,0,1}}; 
+
+int flower_force_trigger(flower_dev_t * dev) 
+{
+  int ret = 0; 
+  ret+= write_word(dev, &sw_trig_low); 
+  ret+= write_word(dev, &sw_trig_high); 
+  dev->must_clear = 1;
+  return ret; 
+}
+
+int flower_read_waveforms(flower_dev_t *dev, int len, uint8_t ** dest)
+{
+
+  static flower_word_t select_chip[2]  =
+  { {.bytes={FLWR_REG_CHANNEL, 0,0,1}}
+  , {.bytes={FLWR_REG_CHANNEL, 0,0,2}} };
+
+  static flower_word_t select_data[2]  =
+  { {.bytes={FLWR_REG_DATA_CHUNK0, 0,0,0}}
+  , {.bytes={FLWR_REG_DATA_CHUNK1, 0,0,0}} };
+
+  if (len > 256) len = 256; 
+
+  int ret = 0; 
+  for (int ichip = 0; ichip < 2; ichip++) 
+  {
+    ret += write_word(dev, select_chip+ichip); 
+    //let's do 256 samples at a time to avoid the spi ioctl limit 
+    //we need 5 commands per address (set address, 2xread first, 2xread second, to avoid duplexing) 
+    struct spi_ioc_transfer xfer[320] = {0}; 
+    int isamp = 0; 
+    while (isamp < len) 
+    {
+      int howmany = isamp + 256 > len ? len -isamp: 256; 
+      int nxfers = ceil(howmany/4); 
+      for (int ixfer = 0; ixfer < nxfers; ixfer++) 
+      {
+        flower_word_t select_addr = {.bytes={FLWR_REG_RAM_ADDR,0,0,isamp & 0xff}}; 
+        xfer[ixfer*5].tx_buf = (uintptr_t) select_addr.bytes; 
+        xfer[ixfer*5+1].tx_buf = (uintptr_t) select_data[0].bytes;
+        xfer[ixfer*5+2].rx_buf = (uintptr_t) dest[2*ichip] + isamp; 
+        xfer[ixfer*5+3].tx_buf = (uintptr_t) select_data[1].bytes;
+        xfer[ixfer*5+4].rx_buf = (uintptr_t) dest[2*ichip+1] + isamp; 
+        isamp+=4; 
+      }
+
+      ioctl(dev->spi_fd, SPI_IOC_MESSAGE(nxfers), xfer); 
+    }
+  }
+
+
+  if (dev->must_clear) 
+  {
+    ret+= write_word(dev, &sw_trig_low); 
+  }
+  return ret; 
+}
 

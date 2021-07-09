@@ -32,6 +32,11 @@ int flower_fill_daqstatus(flower_dev_t *dev, rno_g_daqstatus_t * ds);
 
 int flower_fill_header(flower_dev_t *dev, rno_g_header_t * hd); 
 
+int flower_force_trigger(flower_dev_t *dev); 
+
+int flower_read_waveforms(flower_dev_t * dev, int len, uint8_t ** dest); 
+
+
 typedef union flower_word
 {
   uint32_t word; 
