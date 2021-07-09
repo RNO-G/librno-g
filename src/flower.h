@@ -52,6 +52,7 @@ enum
   FLOWER_GAIN_25X, 
   FLOWER_GAIN_32X, 
   FLOWER_GAIN_50X, 
+  FLOWER_GAIN_TOO_HIGH
 } flower_gain_codes; 
 
 int flower_set_gains(flower_dev_t * dev, const uint8_t * gain_codes);
