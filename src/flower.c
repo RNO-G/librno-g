@@ -25,6 +25,9 @@ typedef enum
   FLWR_REG_SCAL_TIME_LOW = 0x2c, 
   FLWR_REG_SCAL_TIME_HIGH = 0x2d, 
   FLWR_REG_DATVALID=0x3a,
+  FLWR_REG_PD_REG=0x3a,
+  FLWR_REG_CFG_REG0 = 0x3b, 
+  FLWR_REG_CFG_REG1 = 0x3c, 
   FLWR_REG_FORCE_TRIG = 0x40,
   FLWR_REG_CHANNEL = 0x41,
   FLWR_REG_MODE = 0x42,
@@ -38,6 +41,12 @@ typedef enum
   FLWR_REG_SET_READ_REG = 0x6d,
   FLWR_REG_MAX=0x7f
 } e_flower_reg; 
+
+typedef enum
+{
+  HMCAD_ADR_DUAL_CGAIN = 0x2B, 
+  HMCAD_ADR_CGAIN_CFG = 0x33 
+} e_hmcad_reg; 
 
 struct flower_dev
 {
@@ -437,3 +446,25 @@ int flower_read_waveforms(flower_dev_t *dev, int len, uint8_t ** dest)
   return ret; 
 }
 
+
+int flower_set_gains(flower_dev_t *dev, const uint8_t * codes) 
+{
+
+  for (int ichip = 0; ichip < 2; ichip++) 
+  {
+    //select chip  
+    flower_word_t word = {.bytes={FLWR_REG_CFG_REG0 + ichip,0,0,0}}; 
+    write_word(dev,&word); 
+
+    //make sure in xcfg 
+    word.bytes[1] = HMCAD_ADR_CGAIN_CFG; 
+    word.bytes[3] = 1; 
+    write_word(dev,&word); 
+
+    //set gains for 2 channels 
+    word.bytes[1] = HMCAD_ADR_DUAL_CGAIN; 
+    word.bytes[3] = (codes[2*ichip] & 0xf)  | ((codes[2*ichip+1] | 0xf) << 4);
+    write_word(dev,&word); 
+  }
+  return 0; 
+} 

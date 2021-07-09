@@ -36,6 +36,26 @@ int flower_force_trigger(flower_dev_t *dev);
 
 int flower_read_waveforms(flower_dev_t * dev, int len, uint8_t ** dest); 
 
+enum 
+{
+  FLOWER_GAIN_1X, 
+  FLOWER_GAIN_1_25X, 
+  FLOWER_GAIN_2X, 
+  FLOWER_GAIN_2_5X, 
+  FLOWER_GAIN_4X, 
+  FLOWER_GAIN_5X, 
+  FLOWER_GAIN_8X, 
+  FLOWER_GAIN_10X, 
+  FLOWER_GAIN_12_5X, 
+  FLOWER_GAIN_16X, 
+  FLOWER_GAIN_20X, 
+  FLOWER_GAIN_25X, 
+  FLOWER_GAIN_32X, 
+  FLOWER_GAIN_50X, 
+} flower_gain_codes; 
+
+int flower_set_gains(flower_dev_t * dev, const uint8_t * gain_codes);
+
 
 typedef union flower_word
 {
