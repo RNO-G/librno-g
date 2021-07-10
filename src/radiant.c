@@ -2589,7 +2589,7 @@ int radiant_set_trigger_thresholds_float(radiant_dev_t * bd, int ichan_start, in
 
 int radiant_set_trigger_thresholds(radiant_dev_t * bd, int ichan_start, int ichan_end, const uint32_t  * vals) 
 {
-  if (ichan_start < 0 || ichan_end > 24 || ichan_start > ichan_end || !bd || !vals) return -1; 
+  if (ichan_start < 0 || ichan_end >= RNO_G_NUM_RADIANT_CHANNELS || ichan_start > ichan_end || !bd || !vals) return -1; 
 
   //if any are 0, let's just disable? 
 
