@@ -409,7 +409,19 @@ int flower_read_waveforms(flower_dev_t *dev, int len, uint8_t ** dest)
   { {.bytes={FLWR_REG_DATA_CHUNK0, 0,0,0}}
   , {.bytes={FLWR_REG_DATA_CHUNK1, 0,0,0}} };
 
-  if (len > 256) len = 256; 
+
+  static flower_word_t select_addr[256] = {0}; 
+
+  if (!select_addr[0].bytes[0])
+  {
+      for (int i = 0; i < 256; i++) 
+      {
+        select_addr[i].bytes[0] =FLWR_REG_RAM_ADDR;
+        select_addr[i].bytes[3] =i;
+      }
+  }
+
+  if (len > 1024) len = 1024; 
 
   int ret = 0; 
   for (int ichip = 0; ichip < 2; ichip++) 
@@ -425,16 +437,32 @@ int flower_read_waveforms(flower_dev_t *dev, int len, uint8_t ** dest)
       int nxfers = ceil(howmany/4); 
       for (int ixfer = 0; ixfer < nxfers; ixfer++) 
       {
-        flower_word_t select_addr = {.bytes={FLWR_REG_RAM_ADDR,0,0,isamp & 0xff}}; 
-        xfer[ixfer*5].tx_buf = (uintptr_t) select_addr.bytes; 
+        xfer[ixfer*5].tx_buf = (uintptr_t) select_addr[isamp>>2].bytes; 
+        xfer[ixfer*5].rx_buf = 0;
+        xfer[ixfer*5].len = 4;
+ //       xfer[ixfer*5].delay_usecs = 100;
+        xfer[ixfer*5].cs_change = 1;
         xfer[ixfer*5+1].tx_buf = (uintptr_t) select_data[0].bytes;
-        xfer[ixfer*5+2].rx_buf = (uintptr_t) dest[2*ichip] + isamp; 
+        xfer[ixfer*5+1].rx_buf = 0; 
+        xfer[ixfer*5+1].len = 4;
+        xfer[ixfer*5+1].cs_change = 1;
+        xfer[ixfer*5+2].rx_buf = (uintptr_t) (&dest[2*ichip][isamp]); 
+        xfer[ixfer*5+2].tx_buf =0;
+        xfer[ixfer*5+2].len = 4;
+        xfer[ixfer*5+2].cs_change = 1;
         xfer[ixfer*5+3].tx_buf = (uintptr_t) select_data[1].bytes;
-        xfer[ixfer*5+4].rx_buf = (uintptr_t) dest[2*ichip+1] + isamp; 
+        xfer[ixfer*5+3].rx_buf = 0;
+        xfer[ixfer*5+3].len = 4;
+        xfer[ixfer*5+3].cs_change = 1;
+        xfer[ixfer*5+4].rx_buf = (uintptr_t) (&dest[2*ichip+1][isamp]); 
+        xfer[ixfer*5+4].tx_buf =0; 
+        xfer[ixfer*5+4].len = 4;
+        xfer[ixfer*5+4].cs_change = 1;
+//        xfer[ixfer*5+4].delay_usecs = 100;
         isamp+=4; 
       }
 
-      ioctl(dev->spi_fd, SPI_IOC_MESSAGE(nxfers), xfer); 
+      ioctl(dev->spi_fd, SPI_IOC_MESSAGE(nxfers*5), xfer); 
     }
   }
 
@@ -453,17 +481,18 @@ int flower_set_gains(flower_dev_t *dev, const uint8_t * codes)
   for (int ichip = 0; ichip < 2; ichip++) 
   {
     //select chip  
-    flower_word_t word = {.bytes={FLWR_REG_CFG_REG0 + ichip,0,0,0}}; 
+    flower_word_t word = {.bytes={FLWR_REG_CFG_REG0,0,0,ichip}}; 
     write_word(dev,&word); 
 
     //make sure in xcfg 
+    word.bytes[0] = FLWR_REG_CFG_REG1; 
     word.bytes[1] = HMCAD_ADR_CGAIN_CFG; 
     word.bytes[3] = 1; 
     write_word(dev,&word); 
 
     //set gains for 2 channels 
     word.bytes[1] = HMCAD_ADR_DUAL_CGAIN; 
-    word.bytes[3] = (codes[2*ichip] & 0xf)  | ((codes[2*ichip+1] | 0xf) << 4);
+    word.bytes[3] = (codes[2*ichip] & 0xf)  | ((codes[2*ichip+1] & 0xf) << 4);
     write_word(dev,&word); 
   }
   return 0; 
