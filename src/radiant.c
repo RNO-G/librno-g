@@ -2366,7 +2366,7 @@ int radiant_reset_readout_fifo(radiant_dev_t * bd, int force, int reset_readout)
 }
 
 
-int radiant_reset_counters(radiant_dev_t * bd) 
+int radiant_reset_fifo_counters(radiant_dev_t * bd) 
 {
   uint32_t evctrl = 4; 
   return (4!=radiant_set_mem(bd, DEST_FPGA, RAD_REG_EV_CTRL, 4, (uint8_t*) &evctrl)); 

@@ -322,7 +322,7 @@ const rno_g_pedestal_t * radiant_get_pedestals(radiant_dev_t *bd);
 
 
 /** This resets the event fifo counters (I think?) */ 
-int radiant_reset_counters(radiant_dev_t *bd); 
+int radiant_reset_fifo_counters(radiant_dev_t *bd); 
 
 /** Synchronizes counters at next pps */ 
 int radiant_sync(radiant_dev_t *bd); 

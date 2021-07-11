@@ -231,7 +231,7 @@ int main(int nargs, char ** args)
   radiant_labs_stop(rad); 
 
   //this seems to clear the extra triggers too? 
-  radiant_reset_counters(rad); 
+  radiant_reset_fifo_counters(rad); 
   radiant_set_nbuffers_per_readout(rad, nbuffers); 
   radiant_dma_setup_event(rad, 0xffffff); 
   int enables = RADIANT_TRIGOUT_EN| RADIANT_TRIGOUT_SOFT | RADIANT_TRIG_EN; 
