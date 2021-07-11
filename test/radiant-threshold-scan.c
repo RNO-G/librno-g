@@ -70,7 +70,7 @@ int main(int nargs, char ** args)
 
 
   //ok I don't need all of this but this will set TRIGINEN properly at least! 
-  radiant_reset_counters(rad); 
+  radiant_reset_fifo_counters(rad); 
   radiant_set_global_trigger_mask(rad,0xffffff); 
   radiant_set_l0_enable(rad,1); 
 
