@@ -86,6 +86,7 @@ int main(int nargs, char ** args)
   int verbose = 0; 
   int enable_pps = 0; 
   int enable_ext = 0; 
+  int do_sync = 0; 
   double force_interval = 0; 
   int force = 0; 
   int clearmode = 0; 
@@ -134,7 +135,10 @@ int main(int nargs, char ** args)
       enable_ext = 1; 
     }
 
-
+    else if (!strcmp(args[i],"-S"))
+    {
+      do_sync = 1; 
+    }
 
     else if (!strcmp(args[i],"-c"))
     {
@@ -189,6 +193,8 @@ int main(int nargs, char ** args)
   radiant_dev_t * rad = radiant_open("/dev/spi/0.0", "/dev/ttyRadiant", 46, -61);
   if (!rad) return 1; 
 
+
+  if (do_sync) radiant_sync(rad); 
   if (bias) 
   {
     printf("Setting DC bias to %u\n",bias); 
