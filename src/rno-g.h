@@ -229,6 +229,8 @@ typedef struct rno_g_daqstatus
 } rno_g_daqstatus_t; 
 
 int rno_g_daqstatus_dump(FILE *f, const rno_g_daqstatus_t * ds); 
+int rno_g_daqstatus_dump_flower(FILE *f, const rno_g_daqstatus_t * ds); 
+int rno_g_daqstatus_dump_radiant(FILE *f, const rno_g_daqstatus_t * ds); 
 int rno_g_daqstatus_write(rno_g_file_handle_t handle, const rno_g_daqstatus_t * ds);
 int rno_g_daqstatus_read(rno_g_file_handle_t handle, rno_g_daqstatus_t * ds);
 

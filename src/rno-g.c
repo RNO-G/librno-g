@@ -478,6 +478,11 @@ int rno_g_pedestal_read(rno_g_file_handle_t h, rno_g_pedestal_t * pd)
 
 int rno_g_daqstatus_dump(FILE *f, const rno_g_daqstatus_t* ds) 
 {
+  return rno_g_daqstatus_dump_radiant(f,ds) + rno_g_daqstatus_dump_flower(f,ds); 
+}
+
+int rno_g_daqstatus_dump_radiant(FILE*f, const rno_g_daqstatus_t *ds) 
+{
   int when_radiant = ds->when_radiant; 
   int radiant_ns = (ds->when_radiant-when_radiant)*1e9; 
   struct tm when_tm_radiant; 
@@ -509,6 +514,12 @@ int rno_g_daqstatus_dump(FILE *f, const rno_g_daqstatus_t* ds)
     }
   }
 
+  return ret; 
+}
+
+int rno_g_daqstatus_dump_flower(FILE  *f, const rno_g_daqstatus_t * ds) 
+{
+  int ret = 0; 
   int when_lt = ds->when_lt; 
   int lt_ns = (ds->when_lt - when_lt); 
   struct tm when_tm_lt; 
