@@ -340,7 +340,7 @@ int flower_fill_daqstatus(flower_dev_t *dev, rno_g_daqstatus_t *ds)
   clock_gettime(CLOCK_REALTIME,&start);
   int ret = ioctl(dev->spi_fd, SPI_IOC_MESSAGE(DSNMSG), xfer); 
   clock_gettime(CLOCK_REALTIME,&end);
-  printf("status ioctl: %d\n", ret); 
+//  printf("status ioctl: %d\n", ret); 
 
   ds->when_lt = (start.tv_sec*0.5 + end.tv_sec*0.5) + 1e-9*(start.tv_nsec*0.5 + end.tv_nsec*0.5); 
 
