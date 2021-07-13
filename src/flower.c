@@ -509,3 +509,58 @@ int flower_set_gains(flower_dev_t *dev, const uint8_t * codes)
   }
   return 0; 
 } 
+
+static double getrms(int N, uint8_t* X) 
+{
+  double sum = 0; 
+  double sum2 = 0; 
+  for (int i = 0; i < N ; i++) 
+  {
+    sum+=X[i]; 
+    sum2+=X[i]*X[i]; 
+  }
+
+  double mean = sum/N; 
+  return sqrt(sum2/N - mean*mean); 
+}
+
+int flower_equalize(flower_dev_t * dev, float target_rms, uint8_t * v_gain_codes, int opts)
+{
+  float rms[RNO_G_NUM_LT_CHANNELS] = {0}; 
+
+  uint8_t mask = (~(opts & 0xf)) & 0xf; 
+  int verbose = opts & 0x80000000; 
+  static uint8_t data[RNO_G_NUM_LT_CHANNELS][1024]; 
+  static uint8_t * data_ptrs[RNO_G_NUM_LT_CHANNELS] = { data[0], data[1], data[2], data[3] }; 
+  uint8_t gain_codes[RNO_G_NUM_LT_CHANNELS] = {0}; 
+  uint8_t done = 0;
+
+  while (done != mask) 
+  {
+    flower_set_gains(dev, gain_codes); 
+    flower_force_trigger(dev);
+    flower_read_waveforms(dev, 1024, data_ptrs); 
+    for (int i = 0; i < RNO_G_NUM_LT_CHANNELS; i++) 
+    {
+      if (done & ( 1 << i) || !(mask & (1 << i))) continue; 
+
+      rms[i] = getrms(256, data[i]); 
+
+      if (verbose) printf("ch: %d, gain_code: %d, rms: %f\n", i, gain_codes[i], rms[i]); 
+
+      if (rms[i] < target_rms && gain_codes[i] < FLOWER_GAIN_TOO_HIGH) 
+      {
+        gain_codes[i]++; 
+      }
+      else 
+      {
+        done |= (1 << i); 
+        if (v_gain_codes) v_gain_codes[i] = gain_codes[i]; 
+        if (verbose) printf("  ch %d done!\n", i); 
+      }
+    }
+  }
+
+  return 0; 
+}
+
