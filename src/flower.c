@@ -232,8 +232,8 @@ int flower_set_thresholds(flower_dev_t *dev, const uint8_t * trigger_thresholds,
     {
       uint8_t servo = servo_thresholds[i]; 
       uint8_t trig = trigger_thresholds[i]; 
-      if (servo > 128) servo = 128; 
-      if (trig > 128) trig = 128; 
+      if (servo > 127) servo = 127; 
+      if (trig > 127) trig = 127; 
       words[ii].bytes[0] = FLWR_REG_TRIG_CH0_THR+i; 
       words[ii].bytes[2] = servo; 
       words[ii].bytes[3] = trig; 
