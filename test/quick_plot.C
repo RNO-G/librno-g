@@ -12,7 +12,28 @@ std::vector<TGraph*> envs;
 
 
 
-void quick_plot(const char * file, int ev = 0, int symmetric=1, int Nev = 1, int save = false, int resfactor=1,int mask=16777215, int min_rms_sample = 0, int max_rms_sample = 400, int zero_sub=0)
+void median_subtract_blocks(int len, int16_t * data, int block_size = 128) 
+{
+  int istart = 0; 
+  std::vector<int16_t> block(block_size); 
+
+  while (istart  <len)
+  {
+    memcpy(&block[0], data+istart, block_size * sizeof(int16_t)); 
+    std::nth_element(block.begin(), block.begin() + block_size/2, block.end()); 
+    int16_t median = block[block_size/2]; 
+//    printf("%d %f\n", median, TMath::Mean(block_size, data+istart)); 
+    for (int i = istart; i < istart+block_size; i++) 
+    {
+      if (i >= len) break; 
+      data[i]-=median; 
+    }
+    istart+=block_size; 
+  }
+}
+
+
+void quick_plot(const char * file, int ev = 0, int symmetric=1, int Nev = 1, int save = false, int resfactor=1,int mask=16777215, int min_rms_sample = 0, int max_rms_sample = 400, int zero_sub=0, int median_sub = 0)
 {
 
   FFTtools::ButterworthFilter but(FFTtools::LOWPASS, 2, 0.6/1.6); 
@@ -109,7 +130,13 @@ void quick_plot(const char * file, int ev = 0, int symmetric=1, int Nev = 1, int
       }
 
       double sub = 0; 
-o     if (zero_sub) 
+
+      if (median_sub) 
+      {
+        median_subtract_blocks(wf.radiant_nsamples, wf.radiant_waveforms[i], 128); 
+      }
+
+      if (zero_sub) 
       {
         sub = TMath::Mean(wf.radiant_nsamples, wf.radiant_waveforms[i]); 
       }
