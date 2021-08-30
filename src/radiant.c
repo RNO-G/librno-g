@@ -708,6 +708,21 @@ int radiant_read_event(radiant_dev_t * bd, rno_g_header_t * hd, rno_g_waveform_t
         //that sounds a bit more complicated
         if (nrotate) roll16((uint16_t*)wf->radiant_waveforms[ichan] + ibuffer * RADIANT_NSAMP_PER_BUF, nrotate, RADIANT_NSAMP_PER_BUF); 
       }
+
+      //If the two buffers are out of order, rearrange them
+      //TODO: vectorize this if the memcpy doesn't work 
+      if (bd->nbuffers_per_readout == 2 && hd->radiant_start_windows[ichan][0]  > hd->radiant_start_windows[ichan][1])
+      {
+        //do 8 samples at a time 
+        uint16_t tmp[8]; 
+        for (int isamp = 0; isamp < RADIANT_NSAMP_PER_BUF; isamp+=8) 
+        {
+          memcpy(tmp,wf->radiant_waveforms[ichan]+isamp, 16); 
+          memcpy(wf->radiant_waveforms[ichan]+isamp, wf->radiant_waveforms[ichan]+isamp+RADIANT_NSAMP_PER_BUF, 16); 
+          memcpy(wf->radiant_waveforms[ichan]+isamp+RADIANT_NSAMP_PER_BUF, tmp, 16); 
+        }
+      }
+
     }
     else
     {
