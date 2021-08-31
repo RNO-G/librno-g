@@ -82,11 +82,12 @@ int rno_g_close_handle(rno_g_file_handle_t * h);
 typedef enum rno_g_trigger_type 
 {
     RNO_G_TRIGGER_SOFT         = 1 << 0,  /**< This was a software trigger */
-    RNO_G_TRIGGER_EXT          = 1 << 1,  /**< This was an external trigger */
+    RNO_G_TRIGGER_EXT          = 1 << 1,  /**< This was an external trigger (note that the LT is implemented as an external trigger, but this is not it!) */
     RNO_G_TRIGGER_RF_LT_SIMPLE = 1 << 2,  /**< This was an RF trigger from the LT board*/
     RNO_G_TRIGGER_RF_LT_PHASED = 1 << 3,  /**< This was an RF trigger from the LT board*/
     RNO_G_TRIGGER_RF_RADIANT0  = 1 << 4,  /**< This was an RF trigger from the RADIANT's trigger 0*/
     RNO_G_TRIGGER_RF_RADIANT1  = 1 << 5,  /**< This was an RF trigger from the RADIANT's trigger 1*/
+    RNO_G_TRIGGER_PPS          = 1 << 6   /**< This was a PPS trigger*/
       //this will be stored as a uint8_t, so can fit a few more 
 } rno_g_trigger_type_t ; 
 
@@ -113,6 +114,15 @@ typedef struct radiant_trigger_config
   uint8_t ncoinc: 5; // if 0, then disabled
   uint8_t window: 7; //ns = 17.5 + 2.5 * window, max = 124
 } rno_g_radiant_trigger_config_t; 
+
+typedef enum radiant_trigger_info 
+{ 
+    RADIANT_TRIGGER_INT0 = 1 << 0, 
+    RADIANT_TRIGGER_INT1 = 1 << 1, 
+    RADIANT_TRIGGER_EXT = 1 << 2, 
+    RADIANT_TRIGGER_SOFT = 1 << 3, 
+    RADIANT_TRIGGER_PPS = 1 << 4 
+} rno_g_radiant_trigger_info_t; 
 
  /** 
   * The RNO-G event header. Each event has one of these.

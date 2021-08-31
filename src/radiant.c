@@ -652,7 +652,16 @@ int radiant_read_event(radiant_dev_t * bd, rno_g_header_t * hd, rno_g_waveform_t
   hd->run_number = bd->run; 
   hd->sysclk_last_pps = fwhd.sysclk_last_pps; 
   hd->sysclk_last_last_pps = fwhd.sysclk_last_last_pps; 
-  //TODO fill rest of header 
+
+  hd->raw_evstatus = fwhd.status_flags; 
+  hd->raw_tinfo = fwhd.trig_info; 
+  hd->trigger_type = 0 ;
+
+  if (hd->raw_tinfo & RADIANT_TRIGGER_INT0 ) hd->trigger_type |= RNO_G_TRIGGER_RF_RADIANT0;
+  if (hd->raw_tinfo & RADIANT_TRIGGER_INT1 ) hd->trigger_type |= RNO_G_TRIGGER_RF_RADIANT1;
+  if (hd->raw_tinfo & RADIANT_TRIGGER_EXT ) hd->trigger_type  |= RNO_G_TRIGGER_RF_LT_SIMPLE;
+  if (hd->raw_tinfo & RADIANT_TRIGGER_SOFT ) hd->trigger_type |= RNO_G_TRIGGER_SOFT;
+  if (hd->raw_tinfo & RADIANT_TRIGGER_PPS ) hd->trigger_type  |= RNO_G_TRIGGER_PPS;
 
   wf->event_number = hd->event_number; 
   wf->run_number = bd->run; 
