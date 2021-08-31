@@ -179,11 +179,13 @@ flower_dev_t * flower_open(const char * spi_device, int spi_en_gpio)
 
 static int write_words(flower_dev_t *dev, int N,  const flower_word_t * words) 
 {
+  if (!dev) return -1; 
   return ((int) (N*sizeof(*words))) != write(dev->spi_fd, words, N*sizeof(*words)); 
 }
 static int write_word(flower_dev_t *dev, const flower_word_t * word) 
 {
 
+  if (!dev) return -1; 
   return ((int)sizeof(*word)) != write(dev->spi_fd, word, sizeof(*word)); 
 }
 
@@ -196,7 +198,7 @@ static int read_word (flower_dev_t * dev, flower_word_t *word)
 
 int flower_read_register(flower_dev_t*dev, uint8_t addr, flower_word_t * result) 
 {
-  if (addr <1 || addr > FLWR_REG_MAX) return -1; 
+  if (addr <1 || addr > FLWR_REG_MAX || !dev) return -1; 
   struct spi_ioc_transfer xfer[2] = {0}; 
   flower_word_t word = {0} ;
   word.bytes[0] = FLWR_REG_SET_READ_REG ;
@@ -262,6 +264,7 @@ int flower_fill_header(flower_dev_t * dev, rno_g_header_t * hd)
 
 int flower_close(flower_dev_t * dev)
 {
+  if (!dev) return -1; 
   flock(dev->spi_fd, LOCK_UN); 
   close(dev->spi_fd); 
   free(dev); 
