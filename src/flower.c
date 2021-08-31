@@ -19,7 +19,7 @@ typedef enum
   FLWR_REG_SCAL_RD = 0x03, 
   FLWR_REG_DATA_CHUNK0 = 0x23,
   FLWR_REG_DATA_CHUNK1 = 0x24,
-  FLWR_REG_SCAL_UPD = 0x27,
+  FLWR_REG_SCAL_UPD = 0x28,
   FLWR_REG_SCAL_SEL = 0x29, 
   FLWR_REG_CALPULSE=0x2a, 
   FLWR_REG_SCAL_TIME_LOW = 0x2c, 
@@ -232,11 +232,15 @@ int flower_set_thresholds(flower_dev_t *dev, const uint8_t * trigger_thresholds,
   {
     if (mask & (1 << i)) 
     {
+      uint8_t servo = servo_thresholds[i]; 
+      uint8_t trig = trigger_thresholds[i]; 
+      if (servo > 127) servo = 127; 
+      if (trig > 127) trig = 127; 
       words[ii].bytes[0] = FLWR_REG_TRIG_CH0_THR+i; 
-      words[ii].bytes[2] = servo_thresholds[i]; 
-      words[ii].bytes[3] = trigger_thresholds[i]; 
-      dev->trig_thresh[i] = trigger_thresholds[i];
-      dev->servo_thresh[i] = servo_thresholds[i];
+      words[ii].bytes[2] = servo; 
+      words[ii].bytes[3] = trig; 
+      dev->trig_thresh[i] = trig;
+      dev->servo_thresh[i] = servo;
       ii++; 
     }
   }
@@ -286,12 +290,12 @@ static void fill_scal_sel_regs()
 int flower_fill_daqstatus(flower_dev_t *dev, rno_g_daqstatus_t *ds)
 {
 
-  #define DSNMSG (3*(32)+5)
+  #define DSNMSG (3*(19)+5)
 
   struct spi_ioc_transfer xfer[DSNMSG] = {0}; 
 
   static flower_word_t update_word = {.bytes = {FLWR_REG_SCAL_UPD,0,0,1}}; 
-  static flower_word_t selectread_word = {.bytes = {FLWR_REG_SET_READ_REG,0,0, FLWR_REG_READ}};
+  static flower_word_t selectread_word = {.bytes = {FLWR_REG_SET_READ_REG,0,0, FLWR_REG_SCAL_RD}};
   static flower_word_t update_tlow = {.bytes = {FLWR_REG_SET_READ_REG,0,0,FLWR_REG_SCAL_TIME_LOW}}; 
   static flower_word_t update_thigh = {.bytes = {FLWR_REG_SET_READ_REG,0,0,FLWR_REG_SCAL_TIME_HIGH}}; 
   flower_word_t dest[32] = {0}; 
@@ -323,22 +327,29 @@ int flower_fill_daqstatus(flower_dev_t *dev, rno_g_daqstatus_t *ds)
   xfer[4].rx_buf  = (uintptr_t) dest_time[1].bytes;
   xfer[4].len = sizeof(flower_word_t); 
 
-  //TODO skip unused scalers 
-  for (int i = 0; i <32; i++) 
+  int ixfer = 0; 
+  for (int ireg = 0; ireg <32; ireg++) 
   {
-    xfer[3*i+5].tx_buf = (uintptr_t) scal_sel_regs[i].bytes; 
-    xfer[3*i+5].len = sizeof(flower_word_t);
-    xfer[3*i+6].tx_buf =  (uintptr_t)selectread_word.bytes; 
-    xfer[3*i+6].len = sizeof(flower_word_t);
-    xfer[3*i+7].rx_buf =  (uintptr_t )dest[i].bytes; // will have to finagle these after
-    xfer[3*i+7].len = sizeof(flower_word_t);
+    if (ireg == 18) ireg=31; 
+    xfer[3*ixfer+5].tx_buf = (uintptr_t) scal_sel_regs[ireg].bytes; 
+    xfer[3*ixfer+5].len = sizeof(flower_word_t);
+    xfer[3*ixfer+5].rx_buf = 0;
+    xfer[3*ixfer+6].tx_buf =  (uintptr_t)selectread_word.bytes; 
+    xfer[3*ixfer+6].rx_buf = 0;
+//    xfer[3*ixfer+6].cs_change = 1;
+    xfer[3*ixfer+6].len = sizeof(flower_word_t);
+    xfer[3*ixfer+7].rx_buf =  (uintptr_t )dest[ireg].bytes; // will have to finagle these after
+    xfer[3*ixfer+7].len = sizeof(flower_word_t);
+    xfer[3*ixfer+7].tx_buf =  0; 
+    ixfer++; 
   }
 
-  clock_gettime(CLOCK_MONOTONIC,&start);
+  clock_gettime(CLOCK_REALTIME,&start);
   int ret = ioctl(dev->spi_fd, SPI_IOC_MESSAGE(DSNMSG), xfer); 
-  clock_gettime(CLOCK_MONOTONIC,&end);
+  clock_gettime(CLOCK_REALTIME,&end);
+//  printf("status ioctl: %d\n", ret); 
 
-  ds->when_lt = (start.tv_sec + end.tv_sec)/2. + 0.5e-9*(start.tv_nsec + end.tv_nsec); 
+  ds->when_lt = (start.tv_sec*0.5 + end.tv_sec*0.5) + 1e-9*(start.tv_nsec*0.5 + end.tv_nsec*0.5); 
 
   if (ret > 0) 
   {
@@ -351,12 +362,18 @@ int flower_fill_daqstatus(flower_dev_t *dev, rno_g_daqstatus_t *ds)
     }
 
     ds->lt_scalers.s_1Hz.trig_coinc = raw_scalers[0];
+    for (int i = 0; i < 4; i++) ds->lt_scalers.s_1Hz.trig_per_chan[i] = raw_scalers[1+i]; 
     ds->lt_scalers.s_1Hz.servo_coinc = raw_scalers[5];
+    for (int i = 0; i < 4; i++) ds->lt_scalers.s_1Hz.servo_per_chan[i] = raw_scalers[6+i]; 
     ds->lt_scalers.s_1Hz_gated.trig_coinc = raw_scalers[12];
+    for (int i = 0; i < 4; i++) ds->lt_scalers.s_1Hz_gated.trig_per_chan[i] = raw_scalers[13+i]; 
     ds->lt_scalers.s_1Hz_gated.servo_coinc = raw_scalers[12+5];
+    for (int i = 0; i < 4; i++) ds->lt_scalers.s_1Hz_gated.servo_per_chan[i] = raw_scalers[18+i]; 
     ds->lt_scalers.s_100Hz.trig_coinc = raw_scalers[24];
+    for (int i = 0; i < 4; i++) ds->lt_scalers.s_100Hz.trig_per_chan[i] = raw_scalers[25+i]; 
     ds->lt_scalers.s_100Hz.servo_coinc = raw_scalers[24+5];
-    ds->lt_scalers.ncycles = ( dest_time[0].word & 0xffffff ) | ((dest_time[1].word & (0xffffff)) << 24); 
+    for (int i = 0; i < 4; i++) ds->lt_scalers.s_100Hz.servo_per_chan[i] = raw_scalers[30+i]; 
+    ds->lt_scalers.ncycles = ( be32toh(dest_time[0].word) & 0xffffff ) | ((be32toh(dest_time[1].word) & (0xffffff)) << 24); 
     ds->lt_scalers.scaler_counter_1Hz = raw_scalers[63]; 
 
     return 0; 
@@ -469,7 +486,6 @@ int flower_read_waveforms(flower_dev_t *dev, int len, uint8_t ** dest)
     }
   }
 
-
   if (dev->must_clear) 
   {
     ret+= write_word(dev, &sw_trig_low); 
@@ -500,3 +516,58 @@ int flower_set_gains(flower_dev_t *dev, const uint8_t * codes)
   }
   return 0; 
 } 
+
+static double getrms(int N, uint8_t* X) 
+{
+  double sum = 0; 
+  double sum2 = 0; 
+  for (int i = 0; i < N ; i++) 
+  {
+    sum+=X[i]; 
+    sum2+=X[i]*X[i]; 
+  }
+
+  double mean = sum/N; 
+  return sqrt(sum2/N - mean*mean); 
+}
+
+int flower_equalize(flower_dev_t * dev, float target_rms, uint8_t * v_gain_codes, int opts)
+{
+  float rms[RNO_G_NUM_LT_CHANNELS] = {0}; 
+
+  uint8_t mask = (~(opts & 0xf)) & 0xf; 
+  int verbose = opts & 0x80000000; 
+  static uint8_t data[RNO_G_NUM_LT_CHANNELS][1024]; 
+  static uint8_t * data_ptrs[RNO_G_NUM_LT_CHANNELS] = { data[0], data[1], data[2], data[3] }; 
+  uint8_t gain_codes[RNO_G_NUM_LT_CHANNELS] = {0}; 
+  uint8_t done = 0;
+
+  while (done != mask) 
+  {
+    flower_set_gains(dev, gain_codes); 
+    flower_force_trigger(dev);
+    flower_read_waveforms(dev, 1024, data_ptrs); 
+    for (int i = 0; i < RNO_G_NUM_LT_CHANNELS; i++) 
+    {
+      if (done & ( 1 << i) || !(mask & (1 << i))) continue; 
+
+      rms[i] = getrms(256, data[i]); 
+
+      if (verbose) printf("ch: %d, gain_code: %d, rms: %f\n", i, gain_codes[i], rms[i]); 
+
+      if (rms[i] < target_rms && gain_codes[i] < FLOWER_GAIN_TOO_HIGH) 
+      {
+        gain_codes[i]++; 
+      }
+      else 
+      {
+        done |= (1 << i); 
+        if (v_gain_codes) v_gain_codes[i] = gain_codes[i]; 
+        if (verbose) printf("  ch %d done!\n", i); 
+      }
+    }
+  }
+
+  return 0; 
+}
+

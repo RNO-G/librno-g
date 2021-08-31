@@ -67,6 +67,17 @@ typedef union flower_word
 int flower_read_register(flower_dev_t*dev, uint8_t addr, flower_word_t * result); 
    
 
+enum 
+{
+  FLOWER_EQUALIZE_EXCLUDE_CH0 = 1, 
+  FLOWER_EQUALIZE_EXCLUDE_CH1 = 2, 
+  FLOWER_EQUALIZE_EXCLUDE_CH2 = 4, 
+  FLOWER_EQUALIZE_EXCLUDE_CH3 = 8, 
+  FLOWER_EQUALIZE_VERBOSE = 0x80000000
+}e_flower_equalize_opts; 
+
+int flower_equalize(flower_dev_t*dev, float target_rms, uint8_t * gain_codes, int opts); 
+
 
 #endif
 
