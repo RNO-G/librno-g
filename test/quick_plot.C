@@ -109,7 +109,7 @@ void quick_plot(const char * file, int ev = 0, int symmetric=1, int Nev = 1, int
       }
 
       double sub = 0; 
-o     if (zero_sub) 
+      if (zero_sub) 
       {
         sub = TMath::Mean(wf.radiant_nsamples, wf.radiant_waveforms[i]); 
       }
