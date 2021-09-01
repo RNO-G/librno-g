@@ -662,6 +662,7 @@ int radiant_read_event(radiant_dev_t * bd, rno_g_header_t * hd, rno_g_waveform_t
   if (hd->raw_tinfo & RADIANT_TRIGGER_EXT ) hd->trigger_type  |= RNO_G_TRIGGER_RF_LT_SIMPLE;
   if (hd->raw_tinfo & RADIANT_TRIGGER_SOFT ) hd->trigger_type |= RNO_G_TRIGGER_SOFT;
   if (hd->raw_tinfo & RADIANT_TRIGGER_PPS ) hd->trigger_type  |= RNO_G_TRIGGER_PPS;
+  if (hd->raw_tinfo & RADIANT_TRIGGER_INTERNAL_COPY ) hd->trigger_type  |= RNO_G_TRIGGER_RF_RADIANTX;
 
   wf->event_number = hd->event_number; 
   wf->run_number = bd->run; 

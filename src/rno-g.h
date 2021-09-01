@@ -87,8 +87,8 @@ typedef enum rno_g_trigger_type
     RNO_G_TRIGGER_RF_LT_PHASED = 1 << 3,  /**< This was an RF trigger from the LT board*/
     RNO_G_TRIGGER_RF_RADIANT0  = 1 << 4,  /**< This was an RF trigger from the RADIANT's trigger 0*/
     RNO_G_TRIGGER_RF_RADIANT1  = 1 << 5,  /**< This was an RF trigger from the RADIANT's trigger 1*/
-    RNO_G_TRIGGER_PPS          = 1 << 6   /**< This was a PPS trigger*/
-      //this will be stored as a uint8_t, so can fit a few more 
+    RNO_G_TRIGGER_RF_RADIANTX  = 1 << 6,  /**< This was a RF trigger from the RADIANT. The reason this is exists is that due to unreliable bits, we don't know if it was 0 or 1 */
+    RNO_G_TRIGGER_PPS          = 1 << 7   /**< This was a PPS trigger*/
 } rno_g_trigger_type_t ; 
 
 
@@ -121,7 +121,8 @@ typedef enum radiant_trigger_info
     RADIANT_TRIGGER_INT1 = 1 << 1, 
     RADIANT_TRIGGER_EXT = 1 << 2, 
     RADIANT_TRIGGER_SOFT = 1 << 3, 
-    RADIANT_TRIGGER_PPS = 1 << 4 
+    RADIANT_TRIGGER_PPS = 1 << 4 , 
+    RADIANT_TRIGGER_INTERNAL_COPY = 1 << 5 
 } rno_g_radiant_trigger_info_t; 
 
  /** 
