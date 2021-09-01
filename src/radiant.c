@@ -680,6 +680,9 @@ int radiant_read_event(radiant_dev_t * bd, rno_g_header_t * hd, rno_g_waveform_t
         hd->radiant_start_windows[ichan][1] = 0xff; 
       }
 
+      //for post v0.3.0
+      int nboth_rotate = 0;
+
       //Loop over the readout buffers 
       //TODO: there may be some efficiency gains in doing the andall and sub16 operations on both buffers at the same time... but probably not huge and the code is simpler this way 
       for (int ibuffer = 0; ibuffer < bd->nbuffers_per_readout; ibuffer++) 
@@ -700,6 +703,7 @@ int radiant_read_event(radiant_dev_t * bd, rno_g_header_t * hd, rno_g_waveform_t
           {
             hd->radiant_start_windows[ichan][ibuffer] =  buffer_number * RADIANT_NWIND_PER_BUF  + ((w+1) % (RADIANT_NWIND_PER_BUF)); 
             nrotate = (w+1) * RADIANT_WINDOW_SIZE; 
+            if (bd->rad_dateversion_int >= 300  && ibuffer == 0 && bd->nbuffers_per_readout == 2) nboth_rotate = nrotate; 
             break; 
           }
         }
@@ -713,23 +717,17 @@ int radiant_read_event(radiant_dev_t * bd, rno_g_header_t * hd, rno_g_waveform_t
           sub16 (RADIANT_NSAMP_PER_BUF,  wf->radiant_waveforms[ichan] + ibuffer * RADIANT_NSAMP_PER_BUF, (int16_t*) bd->peds->pedestals[ichan] + RADIANT_NSAMP_PER_BUF * buffer_number); 
         }
 
-        //maybe it's possible to rotate and remove high bits at same time? 
-        //that sounds a bit more complicated
-        if (nrotate) roll16((uint16_t*)wf->radiant_waveforms[ichan] + ibuffer * RADIANT_NSAMP_PER_BUF, nrotate, RADIANT_NSAMP_PER_BUF); 
+//        unwrap each buffer individually, if we need to 
+        if (nrotate &&  ( bd->rad_dateversion_int < 300 || bd->nbuffers_per_readout == 1) ) 
+        {
+          roll16((uint16_t*)wf->radiant_waveforms[ichan] + ibuffer * RADIANT_NSAMP_PER_BUF, nrotate, RADIANT_NSAMP_PER_BUF); 
+        }
       }
 
       //If the two buffers are out of order, rearrange them
-      //TODO: vectorize this if the memcpy doesn't work 
-      if (bd->nbuffers_per_readout == 2 && hd->radiant_start_windows[ichan][0]  > hd->radiant_start_windows[ichan][1])
+      if (bd->nbuffers_per_readout == 2 && bd->rad_dateversion_int >= 300 && nboth_rotate)
       {
-        //do 8 samples at a time 
-        uint16_t tmp[8]; 
-        for (int isamp = 0; isamp < RADIANT_NSAMP_PER_BUF; isamp+=8) 
-        {
-          memcpy(tmp,wf->radiant_waveforms[ichan]+isamp, 16); 
-          memcpy(wf->radiant_waveforms[ichan]+isamp, wf->radiant_waveforms[ichan]+isamp+RADIANT_NSAMP_PER_BUF, 16); 
-          memcpy(wf->radiant_waveforms[ichan]+isamp+RADIANT_NSAMP_PER_BUF, tmp, 16); 
-        }
+        roll16((uint16_t*)wf->radiant_waveforms[ichan], nboth_rotate, 2*RADIANT_NSAMP_PER_BUF); 
       }
 
     }
