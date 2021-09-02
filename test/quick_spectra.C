@@ -8,7 +8,7 @@ R__LOAD_LIBRARY(libRootFftwWrapper.so)
 #include "FFTtools.h" 
 
  std::vector<TGraph *> pows; 
-void quick_spectra(const char * file, int ev0 = 0, int maxEv = -1)
+void quick_spectra(const char * file, int ev0 = 0, int maxEv = -1,int mean_subtract=1)
 {
 
   gStyle->SetTitleFontSize(0.09); 
@@ -51,10 +51,16 @@ void quick_spectra(const char * file, int ev0 = 0, int maxEv = -1)
     for (int i = 0; i < 24; i++) 
     {
 
+      double sub = 0; 
+      if (mean_subtract) 
+      {
+        sub = TMath::Mean(wf.radiant_nsamples, wf.radiant_waveforms[i]); 
+
+      }
       TGraph * g = new TGraph(wf.radiant_nsamples); 
       for (int j = 0; j < wf.radiant_nsamples; j++) 
       {
-        g->SetPoint(j,j/3.2, wf.radiant_waveforms[i][j]*1250./2048); 
+        g->SetPoint(j,j/3.2, (wf.radiant_waveforms[i][j]-sub)*1250./2048); 
       
       }
 
@@ -94,6 +100,7 @@ void quick_spectra(const char * file, int ev0 = 0, int maxEv = -1)
      pows[i]->GetXaxis()->SetTitleOffset(0.7);
      pows[i]->GetXaxis()->SetTitleSize(0.06);
      pows[i]->GetXaxis()->SetLabelSize(0.05);
+     pows[i]->GetYaxis()->SetRangeUser(-10,30); 
      pows[i]->Draw("alp"); 
   }
 
