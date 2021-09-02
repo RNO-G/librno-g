@@ -8,7 +8,7 @@ R__LOAD_LIBRARY(libRootFftwWrapper.so)
 #include "FFTtools.h" 
 
  std::vector<TGraph *> pows; 
-void quick_spectra(const char * file, int ev0 = 0, int maxEv = -1,int mean_subtract=1)
+void quick_spectra(const char * file, int ev0 = 0, int maxEv = -1, int zero_sub = 0, double mindb = -10, double maxdb = 30, double freqmin = 30, double freqmax = 1000)
 {
 
   gStyle->SetTitleFontSize(0.09); 
@@ -38,7 +38,7 @@ void quick_spectra(const char * file, int ev0 = 0, int maxEv = -1,int mean_subtr
   pows.clear(); 
   
 
-  for (int iev = 0; iev < maxEv ; iev++) 
+  for (int iev = 0; iev < maxEv-ev0 ; iev++) 
   {
 
     if (rno_g_waveform_read(h, &wf) <=0) break; 
@@ -50,13 +50,14 @@ void quick_spectra(const char * file, int ev0 = 0, int maxEv = -1,int mean_subtr
 
     for (int i = 0; i < 24; i++) 
     {
-
       double sub = 0; 
-      if (mean_subtract) 
+
+      if (zero_sub) 
       {
         sub = TMath::Mean(wf.radiant_nsamples, wf.radiant_waveforms[i]); 
-
       }
+
+
       TGraph * g = new TGraph(wf.radiant_nsamples); 
       for (int j = 0; j < wf.radiant_nsamples; j++) 
       {
@@ -97,10 +98,11 @@ void quick_spectra(const char * file, int ev0 = 0, int maxEv = -1,int mean_subtr
      pows[i]->GetYaxis()->SetTitleOffset(0.6);
      pows[i]->GetYaxis()->SetTitleSize(0.06);
      pows[i]->GetYaxis()->SetLabelSize(0.06);
+     pows[i]->GetYaxis()->SetRangeUser(mindb,maxdb);
      pows[i]->GetXaxis()->SetTitleOffset(0.7);
      pows[i]->GetXaxis()->SetTitleSize(0.06);
      pows[i]->GetXaxis()->SetLabelSize(0.05);
-     pows[i]->GetYaxis()->SetRangeUser(-10,30); 
+     pows[i]->GetXaxis()->SetRangeUser(freqmin,freqmax);
      pows[i]->Draw("alp"); 
   }
 

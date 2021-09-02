@@ -17,6 +17,7 @@ typedef enum
   FLWR_REG_FW_VER = 0x01,
   FLWR_REG_FW_DATE = 0x02,
   FLWR_REG_SCAL_RD = 0x03, 
+  FLWR_REG_DATA_STATUS = 0x07, 
   FLWR_REG_DATA_CHUNK0 = 0x23,
   FLWR_REG_DATA_CHUNK1 = 0x24,
   FLWR_REG_SCAL_UPD = 0x28,
@@ -28,11 +29,17 @@ typedef enum
   FLWR_REG_PD_REG=0x3a,
   FLWR_REG_CFG_REG0 = 0x3b, 
   FLWR_REG_CFG_REG1 = 0x3c, 
+  FLWR_REG_TRIG_ENABLES = 0x3d, 
   FLWR_REG_FORCE_TRIG = 0x40,
   FLWR_REG_CHANNEL = 0x41,
   FLWR_REG_MODE = 0x42,
   FLWR_REG_RAM_ADDR = 0x45,
   FLWR_REG_READ = 0x47,
+  FLWR_REG_CLR_READOUT = 0x48,
+  FLWR_REG_PRETRIG= 0x4C,
+  FLWR_REG_BUF_CLEAR= 0x4D,
+  FLWR_REG_TRIGOUT_SYSOUT = 0x55,
+  FLWR_REG_TRIGOUT_AUXOUT = 0x56,
   FLWR_REG_TRIG_CH0_THR = 0x57,
   FLWR_REG_TRIG_CH1_THR = 0x58,
   FLWR_REG_TRIG_CH2_THR = 0x59,
@@ -63,6 +70,7 @@ struct flower_dev
     } ver; 
     flower_word_t word; 
   } fwver; 
+  int fwver_int;
 
   union
   {
@@ -151,6 +159,7 @@ flower_dev_t * flower_open(const char * spi_device, int spi_en_gpio)
   
   flower_read_register(dev, FLWR_REG_FW_VER, &dev->fwver.word); 
   flower_read_register(dev, FLWR_REG_FW_DATE, &dev->fwdate.word); 
+  dev->fwver_int = 10000 * dev->fwver.ver.major + 100 * dev->fwver.ver.minor + dev->fwver.ver.rev; 
   //have to finagle the date
   flower_word_t word = dev->fwdate.word; 
   dev->fwdate.date.day = word.bytes[3]; 
@@ -179,11 +188,13 @@ flower_dev_t * flower_open(const char * spi_device, int spi_en_gpio)
 
 static int write_words(flower_dev_t *dev, int N,  const flower_word_t * words) 
 {
+  if (!dev) return -1; 
   return ((int) (N*sizeof(*words))) != write(dev->spi_fd, words, N*sizeof(*words)); 
 }
 static int write_word(flower_dev_t *dev, const flower_word_t * word) 
 {
 
+  if (!dev) return -1; 
   return ((int)sizeof(*word)) != write(dev->spi_fd, word, sizeof(*word)); 
 }
 
@@ -196,7 +207,7 @@ static int read_word (flower_dev_t * dev, flower_word_t *word)
 
 int flower_read_register(flower_dev_t*dev, uint8_t addr, flower_word_t * result) 
 {
-  if (addr <1 || addr > FLWR_REG_MAX) return -1; 
+  if (addr <1 || addr > FLWR_REG_MAX || !dev) return -1; 
   struct spi_ioc_transfer xfer[2] = {0}; 
   flower_word_t word = {0} ;
   word.bytes[0] = FLWR_REG_SET_READ_REG ;
@@ -209,15 +220,6 @@ int flower_read_register(flower_dev_t*dev, uint8_t addr, flower_word_t * result)
   xfer[1].rx_buf =  (uintptr_t) result->bytes;
 
   return 2*sizeof(word) != ioctl(dev->spi_fd, SPI_IOC_MESSAGE(2), xfer); 
-}
-
-
-int flower_soft_trigger(flower_dev_t * dev, int trig) 
-{
-  flower_word_t word = {0}; 
-  word.bytes[0] = FLWR_REG_FORCE_TRIG; 
-  word.bytes[3] = trig & 0xff; 
-  return write_word(dev,&word); 
 }
 
 int flower_set_thresholds(flower_dev_t *dev, const uint8_t * trigger_thresholds, const uint8_t * servo_thresholds, uint8_t mask) 
@@ -266,6 +268,7 @@ int flower_fill_header(flower_dev_t * dev, rno_g_header_t * hd)
 
 int flower_close(flower_dev_t * dev)
 {
+  if (!dev) return -1; 
   flock(dev->spi_fd, LOCK_UN); 
   close(dev->spi_fd); 
   free(dev); 
@@ -409,9 +412,33 @@ static flower_word_t sw_trig_high = {.bytes={FLWR_REG_FORCE_TRIG,0,0,1}};
 int flower_force_trigger(flower_dev_t * dev) 
 {
   int ret = 0; 
-  ret+= write_word(dev, &sw_trig_low); 
+
+  if (dev->fwver_int < 6)
+  {
+    ret+= write_word(dev, &sw_trig_low); 
+  }
+
   ret+= write_word(dev, &sw_trig_high); 
-  dev->must_clear = 1;
+
+  if (dev->fwver_int < 6)
+  {
+    dev->must_clear = 1;
+  }
+
+  return ret; 
+}
+
+static flower_word_t buffer_clear = {.bytes={FLWR_REG_BUF_CLEAR,0,0,1}}; 
+int flower_buffer_clear(flower_dev_t * dev) 
+{
+  return write_word(dev, &buffer_clear); 
+}
+
+int flower_buffer_check(flower_dev_t * dev, int * avail) 
+{
+  flower_word_t check; 
+  int ret = flower_read_register(dev, FLWR_REG_DATA_STATUS, &check); 
+  if (!ret && avail)  *avail = check.bytes[3] & 0x1; 
   return ret; 
 }
 
@@ -483,7 +510,7 @@ int flower_read_waveforms(flower_dev_t *dev, int len, uint8_t ** dest)
     }
   }
 
-  if (dev->must_clear) 
+  if (dev->must_clear && dev->fwver_int < 6)
   {
     ret+= write_word(dev, &sw_trig_low); 
   }
@@ -528,6 +555,21 @@ static double getrms(int N, uint8_t* X)
   return sqrt(sum2/N - mean*mean); 
 }
 
+
+int flower_set_trigger_enables(flower_dev_t *dev, flower_trigger_enables_t enables)
+{
+  flower_word_t word = {.bytes = {FLWR_REG_TRIG_ENABLES, enables.enable_ext, enables.enable_coinc, enables.enable_pps }}; 
+  return write_word(dev,&word); 
+}
+
+
+int flower_set_trigout_enables(flower_dev_t * dev, flower_trigout_enables_t enables) 
+{
+  flower_word_t word1 = {.bytes={FLWR_REG_TRIGOUT_SYSOUT,0,0,enables.enable_sysout}};
+  flower_word_t word2 = {.bytes={FLWR_REG_TRIGOUT_AUXOUT,0,0,enables.enable_auxout}};
+  return write_word(dev, &word1) + write_word(dev, &word2); 
+}
+
 int flower_equalize(flower_dev_t * dev, float target_rms, uint8_t * v_gain_codes, int opts)
 {
   float rms[RNO_G_NUM_LT_CHANNELS] = {0}; 
@@ -542,7 +584,11 @@ int flower_equalize(flower_dev_t * dev, float target_rms, uint8_t * v_gain_codes
   while (done != mask) 
   {
     flower_set_gains(dev, gain_codes); 
+    flower_buffer_clear(dev); 
     flower_force_trigger(dev);
+    int avail = 0; 
+    while (!avail) flower_buffer_check(dev,&avail); 
+
     flower_read_waveforms(dev, 1024, data_ptrs); 
     for (int i = 0; i < RNO_G_NUM_LT_CHANNELS; i++) 
     {
@@ -568,3 +614,19 @@ int flower_equalize(flower_dev_t * dev, float target_rms, uint8_t * v_gain_codes
   return 0; 
 }
 
+
+int flower_get_fwversion(flower_dev_t *dev, uint8_t *major, uint8_t *minor, 
+                         uint8_t *rev, uint16_t *year, uint8_t *month, uint8_t *day) 
+{
+
+  if (!dev) return -1; 
+
+  if (major) *major = dev->fwver.ver.major; 
+  if (minor) *minor = dev->fwver.ver.minor; 
+  if (rev) *rev = dev->fwver.ver.rev; 
+  if (year) *year = dev->fwdate.date.year; 
+  if (month) *month = dev->fwdate.date.month; 
+  if (day) *day = dev->fwdate.date.day; 
+  return 0; 
+
+}

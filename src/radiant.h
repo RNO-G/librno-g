@@ -498,6 +498,11 @@ int radiant_set_pps_config( radiant_dev_t *bd, radiant_pps_config_t cfg);
 int radiant_get_pps_config( radiant_dev_t *bd, radiant_pps_config_t *cfg); 
 
 
+int radiant_get_fw_version( const radiant_dev_t * bd, radiant_dest_t what,  uint8_t * major, uint8_t *minor, uint8_t* rev, uint8_t * year_minus_2000, uint8_t *month, uint8_t * day); 
+
+uint16_t radiant_get_sample_rate(const radiant_dev_t * bd); //Sample rate in MHz
+
+
 #ifdef __cplusplus
 }
 #endif

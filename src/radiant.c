@@ -652,7 +652,17 @@ int radiant_read_event(radiant_dev_t * bd, rno_g_header_t * hd, rno_g_waveform_t
   hd->run_number = bd->run; 
   hd->sysclk_last_pps = fwhd.sysclk_last_pps; 
   hd->sysclk_last_last_pps = fwhd.sysclk_last_last_pps; 
-  //TODO fill rest of header 
+
+  hd->raw_evstatus = fwhd.status_flags; 
+  hd->raw_tinfo = fwhd.trig_info; 
+  hd->trigger_type = 0 ;
+
+  if (hd->raw_tinfo & RADIANT_TRIGGER_INT0 ) hd->trigger_type |= RNO_G_TRIGGER_RF_RADIANT0;
+  if (hd->raw_tinfo & RADIANT_TRIGGER_INT1 ) hd->trigger_type |= RNO_G_TRIGGER_RF_RADIANT1;
+  if (hd->raw_tinfo & RADIANT_TRIGGER_EXT ) hd->trigger_type  |= RNO_G_TRIGGER_RF_LT_SIMPLE;
+  if (hd->raw_tinfo & RADIANT_TRIGGER_SOFT ) hd->trigger_type |= RNO_G_TRIGGER_SOFT;
+  if (hd->raw_tinfo & RADIANT_TRIGGER_PPS ) hd->trigger_type  |= RNO_G_TRIGGER_PPS;
+  if (hd->raw_tinfo & RADIANT_TRIGGER_INTERNAL_COPY ) hd->trigger_type  |= RNO_G_TRIGGER_RF_RADIANTX;
 
   wf->event_number = hd->event_number; 
   wf->run_number = bd->run; 
@@ -670,6 +680,9 @@ int radiant_read_event(radiant_dev_t * bd, rno_g_header_t * hd, rno_g_waveform_t
       {
         hd->radiant_start_windows[ichan][1] = 0xff; 
       }
+
+      //for post v0.3.0
+      int nboth_rotate = 0;
 
       //Loop over the readout buffers 
       //TODO: there may be some efficiency gains in doing the andall and sub16 operations on both buffers at the same time... but probably not huge and the code is simpler this way 
@@ -691,6 +704,7 @@ int radiant_read_event(radiant_dev_t * bd, rno_g_header_t * hd, rno_g_waveform_t
           {
             hd->radiant_start_windows[ichan][ibuffer] =  buffer_number * RADIANT_NWIND_PER_BUF  + ((w+1) % (RADIANT_NWIND_PER_BUF)); 
             nrotate = (w+1) * RADIANT_WINDOW_SIZE; 
+            if (bd->rad_dateversion_int >= 300  && ibuffer == 0 && bd->nbuffers_per_readout == 2) nboth_rotate = nrotate; 
             break; 
           }
         }
@@ -704,10 +718,19 @@ int radiant_read_event(radiant_dev_t * bd, rno_g_header_t * hd, rno_g_waveform_t
           sub16 (RADIANT_NSAMP_PER_BUF,  wf->radiant_waveforms[ichan] + ibuffer * RADIANT_NSAMP_PER_BUF, (int16_t*) bd->peds->pedestals[ichan] + RADIANT_NSAMP_PER_BUF * buffer_number); 
         }
 
-        //maybe it's possible to rotate and remove high bits at same time? 
-        //that sounds a bit more complicated
-        if (nrotate) roll16((uint16_t*)wf->radiant_waveforms[ichan] + ibuffer * RADIANT_NSAMP_PER_BUF, nrotate, RADIANT_NSAMP_PER_BUF); 
+//        unwrap each buffer individually, if we need to 
+        if (nrotate &&  ( bd->rad_dateversion_int < 300 || bd->nbuffers_per_readout == 1) ) 
+        {
+          roll16((uint16_t*)wf->radiant_waveforms[ichan] + ibuffer * RADIANT_NSAMP_PER_BUF, nrotate, RADIANT_NSAMP_PER_BUF); 
+        }
       }
+
+      //If the two buffers are out of order, rearrange them
+      if (bd->nbuffers_per_readout == 2 && bd->rad_dateversion_int >= 300 && nboth_rotate)
+      {
+        roll16((uint16_t*)wf->radiant_waveforms[ichan], nboth_rotate, 2*RADIANT_NSAMP_PER_BUF); 
+      }
+
     }
     else
     {
@@ -2747,5 +2770,30 @@ int radiant_get_pps_config(radiant_dev_t *bd, radiant_pps_config_t * cfg)
   return radiant_get_mem(bd, DEST_FPGA, RAD_REG_PPSSEL, sizeof(*cfg), (uint8_t*) cfg); 
 }
 
+
+int radiant_get_fw_version( const radiant_dev_t* bd, const radiant_dest_t which, 
+    uint8_t *major, uint8_t * minor, uint8_t * rev, 
+    uint8_t * year, uint8_t * month, uint8_t * day) 
+{
+
+  if (!bd) return -1; 
+
+  const date_version_t * dv = which == DEST_FPGA ? &bd->rad_dateversion : &bd->bm_dateversion; 
+
+  if (major) *major = dv->major; 
+  if (minor) *minor = dv->minor; 
+  if (rev) *rev = dv->rev; 
+  if (year) *year = dv->year; 
+  if (month) *month = dv->month; 
+  if (day) *day = dv->day; 
+
+  return 0; 
+}
+
+uint16_t radiant_get_sample_rate(const radiant_dev_t * bd) 
+{
+  (void) bd; 
+  return 3200; 
+}
 
 

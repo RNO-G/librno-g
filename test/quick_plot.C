@@ -12,7 +12,7 @@ std::vector<TGraph*> envs;
 
 
 
-void quick_plot(const char * file, int ev = 0, int symmetric=1, int Nev = 1, int save = false, int resfactor=1,int mask=16777215, int min_rms_sample = 0, int max_rms_sample = 400)
+void quick_plot(const char * file, int ev = 0, int symmetric=1, int Nev = 1, int save = false, int resfactor=1,int mask=16777215, int min_rms_sample = 0, int max_rms_sample = 400, int zero_sub=0)
 {
 
   FFTtools::ButterworthFilter but(FFTtools::LOWPASS, 2, 0.6/1.6); 
@@ -108,9 +108,15 @@ void quick_plot(const char * file, int ev = 0, int symmetric=1, int Nev = 1, int
         }
       }
 
+      double sub = 0; 
+      if (zero_sub) 
+      {
+        sub = TMath::Mean(wf.radiant_nsamples, wf.radiant_waveforms[i]); 
+      }
+
       for (int j = 0; j < wf.radiant_nsamples; j++) 
       {
-        g->SetPoint(j,j, wf.radiant_waveforms[i][j]); 
+        g->SetPoint(j,j, wf.radiant_waveforms[i][j]-sub); 
       
         if (!all_zeroes) 
         {
