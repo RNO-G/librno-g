@@ -1,0 +1,5 @@
+*.o
+*.a
+*~
+src/rno-g-version.c 
+build/* 
