@@ -246,6 +246,7 @@ int rno_g_daqstatus_write(rno_g_file_handle_t handle, const rno_g_daqstatus_t * 
 int rno_g_daqstatus_read(rno_g_file_handle_t handle, rno_g_daqstatus_t * ds);
 
 
+const char * rno_g_get_git_hash(); 
 
 
 #ifdef __cplusplus
