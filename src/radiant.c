@@ -2771,4 +2771,29 @@ int radiant_get_pps_config(radiant_dev_t *bd, radiant_pps_config_t * cfg)
 }
 
 
+int radiant_get_fw_version( const radiant_dev_t* bd, const radiant_dest_t which, 
+    uint8_t *major, uint8_t * minor, uint8_t * rev, 
+    uint8_t * year, uint8_t * month, uint8_t * day) 
+{
+
+  if (!bd) return -1; 
+
+  const date_version_t * dv = which == DEST_FPGA ? &bd->rad_dateversion : &bd->bm_dateversion; 
+
+  if (major) *major = dv->major; 
+  if (minor) *minor = dv->minor; 
+  if (rev) *rev = dv->rev; 
+  if (year) *year = dv->year; 
+  if (month) *month = dv->month; 
+  if (day) *day = dv->day; 
+
+  return 0; 
+}
+
+uint16_t radiant_get_sample_rate(const radiant_dev_t * bd) 
+{
+  (void) bd; 
+  return 3200; 
+}
+
 

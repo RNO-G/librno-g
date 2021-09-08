@@ -7,7 +7,7 @@ int main (int nargs, char ** args)
 {
   if (nargs < 5) 
   {
-    printf("Usage: flower-set-thresholds TH0 TH1 TH2 HT2 [servo_frac = 0.75]"); 
+    printf("Usage: flower-set-thresholds TH0 TH1 TH2 HT2 [servo_frac = 0.75]\n"); 
     return 0; 
   }
 

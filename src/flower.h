@@ -15,14 +15,15 @@
 typedef struct flower_dev flower_dev_t; 
 
 
-/** Assumes already configured */ 
+/** Assumes already configured! 
+ * @param spi_device the name of the SPI device (e.g. /dev/spidev2.0 ) 
+ * @param spi_enable name of the spi enable gpio (or 0 for none). Use negative for active low. 
+ * */ 
 flower_dev_t *  flower_open(const char * spi_device, int spi_enable); 
 
 int flower_close(flower_dev_t * dev); 
 
 int flower_dump(FILE* f, flower_dev_t *dev); 
-
-int flower_soft_trigger(flower_dev_t*dev, int trig); 
 
 int flower_configure_trigger(flower_dev_t* dev, rno_g_lt_simple_trigger_config_t cfg); 
 
@@ -33,6 +34,10 @@ int flower_fill_daqstatus(flower_dev_t *dev, rno_g_daqstatus_t * ds);
 int flower_fill_header(flower_dev_t *dev, rno_g_header_t * hd); 
 
 int flower_force_trigger(flower_dev_t *dev); 
+
+int flower_buffer_check(flower_dev_t * dev, int * avail); 
+
+int flower_buffer_clear(flower_dev_t * dev); 
 
 int flower_read_waveforms(flower_dev_t * dev, int len, uint8_t ** dest); 
 
@@ -67,6 +72,8 @@ typedef union flower_word
 int flower_read_register(flower_dev_t*dev, uint8_t addr, flower_word_t * result); 
    
 
+
+
 enum 
 {
   FLOWER_EQUALIZE_EXCLUDE_CH0 = 1, 
@@ -78,6 +85,25 @@ enum
 
 int flower_equalize(flower_dev_t*dev, float target_rms, uint8_t * gain_codes, int opts); 
 
+typedef struct  flower_trigger_enables
+{
+  uint8_t enable_pps : 1; 
+  uint8_t enable_ext : 1; 
+  uint8_t enable_coinc : 1; 
+} flower_trigger_enables_t; 
+
+int flower_set_trigger_enables(flower_dev_t * dev, flower_trigger_enables_t enables); 
+
+
+typedef struct  flower_trigout_enables
+{
+  uint8_t enable_sysout : 1; 
+  uint8_t enable_auxout : 1; 
+} flower_trigout_enables_t; 
+
+int flower_set_trigout_enables(flower_dev_t * dev, flower_trigout_enables_t enables); 
+
+int flower_get_fwversion(flower_dev_t *dev, uint8_t *major, uint8_t *minor, uint8_t *rev, uint16_t *year, uint8_t *month, uint8_t *day); 
 
 #endif
 
