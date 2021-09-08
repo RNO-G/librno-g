@@ -108,8 +108,8 @@ int rno_g_header_dump(FILE *f, const rno_g_header_t *header)
       header->trigger_type & RNO_G_TRIGGER_SOFT ? "SOFT":"",
       header->trigger_type & RNO_G_TRIGGER_PPS ? "PPS":"",
       header->trigger_type & RNO_G_TRIGGER_RF_LT_SIMPLE ? "RFLT":"",
-      header->trigger_type & RNO_G_TRIGGER_RF_RADIANT0 ? "RFRAD0":"",
-      header->trigger_type & RNO_G_TRIGGER_RF_RADIANT1 ? "RFRAD1":"", 
+      header->trigger_type & (RNO_G_TRIGGER_RF_RADIANT0 | RNO_G_TRIGGER_RF_RADIANTX) ? "RFRAD0":"",
+      header->trigger_type & (RNO_G_TRIGGER_RF_RADIANT1 | RNO_G_TRIGGER_RF_RADIANTX)? "RFRAD1":"", 
       (header->trigger_type & (RNO_G_TRIGGER_RF_RADIANTX  | RNO_G_TRIGGER_RF_RADIANT0 | RNO_G_TRIGGER_RF_RADIANT1)) == (RNO_G_TRIGGER_RF_RADIANTX ) ? "RFRAD?":"", 
       header->raw_tinfo, header->raw_evstatus
       ); 
