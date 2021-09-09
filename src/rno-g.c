@@ -322,11 +322,20 @@ int rno_g_init_handle(rno_g_file_handle_t * h, const char * name, const char * m
   {
     h->type = RNO_G_GZIP; 
     h->handle.gz = gzopen(name,mode); 
+    if (!h->handle.gz) 
+    {
+      fprintf(stderr,"Unable to open %s with mode %s\n", name, mode); 
+
+    }
     return h->handle.gz==0;
   }
 
   h->type = RNO_G_RAW; 
   h->handle.raw = fopen(name,mode); 
+  if (!h->handle.raw) 
+  {
+     fprintf(stderr,"Unable to open %s with mode %s\n", name, mode); 
+  }
   return h->handle.raw == 0; 
 } 
 
