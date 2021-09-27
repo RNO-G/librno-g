@@ -1,7 +1,8 @@
 BUILD_DIR=build
 RNO_G_INSTALL_DIR?=/rno-g/
 PREFIX?=$(RNO_G_INSTALL_DIR)
-CFLAGS=-fPIC -Og -Wall -Wextra -g -std=gnu11 -I./src
+CFLAGS=-fPIC -Og -Wall -Wextra -g -std=gnu11 -I./src 
+#CFLAGS+=-fanalyzer
 CXXFLAGS+=-fPIC -Og -Wall -Wextra -g
 
 #CFLAGS+=-DRADIANT_SET_DBG
@@ -18,7 +19,7 @@ INCLUDES=src/rno-g.h
 DAQ_INCLUDES=src/radiant.h src/cobs.h src/adf4350.h src/flower.h 
 PYBIND_INCLUDES=$(shell python3 -m pybind11 --includes) 
 
-.PHONY: client daq clean install install-daq client-py daq-py install-py install-daq-py 
+.PHONY: client daq clean install install-daq client-py daq-py install-py install-daq-py cppcheck
 
 client:  $(BUILD_DIR)/librno-g.so  
 
@@ -126,5 +127,7 @@ $(BUILD_DIR)/test/%: test/%.py $(INCLUDES) $(DAQ_INCLUDES) $(BUILD_DIR)/librno-g
 	ln  $@ $<
 
 
+cppcheck: 
+	cppcheck --enable=portability --enable=performance --enable=information  src 
 
 
