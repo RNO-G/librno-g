@@ -2354,8 +2354,10 @@ int radiant_set_td_bias(radiant_dev_t *bd, int ich, uint16_t val)
 
 void radiant_set_pedestals(radiant_dev_t* bd, const rno_g_pedestal_t * ped) 
 {
-  if (!bd) return -1; 
-  bd->peds = ped; 
+  if (bd)
+  {
+    bd->peds = ped; 
+  }
 }
 
 const rno_g_pedestal_t *  radiant_get_pedestals(radiant_dev_t* bd) 
@@ -2813,7 +2815,7 @@ int radiant_set_pps_config(radiant_dev_t *bd, radiant_pps_config_t cfg)
 {
   if (!bd) return -1; 
   static_assert(sizeof(cfg) == sizeof(uint32_t), "radiant pps config wrong size"); 
-  return sizeof(cfg)===radiant_set_mem(bd, DEST_FPGA, RAD_REG_PPSSEL, sizeof(cfg), (uint8_t*) &cfg); 
+  return sizeof(cfg)==radiant_set_mem(bd, DEST_FPGA, RAD_REG_PPSSEL, sizeof(cfg), (uint8_t*) &cfg); 
 }
 
 int radiant_get_pps_config(radiant_dev_t *bd, radiant_pps_config_t * cfg) 
