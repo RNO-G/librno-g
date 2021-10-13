@@ -28,9 +28,11 @@ void median_subtract_blocks(int len, int16_t * data, int block_size = 128)
 }
 
  std::vector<TGraph *> pows; 
-void quick_spectra(const char * file, int ev0 = 0, int maxEv = -1, int zero_sub = 0, int median_sub = 0,  double mindb = -10, double maxdb = 30, double freqmin = 30, double freqmax = 1000)
+void quick_spectra(const char * file, int mask = 16777215, int ev0 = 0, int maxEv = -1, int zero_sub = 0, int median_sub = 0,  double mindb = -10, double maxdb = 30, double freqmin = 30, double freqmax = 1000)
 {
-
+  int nplot = __builtin_popcount(mask); 
+  printf("nplot=%d\n", nplot); 
+ 
   gStyle->SetTitleFontSize(0.09); 
 
   gzFile f = gzopen(file,"r"); 
@@ -50,7 +52,27 @@ void quick_spectra(const char * file, int ev0 = 0, int maxEv = -1, int zero_sub 
 
   if (maxEv < 0) maxEv = INT_MAX; 
   TCanvas * c = new TCanvas("cquick","Quick Spectra", 1920+4,1080+28); 
-  c->Divide(4,6,0.001,0.001); 
+  if (nplot > 12) 
+  {
+    c->Divide(4,ceil(nplot/4.),0.001,0.001); 
+  }
+  else  if (nplot == 12) 
+  {
+    c->Divide(3,4,0.001,0.001); 
+  }
+
+  else  if (nplot == 9) 
+  {
+    c->Divide(3,3,0.001,0.001); 
+  }
+  else  if (nplot > 1) 
+  {
+    c->Divide(2,ceil(nplot/2.),0.001,0.001); 
+  }
+
+
+
+
 
   int Nev = 0;
 
@@ -58,6 +80,7 @@ void quick_spectra(const char * file, int ev0 = 0, int maxEv = -1, int zero_sub 
   pows.clear(); 
   
 
+  int iplot = nplot == 1 ? 0 : 1; 
   for (int iev = 0; iev < maxEv-ev0 ; iev++) 
   {
 
@@ -70,6 +93,7 @@ void quick_spectra(const char * file, int ev0 = 0, int maxEv = -1, int zero_sub 
 
     for (int i = 0; i < 24; i++) 
     {
+      if (! ( mask & (1 << i))) continue; 
       double sub = 0; 
 
 
@@ -114,12 +138,13 @@ void quick_spectra(const char * file, int ev0 = 0, int maxEv = -1, int zero_sub 
 
   for (int i = 0; i < 24; i++) 
   {
+      if (! ( mask & (1 << i))) continue; 
      for (int j = 0; j < pows[i]->GetN(); j++) 
      {
          pows[i]->GetY()[j]/=Nev; 
      }
 
-     c->cd(i+1); 
+     c->cd(iplot++); 
      pows[i]->SetTitle(Form("CH %d Spectra [navg=%d];MHz; dBmish", i, Nev));
      pows[i]->GetYaxis()->SetTitleOffset(0.6);
      pows[i]->GetYaxis()->SetTitleSize(0.06);
@@ -130,6 +155,8 @@ void quick_spectra(const char * file, int ev0 = 0, int maxEv = -1, int zero_sub 
      pows[i]->GetXaxis()->SetLabelSize(0.05);
      pows[i]->GetXaxis()->SetRangeUser(freqmin,freqmax);
      pows[i]->Draw("alp"); 
+     gPad->SetGridx();
+     gPad->SetGridy();
   }
 
 }
