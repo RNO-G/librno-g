@@ -64,6 +64,20 @@ int main(int nargs, char ** args)
   int usleepamt = sleepamt * 1e6; 
 
   rno_g_pedestal_t ped; 
+  //Get the station number
+  FILE * fstation = fopen("/STATION_ID","r"); 
+  if (fstation) 
+  {
+    int istation = 0; 
+    fscanf(fstation,"%d",&istation);
+    ped.station = istation; 
+    fclose(fstation); 
+  }
+  else
+  {
+    ped.station = 0; 
+  }
+
   for (int val = 0; val <3072; val+= step) 
   {
     radiant_set_dc_bias(rad,val,val); 
