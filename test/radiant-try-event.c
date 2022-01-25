@@ -62,7 +62,7 @@ double get_now()
 
 int usage() 
 {
-  printf("radiant-try-event [-N NEVENTS=100] [-b buffers=2] [-M TRIGMASK=0x37b000] [-W TRIGWINDOW=20] [-T THRESH=0.2] [-C MINCOINCIDENT =3] [-B BIAS=1100]  [-z] [-f] [-I INTERVAL=0] [-p]  [-c] [-h]\n"); 
+  printf("radiant-try-event [-N NEVENTS=100] [-b buffers=2] [-M TRIGMASK=0x37b000] [-W TRIGWINDOW=20] [-T THRESH=0.2] [-C MINCOINCIDENT =3] [-B BIAS=1861]  [-z] [-f] [-I INTERVAL=0] [-p]  [-c] [-h]\n"); 
   printf("  -N NEVENTS number of events\n"); 
   printf("  -b BUFFERS number of buffers\n"); 
   printf("  -M TRIGMASK  trigger mask used (default 0x37b000)\n"); 
@@ -126,7 +126,7 @@ int main(int nargs, char ** args)
   float trigwindow = 20; 
   float trigthresh = 0; 
   uint8_t mincoincident = 3; 
-  uint16_t bias = 1100; 
+  uint16_t bias = 1861; 
   double last_force = 0; 
   double poll_amount = 0.01; 
   int internal_pps = 0; 

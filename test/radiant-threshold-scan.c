@@ -139,7 +139,7 @@ int main(int nargs, char ** args)
     radiant_set_trigger_thresholds_float(rad,0,23,goal_thresh); 
     sleep(3); 
     radiant_read_daqstatus(rad, &ds);
-    rno_g_daqstatus_dump(stdout, &ds); 
+    rno_g_daqstatus_dump_radiant(stdout, &ds); 
   }
 
   rno_g_close_handle(&h); 
