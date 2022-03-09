@@ -2,7 +2,7 @@ BUILD_DIR=build
 RNO_G_INSTALL_DIR?=/rno-g/
 PREFIX?=$(RNO_G_INSTALL_DIR)
 CFLAGS=-fPIC -Og -Wall -Wextra -g -std=gnu11 -I./src 
-#CFLAGS+=-fanalyzer
+CFLAGS+=-fanalyzer
 CXXFLAGS+=-fPIC -Og -Wall -Wextra -g
 
 #CFLAGS+=-DRADIANT_SET_DBG

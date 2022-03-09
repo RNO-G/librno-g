@@ -180,7 +180,9 @@ typedef enum
 } radiant_bm_analog_rd_t; 
 
 /** Read an analog voltage */ 
-int radiant_bm_analog_read( radiant_dev_t * bd, radiant_bm_analog_rd_t what, float * v);  
+int radiant_bm_analog_read(radiant_dev_t * bd, radiant_bm_analog_rd_t what, float * v);  
+
+int radiant_bm_analog_read_all(radiant_dev_t * bd, rno_g_radiant_voltages_t *voltages); 
 
 
 typedef enum 

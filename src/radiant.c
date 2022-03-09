@@ -1163,13 +1163,10 @@ int radiant_dump(radiant_dev_t *dev, FILE * stream, int flags)
                   !!(sgpio_status & SGPIO_BIT_CALPULSE), !!(sgpio_status & SGPIO_BIT_N_CALPULSE), 
                   !!(sgpio_status & SGPIO_BIT_SG_ENABLE),!!(sgpio_status & SGPIO_BIT_SG_MUXOUT));
 
-  float v10, v18, v25, left, right; 
-  radiant_bm_analog_read(dev, RADIANT_BM_ANALOG_V10, &v10);
-  radiant_bm_analog_read(dev, RADIANT_BM_ANALOG_V18, &v18);
-  radiant_bm_analog_read(dev, RADIANT_BM_ANALOG_V25, &v25);
-  radiant_bm_analog_read(dev, RADIANT_BM_ANALOG_LEFTMON, &left);
-  radiant_bm_analog_read(dev, RADIANT_BM_ANALOG_RIGHTMON, &right);
-  fprintf(stream, "    ANALOG: V1.0: %f, V1.8: %f, V2.5: %f, LEFTMON: %f, RIGHTMON: %f\n", v10,v18,v25,left,right); 
+  rno_g_radiant_voltages_t voltages; 
+  radiant_bm_analog_read_all(dev, &voltages);
+  fprintf(stream, "    ANALOG: V1.0: %f, V1.8: %f, V2.5: %f, LEFTMON: %f, RIGHTMON: %f\n", 
+      voltages.V_1_0,voltages.V_1_8,voltages.V_2_5,voltages.V_LeftMon,voltages.V_RightMon); 
 
   fprintf(stream, "    CPLDCTRL (cached): %x\n", dev->cpldctrl); 
 
@@ -1568,6 +1565,16 @@ int radiant_bm_analog_read(radiant_dev_t * bd, radiant_bm_analog_rd_t what, floa
   }
 
   return -1; 
+}
+
+int radiant_bm_analog_read_all(radiant_dev_t * dev, rno_g_radiant_voltages_t *v)
+{
+  radiant_bm_analog_read(dev, RADIANT_BM_ANALOG_V10, &v->V_1_0);
+  radiant_bm_analog_read(dev, RADIANT_BM_ANALOG_V18, &v->V_1_8);
+  radiant_bm_analog_read(dev, RADIANT_BM_ANALOG_V25, &v->V_2_5);
+  radiant_bm_analog_read(dev, RADIANT_BM_ANALOG_LEFTMON, &v->V_LeftMon);
+  radiant_bm_analog_read(dev, RADIANT_BM_ANALOG_RIGHTMON, &v->V_RightMon);
+  return 0; 
 }
 
 
@@ -2801,7 +2808,7 @@ int radiant_read_daqstatus(radiant_dev_t * bd, rno_g_daqstatus_t * ds)
   //TODO: check return values
   radiant_get_scaler_period(bd,&ds->radiant_scaler_period); 
   radiant_get_trigger_thresholds(bd,0, RNO_G_NUM_RADIANT_CHANNELS-1, ds->radiant_thresholds); 
-
+  radiant_bm_analog_read_all(bd, &ds->radiant_voltages); 
   radiant_get_scalers(bd,0, RNO_G_NUM_RADIANT_CHANNELS-1, ds->radiant_scalers); 
   clock_gettime(CLOCK_REALTIME,&end); 
 

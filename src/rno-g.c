@@ -15,7 +15,7 @@
 #define HEADER_VER 1
 #define WF_VER 3 
 #define PED_VER 2 
-#define DAQSTATUS_VER 3 
+#define DAQSTATUS_VER 4 
 
 #define HEADER_MAGIC 0xead1 
 #define WAVEFORM_MAGIC 0xafd1 
@@ -597,6 +597,20 @@ typedef struct rno_g_daqstatus_v2
   uint8_t station;
 } rno_g_daqstatus_v2_t; 
 
+typedef struct rno_g_daqstatus_v3
+{
+  double when_radiant; 
+  double when_lt; 
+  uint32_t radiant_thresholds[RNO_G_NUM_RADIANT_CHANNELS]; 
+  uint16_t radiant_scalers[RNO_G_NUM_RADIANT_CHANNELS]; 
+  uint8_t radiant_prescalers[RNO_G_NUM_RADIANT_CHANNELS]; 
+  float radiant_scaler_period; 
+  uint8_t  lt_trigger_thresholds[RNO_G_NUM_LT_CHANNELS]; 
+  uint8_t  lt_servo_thresholds[RNO_G_NUM_LT_CHANNELS]; 
+  rno_g_lt_scalers_t lt_scalers; 
+  uint8_t station;
+} rno_g_daqstatus_v3_t; 
+
 
 
 int rno_g_daqstatus_read(rno_g_file_handle_t h, rno_g_daqstatus_t *ds)
@@ -650,6 +664,23 @@ int rno_g_daqstatus_read(rno_g_file_handle_t h, rno_g_daqstatus_t *ds)
         memcpy(ds->lt_servo_thresholds, dsv2.lt_servo_thresholds, sizeof(ds->lt_servo_thresholds));
         ds->lt_scalers = dsv2.lt_scalers; 
         ds->station = dsv2.station; 
+        break; 
+      }
+    case 3: 
+      {
+        memset(ds,0,sizeof(*ds)); 
+        rno_g_daqstatus_v3_t dsv3; 
+        rd = do_read(h, sizeof(dsv3), &dsv3, &sum); 
+        ds->when_radiant = dsv3.when_radiant; 
+        ds->when_lt = dsv3.when_lt; 
+        memcpy(ds->radiant_thresholds, dsv3.radiant_thresholds, sizeof(ds->radiant_thresholds));
+        memcpy(ds->radiant_scalers, dsv3.radiant_scalers, sizeof(ds->radiant_scalers));
+        memcpy(ds->radiant_prescalers, dsv3.radiant_prescalers, sizeof(ds->radiant_prescalers));
+        ds->radiant_scaler_period = dsv3.radiant_scaler_period; 
+        memcpy(ds->lt_trigger_thresholds, dsv3.lt_trigger_thresholds, sizeof(ds->lt_trigger_thresholds));
+        memcpy(ds->lt_servo_thresholds, dsv3.lt_servo_thresholds, sizeof(ds->lt_servo_thresholds));
+        ds->lt_scalers = dsv3.lt_scalers; 
+        ds->station = dsv3.station; 
         break; 
       }
     case DAQSTATUS_VER:

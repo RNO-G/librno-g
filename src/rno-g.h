@@ -225,6 +225,16 @@ typedef struct rno_g_lt_scalers
 } rno_g_lt_scalers_t; 
 
 
+typedef struct rno_g_radiant_voltages
+{
+  float V_1_0; 
+  float V_1_8; 
+  float V_2_5; 
+  float V_LeftMon; 
+  float V_RightMon; 
+} rno_g_radiant_voltages_t; 
+
+
 typedef struct rno_g_daqstatus 
 {
   double when_radiant; 
@@ -236,6 +246,7 @@ typedef struct rno_g_daqstatus
   uint8_t  lt_trigger_thresholds[RNO_G_NUM_LT_CHANNELS]; 
   uint8_t  lt_servo_thresholds[RNO_G_NUM_LT_CHANNELS]; 
   rno_g_lt_scalers_t lt_scalers; 
+  rno_g_radiant_voltages_t radiant_voltages; 
   uint8_t station;
 } rno_g_daqstatus_t; 
 
