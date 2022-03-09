@@ -275,6 +275,8 @@ struct radiant_dev
   uint32_t trigBen; 
   uint8_t prescal[RNO_G_NUM_RADIANT_CHANNELS]; 
   uint32_t thresh[RNO_G_NUM_RADIANT_CHANNELS]; 
+  uint32_t pedram[RNO_G_PEDESTAL_NSAMPLES]; 
+
 }; 
 
 
@@ -2281,7 +2283,6 @@ int radiant_compute_pedestals(radiant_dev_t *bd, uint32_t mask, uint16_t ntrigge
   }
 
 
-  uint32_t * pedram = malloc(sizeof(uint32_t) * RNO_G_PEDESTAL_NSAMPLES); 
 
   usleep(10000); 
   radiant_dma_request(bd); 
@@ -2298,7 +2299,7 @@ int radiant_compute_pedestals(radiant_dev_t *bd, uint32_t mask, uint16_t ntrigge
     else
     {
       uint16_t N = RNO_G_PEDESTAL_NSAMPLES * sizeof(uint32_t); 
-      uint8_t * memptr[1] = { (uint8_t*) pedram} ; 
+      uint8_t * memptr[1] = { (uint8_t*) bd->pedram} ; 
       int nrd = radiant_read(bd, 1, &N, memptr); 
       if (nrd != N)
       {
@@ -2308,7 +2309,7 @@ int radiant_compute_pedestals(radiant_dev_t *bd, uint32_t mask, uint16_t ntrigge
       {
         for (unsigned j = 0; j < RNO_G_PEDESTAL_NSAMPLES; j++) 
         {
-          ped->pedestals[i][j] = pedram[j] / ntriggers; 
+          ped->pedestals[i][j] = bd->pedram[j] / ntriggers; 
         }
       }
     }
@@ -2318,7 +2319,6 @@ int radiant_compute_pedestals(radiant_dev_t *bd, uint32_t mask, uint16_t ntrigge
   ped->nevents = ntriggers; 
   ped->when = time(0); 
 
-  free(pedram); 
   // take out of calram mode? 
   calram_zero(bd); // TODO: IS THIS NEEDED? Dan has this, but why? 
   calram_mode(bd,CALRAM_MODE_NONE); 
