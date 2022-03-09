@@ -969,7 +969,7 @@ radiant_dev_t * radiant_open(const char *spi_device, const char * uart_device, i
     }
   }
 
-  uint32_t check_bits = (1 << 31) | (1 <<15); 
+  uint32_t check_bits = (1u << 31) | (1 <<15); 
 
   if ((dev->cpldctrl & check_bits)  != check_bits) 
   {
@@ -2760,7 +2760,7 @@ int radiant_set_scaler_period(radiant_dev_t * bd, float period)
   uint32_t mem = 0; 
   if (period==0)
   {
-     mem = 1 << 31; 
+     mem = 1u << 31; 
   }
   else
   {
