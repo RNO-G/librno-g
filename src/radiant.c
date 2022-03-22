@@ -281,6 +281,8 @@ struct radiant_dev
 static int do_poll(radiant_dev_t * bd, int timeout) 
 {
 
+  if (!bd) return -1; 
+
   char val; 
   lseek(bd->interrupt_fd,0,SEEK_SET); 
   read(bd->interrupt_fd, &val,1); 
@@ -313,6 +315,7 @@ static void* radiant_interrupt_thread_func(void * v)
 {
   radiant_dev_t * bd = (radiant_dev_t*) v; 
 
+
   while(!bd->interrupt_thread_stop) 
   {
     if (do_poll(bd, -1)) 
@@ -325,6 +328,7 @@ static void* radiant_interrupt_thread_func(void * v)
 
 int radiant_poll_trigger_ready(radiant_dev_t *bd, int timeout) 
 {
+  if (!bd) return -1; 
   if (!bd->interrupt_fd) return EIO; 
   if (bd->interrupt_callback) return EBUSY; 
   return do_poll(bd,timeout); 
@@ -334,6 +338,8 @@ int radiant_poll_trigger_ready(radiant_dev_t *bd, int timeout)
 
 int radiant_set_trigger_ready_callback(radiant_dev_t * bd, void (*callback)(radiant_dev_t *, void*), void * aux) 
 {
+
+  if (!bd) return -1; 
 
   //No file descriptor to wait on. return -1; 
   if (!bd->interrupt_fd) 
@@ -364,16 +370,18 @@ int radiant_set_trigger_ready_callback(radiant_dev_t * bd, void (*callback)(radi
 
 void radiant_set_run_number(radiant_dev_t * bd, int run) 
 {
-  bd->run = run; 
+  if (bd) bd->run = run; 
 }
 
 void radiant_set_read_mode(radiant_dev_t *bd, int peek) 
 {
-  bd->peek = peek; 
+  if (bd) bd->peek = peek; 
 }
 
 int radiant_read(radiant_dev_t * bd, int nbufs, uint16_t * N, uint8_t **bufs)
 {
+  if (!bd) return -1; 
+
   uint16_t nxfers = (nbufs) & 0x1ff;  // only up to 511 transfers are supported . This also prevents a potential stack overflow.  
 #ifdef RADIANT_SET_DBG
   printf("DBG: radiant_read (nxfers=%d)\n", nxfers); 
@@ -603,6 +611,7 @@ int radiant_read_event(radiant_dev_t * bd, rno_g_header_t * hd, rno_g_waveform_t
 {
 
 
+  if (!bd) return -1 ; 
   struct fw_event_header fwhd; 
  
 
@@ -763,7 +772,7 @@ static int read_bm_gpios(radiant_dev_t * dev)
 static int write_bm_gpio(radiant_dev_t * dev, int which) 
 {
   int gpioval = dev->gpio_status[which]; 
-  return 4 == radiant_set_mem(dev, DEST_MANAGER, BM_REG_GPIO_BASE+BM_REG_GPIO_INCR* which, sizeof(gpioval), (uint8_t*) &gpioval); 
+  return 4 != radiant_set_mem(dev, DEST_MANAGER, BM_REG_GPIO_BASE+BM_REG_GPIO_INCR* which, sizeof(gpioval), (uint8_t*) &gpioval); 
 }
  
 
@@ -1154,6 +1163,12 @@ int radiant_dump(radiant_dev_t *dev, FILE * stream, int flags)
                   !!(sgpio_status & SGPIO_BIT_CALPULSE), !!(sgpio_status & SGPIO_BIT_N_CALPULSE), 
                   !!(sgpio_status & SGPIO_BIT_SG_ENABLE),!!(sgpio_status & SGPIO_BIT_SG_MUXOUT));
 
+  uint8_t pulse_cfg[4]; 
+  radiant_get_mem(dev, DEST_FPGA, RAD_REG_TRIG_PULSECTRL, 4, pulse_cfg); 
+  int pulse_period = pulse_cfg[0] |  (pulse_cfg[1] << 8) | (pulse_cfg[2] << 16) | (( pulse_cfg[3] & 0x3f) << 24);
+  pulse_period*=5; 
+  printf("    PULSECTRL: PERIOD %d ns, SHARPEN: %d, DISABLE: %d\n", pulse_period, !!(pulse_cfg[3] & ( 1<<6)), !!(pulse_cfg[3] & (1 <<7))); 
+
   float v10, v18, v25, left, right; 
   radiant_bm_analog_read(dev, RADIANT_BM_ANALOG_V10, &v10);
   radiant_bm_analog_read(dev, RADIANT_BM_ANALOG_V18, &v18);
@@ -1319,6 +1334,7 @@ void radiant_close(radiant_dev_t * dev)
 static int read_until_zero(radiant_dev_t * bd, double timeout) 
 {
 
+  if (!bd) return -1; 
   int nread = 0; 
 
   struct timespec start; 
@@ -1370,6 +1386,8 @@ static int read_until_zero(radiant_dev_t * bd, double timeout)
 
 static int radiant_real_set_mem(radiant_dev_t * bd, radiant_dest_t dest, uint32_t addr, uint8_t len, const uint8_t * bytes, int acked) 
 {
+
+  if (!bd) return -1; 
 
 #ifdef RADIANT_SET_DBG
   printf("DBG:Writing %s  to 0x%x on %s:", acked ? "acked" : "unacked" , addr, dest == DEST_MANAGER ? "RDBM" : "RDNT"); 
@@ -1436,6 +1454,8 @@ int radiant_set_mem_unacked(radiant_dev_t * bd, radiant_dest_t dest, uint32_t ad
 
 int radiant_get_mem(radiant_dev_t * bd, radiant_dest_t dest, uint32_t addr, uint8_t len, uint8_t * bytes) 
 {
+  if (!bd) return -1; 
+
   // set up unencoded packet 
   //                //address[21:16]          // dest          
   bd->reg_buf[0] = ((addr >> 16 ) & 0x1f) | ( (dest &1) <<6 ) ; 
@@ -1568,25 +1588,24 @@ int radiant_enable_cal_mode(radiant_dev_t * bd, int quad)
   //check if we are already enabled 
   if ( bd->gpio_status[quad] & QGPIO_BIT_SEL_CAL) 
   {
-    //we area already enabled! do nothing and say we did. 
+    //we are already enabled! do nothing and say we did. 
     return 0; 
   }
 
-  //check if we need to disable another quad
+  //check if we need to disable another quad in our half
 
-  int partner = (quad + 3 ) % 6; 
+  int other_start = quad < 3 ? 0 : 3; 
 
-  if (bd->gpio_status[partner] & QGPIO_BIT_SEL_CAL) 
+  for (int other = other_start; other < other_start +3; other++) 
   {
-    //helpfully disable our partner. Let's emit a diagnostic too since why not?
-    fprintf(stderr,"Disabling calibration on partner quad %d since was asked to enable quad %d...", partner, quad); 
-
-    if (!radiant_disable_cal_mode(bd, partner))
+    if (bd->gpio_status[other] & QGPIO_BIT_SEL_CAL) 
     {
-      fprintf(stderr,"FAIL. Aborting.\n"); 
-      return -1; 
+      if (radiant_disable_cal_mode(bd, other))
+      {
+        fprintf(stderr,"FAIL. Aborting.\n"); 
+        return -1; 
+      }
     }
-    fprintf(stderr, "SUCCESS"); 
   }
 
 
@@ -1620,27 +1639,10 @@ int radiant_disable_cal_mode(radiant_dev_t * bd, int quad)
 
 int radiant_configure_cal(radiant_dev_t *bd, const radiant_cal_config_t * cfg) 
 {
-  // clear the bits we might change
-  uint8_t cal_data  = bd->gpio_status[BM_REG_SIGPIO_IDX] & ~(SGPIO_BIT_CAL_FIL0 | SGPIO_BIT_N_CAL_FIL1 | SGPIO_BIT_CAL_FIL1 | SGPIO_BIT_CALPULSE | SGPIO_BIT_N_CALPULSE);  
+  if (!bd) return -1; 
 
-  switch (cfg->band) 
-  {
-    case  RADIANT_CAL_100_300: 
-      cal_data = SGPIO_BIT_CAL_FIL0 | SGPIO_BIT_N_CAL_FIL1; 
-      break;
-    case  RADIANT_CAL_50_100:
-      cal_data = SGPIO_BIT_N_CAL_FIL1; 
-      break; 
-    case RADIANT_CAL_600_PLUS: 
-      cal_data = SGPIO_BIT_CAL_FIL0 | SGPIO_BIT_CAL_FIL1; 
-      break;
-    case  RADIANT_CAL_300_600:
-      cal_data = SGPIO_BIT_CAL_FIL1; 
-      break; 
-    default:
-      fprintf(stderr,"UNKNOWN CALBAND: %d\n", cfg->band); 
-      return 1; 
-  }
+  // clear the bits we might change
+  uint8_t cal_data  = bd->gpio_status[BM_REG_SIGPIO_IDX] & ~( SGPIO_BIT_CALPULSE | SGPIO_BIT_N_CALPULSE);  
 
   if (cfg->pulse_type == RADIANT_CAL_PULSE)
   {
@@ -1649,14 +1651,50 @@ int radiant_configure_cal(radiant_dev_t *bd, const radiant_cal_config_t * cfg)
   else
   {
     cal_data |= SGPIO_BIT_N_CALPULSE;  
+    cal_data &= ~(SGPIO_BIT_CAL_FIL0 | SGPIO_BIT_N_CAL_FIL1 | SGPIO_BIT_CAL_FIL1);
+    switch (cfg->band) 
+    {
+      case  RADIANT_CAL_100_300: 
+        cal_data |= SGPIO_BIT_CAL_FIL0 | SGPIO_BIT_N_CAL_FIL1; 
+        break;
+      case  RADIANT_CAL_50_100:
+        cal_data |= SGPIO_BIT_N_CAL_FIL1; 
+        break; 
+      case RADIANT_CAL_600_PLUS: 
+        cal_data |= SGPIO_BIT_CAL_FIL0 | SGPIO_BIT_CAL_FIL1; 
+        break;
+      case  RADIANT_CAL_300_600:
+        cal_data |= SGPIO_BIT_CAL_FIL1; 
+        break; 
+      default:
+        fprintf(stderr,"UNKNOWN CALBAND: %d\n", cfg->band); 
+        return 1; 
+    }
   }
 
   bd->gpio_status[BM_REG_SIGPIO_IDX] = cal_data; 
-  return write_bm_gpio(bd, BM_REG_SIGPIO_IDX); 
+  int write_ok =  write_bm_gpio(bd, BM_REG_SIGPIO_IDX); 
+
+  if (write_ok) return write_ok; 
+  uint8_t bytes[4]; 
+
+  int pulse_period = cfg->pulse_settings.pulse_period_ns / 5; 
+  if (pulse_period <=0) pulse_period = 200000; //use 1 Khz if 0
+  bytes[0] =pulse_period & 0xff;
+  bytes[1] = (pulse_period >> 8 ) & 0xff; 
+  bytes[2] = (pulse_period >> 16 ) & 0xff; 
+  bytes[3] = (pulse_period >> 24 ) & 0x3f; 
+  bytes[3] |= cfg->pulse_settings.pulse_sharpen << 6; 
+  bytes[3] |= cfg->pulse_settings.pulse_disable << 7; 
+
+  return radiant_set_mem(bd, DEST_FPGA, RAD_REG_TRIG_PULSECTRL, sizeof(bytes),bytes); 
+
 }
 
 int radiant_enable_cal(radiant_dev_t * bd, int enable) 
 {
+  if (!bd) return -1; 
+
   //clear the bits we might change
   uint8_t cal_data  = bd->gpio_status[BM_REG_SIGPIO_IDX] & ~(SGPIO_BIT_SG_ENABLE);  
   if (enable) 
@@ -1712,6 +1750,7 @@ static adf4350_init_param adf4351_param =
 int radiant_set_frequency(radiant_dev_t * bd, float freq_MHz, float * actual_freq_MHz) 
 {
 
+  if (!bd) return -1; 
   if (!already_setup_adf4351) 
   {
     adf4350_setup(&adf4351, adf4351_param ); 
@@ -1749,6 +1788,7 @@ int radiant_set_frequency(radiant_dev_t * bd, float freq_MHz, float * actual_fre
 
 int radiant_set_attenuator(radiant_dev_t * bd, int channel, radiant_atten_t which, uint8_t value) 
 {
+  if (!bd) return -1; 
   //figure out which quad 
   int quad = channel / 4; 
   int ch = channel % 4; 
@@ -1769,6 +1809,7 @@ int radiant_set_attenuator(radiant_dev_t * bd, int channel, radiant_atten_t whic
 
 int radiant_fill_dma_config(radiant_dma_config_t * cfg, radiant_dma_mode_preset_t preset) 
 {
+  if (!cfg) return -1; 
   //zero out
   memset(cfg,0,sizeof(radiant_dma_config_t)); 
 
@@ -1817,6 +1858,7 @@ int radiant_configure_dma(radiant_dev_t *bd, const radiant_dma_config_t *cfg)
 
 int radiant_dma_control(radiant_dev_t *bd, const radiant_dma_ctrl_t ctrl) 
 {
+  if (!bd) return -1; 
   uint8_t bytes[4] = {*((uint8_t*) &ctrl),0,0,0}; 
   return 4!=radiant_set_mem(bd, DEST_FPGA, RAD_REG_SPIDMA_CONTROL, 4 , bytes); 
 }
@@ -1847,12 +1889,14 @@ int radiant_dma_request(radiant_dev_t *bd)
 
 int radiant_dma_txn_count_reset(radiant_dev_t *bd) 
 {
+  if (!bd) return -1; 
   uint8_t zeros[4] = {0}; 
   return 4!= radiant_set_mem(bd, DEST_FPGA, RAD_REG_SPIDMA_TXN_COUNT, 4,zeros); 
 }
 
 int radiant_dma_txn_count(radiant_dev_t *bd, uint32_t* count) 
 {
+  if (!bd) return -1; 
   return 4!= radiant_get_mem(bd, DEST_FPGA, RAD_REG_SPIDMA_TXN_COUNT,4, (uint8_t*) count); 
 }
 
@@ -1860,6 +1904,8 @@ int radiant_dma_txn_count(radiant_dev_t *bd, uint32_t* count)
 
 int radiant_dma_set_descriptor(radiant_dev_t* bd, uint8_t idescr, radiant_dma_desc_t descr)
 {
+  if (!bd) return -1; 
+
   if (idescr >= 32) return -1; 
   if (descr.addr & 0x3 ) return -2; 
   if (descr.length > 4096) return -3; 
@@ -1880,6 +1926,7 @@ int radiant_dma_set_descriptor(radiant_dev_t* bd, uint8_t idescr, radiant_dma_de
 
 int radiant_dma_setup_event(radiant_dev_t*bd, uint32_t mask) 
 {
+  if (!bd) return -1; 
   mask &= 0xffffff; // 24 bits 
   if (!mask) return -1; 
 
@@ -1920,6 +1967,7 @@ int radiant_dma_setup_event(radiant_dev_t*bd, uint32_t mask)
 int radiant_internal_trigger(radiant_dev_t * bd, int howmany, int block) 
 {
 
+  if (!bd) return -1; 
   if (!howmany) return -1; 
   if (howmany > 256 || howmany < 0) howmany = 256; 
 
@@ -2078,6 +2126,7 @@ int radiant_trigout_get_length(radiant_dev_t * bd, int * ns)
 int radiant_labs_clear(radiant_dev_t *dev) 
 {
 
+  if (!dev) return -1; 
   uint8_t ctrl[4]; 
   radiant_get_mem(dev, DEST_FPGA, RAD_REG_LAB_CTRL_CONTROL,4,ctrl); 
 
@@ -2095,6 +2144,8 @@ int radiant_labs_clear(radiant_dev_t *dev)
 
 int radiant_labs_start(radiant_dev_t *dev) 
 {
+  if (!dev) return -1; 
+
   uint8_t ctrl[4]; 
   radiant_get_mem(dev, DEST_FPGA, RAD_REG_LAB_CTRL_CONTROL,4,ctrl); 
   while (!(ctrl[0] & 4) ) // @???!?? 
@@ -2111,6 +2162,7 @@ int radiant_labs_start(radiant_dev_t *dev)
 
 int radiant_labs_stop(radiant_dev_t *dev) 
 {
+  if (!dev) return -1; 
   uint8_t ctrl[4]; 
   radiant_get_mem(dev, DEST_FPGA, RAD_REG_LAB_CTRL_CONTROL,4,ctrl); 
   while ((ctrl[0] & 4)) // @???!?? 
@@ -2129,6 +2181,7 @@ int radiant_labs_stop(radiant_dev_t *dev)
 
 int radiant_check_avail(radiant_dev_t * bd) 
 {
+  if (!bd) return -1; 
   uint32_t mem = 0; 
   if (4!= radiant_get_mem( bd, DEST_FPGA, RAD_REG_SPIDMA_CONFIG, 4, (uint8_t*) &mem)) return -1; 
   return  !!(mem & (1<<30)); 
@@ -2137,6 +2190,7 @@ int radiant_check_avail(radiant_dev_t * bd)
 //not exposed for now since only used for pedestals right now... 
 static int calram_zero(radiant_dev_t * bd) 
 {
+  if (!bd) return -1; 
   uint32_t ctrl; 
   radiant_get_mem(bd, DEST_FPGA, RAD_REG_LAB_CTRL_CONTROL, sizeof(ctrl), (uint8_t*) &ctrl) ; 
   if (ctrl & 0x4)  // TODO: python code has this as 0x2 but I'm pretty sure that's wrong
@@ -2164,6 +2218,8 @@ static int calram_zero(radiant_dev_t * bd)
 // may expose this later if necessary
 static int calram_mode(radiant_dev_t *bd, calram_mode_t mode) 
 {
+  if (!bd) return -1; 
+
   uint32_t ctrl = 0; 
   uint32_t mde = 0; 
   switch(mode) 
@@ -2193,6 +2249,7 @@ static int calram_mode(radiant_dev_t *bd, calram_mode_t mode)
 
 int radiant_compute_pedestals(radiant_dev_t *bd, uint32_t mask, uint16_t ntriggers, rno_g_pedestal_t * ped) 
 {
+  if (!bd) return -1; 
   if (!mask) return 0; 
 
   radiant_labs_stop(bd); 
@@ -2290,6 +2347,7 @@ int radiant_compute_pedestals(radiant_dev_t *bd, uint32_t mask, uint16_t ntrigge
 
 int radiant_set_dc_bias (radiant_dev_t * bd, uint16_t l16, uint16_t r16) 
 {
+  if (!bd) return -1; 
   uint32_t l = l16; 
   uint32_t r = r16; 
   // set to reasonable value if out of range
@@ -2303,7 +2361,8 @@ int radiant_set_dc_bias (radiant_dev_t * bd, uint16_t l16, uint16_t r16)
 
 
 int radiant_set_td_bias(radiant_dev_t *bd, int ich, uint16_t val) 
-{
+{ 
+  if (!bd) return -1; 
   if (ich < 0 || ich >= RNO_G_NUM_RADIANT_CHANNELS) return -1; 
   //clamp 
   if (val>4095) val = 4095;
@@ -2315,16 +2374,21 @@ int radiant_set_td_bias(radiant_dev_t *bd, int ich, uint16_t val)
 
 void radiant_set_pedestals(radiant_dev_t* bd, const rno_g_pedestal_t * ped) 
 {
-  bd->peds = ped; 
+  if (bd)
+  {
+    bd->peds = ped; 
+  }
 }
 
 const rno_g_pedestal_t *  radiant_get_pedestals(radiant_dev_t* bd) 
 {
+  if (!bd) return 0; 
   return bd->peds; 
 }
 
 int radiant_set_nbuffers_per_readout(radiant_dev_t *bd, int nbuffers) 
 {
+  if (!bd) return -1; 
   if (nbuffers <1 || nbuffers >2 )
   {
     return 0x90991e5; //they do nothing 
@@ -2346,6 +2410,7 @@ int radiant_set_nbuffers_per_readout(radiant_dev_t *bd, int nbuffers)
 static int radiant_run_mode(radiant_dev_t * bd, int enable) 
 {
 
+  if (!bd) return -1; 
     uint32_t ctrl; 
     if (4!=radiant_get_mem(bd, DEST_FPGA, RAD_REG_LAB_CTRL_CONTROL, 4, (uint8_t*) &ctrl)) return 1; 
 
@@ -2357,6 +2422,7 @@ static int radiant_run_mode(radiant_dev_t * bd, int enable)
 
 int radiant_reset_readout_fifo(radiant_dev_t * bd, int force, int reset_readout) 
 {
+  if (!bd) return -1; 
   if (!force) 
   {
     uint32_t ctrl; 
@@ -2391,18 +2457,21 @@ int radiant_reset_readout_fifo(radiant_dev_t * bd, int force, int reset_readout)
 
 int radiant_reset_fifo_counters(radiant_dev_t * bd) 
 {
+  if (!bd) return -1; 
   uint32_t evctrl = 4; 
   return (4!=radiant_set_mem(bd, DEST_FPGA, RAD_REG_EV_CTRL, 4, (uint8_t*) &evctrl)); 
 }
 
 int radiant_sync(radiant_dev_t * bd) 
 {
+  if (!bd) return -1; 
   uint32_t evctrl = 2; 
   return (4!=radiant_set_mem(bd, DEST_FPGA, RAD_REG_EV_CTRL, 4, (uint8_t*) &evctrl)); 
 }
 
 int radiant_get_pending(radiant_dev_t * bd, radiant_pending_t * pend) 
 {
+  if (!bd) return -1; 
   if (!pend) return 1; 
   uint32_t evctrl = 0; 
 
@@ -2416,6 +2485,7 @@ int radiant_get_pending(radiant_dev_t * bd, radiant_pending_t * pend)
 
 int radiant_current_pps(radiant_dev_t * bd, uint32_t *pps, uint32_t *sysclk_last_pps, uint32_t *sysclk_last_last_pps) 
 {
+  if (!bd) return -1; 
   //just read all 3 at once, it won't take any longer really  
   uint32_t mem[3]={0,0,0}; 
   if (12!=radiant_get_mem(bd, DEST_FPGA, RAD_REG_EV_PPS, 12, (uint8_t*) mem )) return 1; 
@@ -2476,6 +2546,7 @@ int radiant_set_global_trigger_mask(radiant_dev_t *bd, uint32_t mask)
 int radiant_get_global_trigger_mask(radiant_dev_t *bd, uint32_t * mask, int force)
 {
 
+  if (!bd) return -1; 
   if (force) 
   {
     if ( 4!= radiant_get_mem(bd, DEST_FPGA, RAD_REG_TRIG_TRIGINEN, 4, (uint8_t*) &bd->triginen)) return 1; 
@@ -2491,11 +2562,13 @@ int radiant_get_global_trigger_mask(radiant_dev_t *bd, uint32_t * mask, int forc
 
 int radiant_get_l0_enable(radiant_dev_t * bd, uint32_t * en) 
 {
+  if (!bd) return -1; 
   return (4!= radiant_get_mem(bd, DEST_FPGA, RAD_REG_TRIG_MASTEREN, 4, (uint8_t*) en)); 
 }
 
 int radiant_set_l0_enable(radiant_dev_t *bd, uint32_t en) 
 {
+  if (!bd) return -1; 
   en &=1; 
   return (4!= radiant_set_mem(bd, DEST_FPGA, RAD_REG_TRIG_MASTEREN, 4, (uint8_t*) &en)) ; 
 }
@@ -2760,14 +2833,15 @@ int radiant_read_daqstatus(radiant_dev_t * bd, rno_g_daqstatus_t * ds)
 
 int radiant_set_pps_config(radiant_dev_t *bd, radiant_pps_config_t cfg) 
 {
+  if (!bd) return -1; 
   static_assert(sizeof(cfg) == sizeof(uint32_t), "radiant pps config wrong size"); 
-  return radiant_set_mem(bd, DEST_FPGA, RAD_REG_PPSSEL, sizeof(cfg), (uint8_t*) &cfg); 
+  return sizeof(cfg)==radiant_set_mem(bd, DEST_FPGA, RAD_REG_PPSSEL, sizeof(cfg), (uint8_t*) &cfg); 
 }
 
 int radiant_get_pps_config(radiant_dev_t *bd, radiant_pps_config_t * cfg) 
 {
   static_assert(sizeof(*cfg) == sizeof(uint32_t), "radiant pps config wrong size"); 
-  return radiant_get_mem(bd, DEST_FPGA, RAD_REG_PPSSEL, sizeof(*cfg), (uint8_t*) cfg); 
+  return sizeof(cfg)==radiant_get_mem(bd, DEST_FPGA, RAD_REG_PPSSEL, sizeof(*cfg), (uint8_t*) cfg); 
 }
 
 
@@ -2792,7 +2866,7 @@ int radiant_get_fw_version( const radiant_dev_t* bd, const radiant_dest_t which,
 
 uint16_t radiant_get_sample_rate(const radiant_dev_t * bd) 
 {
-  (void) bd; 
+  if (!bd) return -1; 
   return 3200; 
 }
 

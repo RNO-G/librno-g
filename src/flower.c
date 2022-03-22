@@ -128,6 +128,11 @@ flower_dev_t * flower_open(const char * spi_device, int spi_en_gpio)
   }
 
   dev = calloc(sizeof(*dev),1); 
+  if (!dev) 
+  {
+    fprintf(stderr,"Could not allocate memory for flower\n"); 
+    return 0; 
+  }
   dev->spi_fd = spi_fd; 
 
   int spi_clock = 16000000; 
@@ -445,6 +450,8 @@ int flower_buffer_check(flower_dev_t * dev, int * avail)
 int flower_read_waveforms(flower_dev_t *dev, int len, uint8_t ** dest)
 {
 
+  if (!dev) return -1; 
+
   static flower_word_t select_chip[2]  =
   { {.bytes={FLWR_REG_CHANNEL, 0,0,1}}
   , {.bytes={FLWR_REG_CHANNEL, 0,0,2}} };
@@ -572,6 +579,8 @@ int flower_set_trigout_enables(flower_dev_t * dev, flower_trigout_enables_t enab
 
 int flower_equalize(flower_dev_t * dev, float target_rms, uint8_t * v_gain_codes, int opts)
 {
+  if (!dev) return -1; 
+
   float rms[RNO_G_NUM_LT_CHANNELS] = {0}; 
 
   uint8_t mask = (~(opts & 0xf)) & 0xf; 
