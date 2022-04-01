@@ -8,13 +8,43 @@
 #include <signal.h> 
 
 
+static int no_gpio = 0; 
 static int instrumented_poll(radiant_dev_t * rad, int timeout, int verbose) 
 {
   struct timespec start;
   struct timespec stop;
-  clock_gettime(CLOCK_REALTIME,&start);
-  int ret = radiant_poll_trigger_ready(rad,timeout); 
-  clock_gettime(CLOCK_REALTIME,&stop);
+  int ret = 0;
+  if (!no_gpio) 
+  {
+    clock_gettime(CLOCK_MONOTONIC,&start);
+    ret = radiant_poll_trigger_ready(rad,timeout); 
+    clock_gettime(CLOCK_MONOTONIC,&stop);
+  }
+  else
+  {
+    struct timespec now; 
+    clock_gettime(CLOCK_MONOTONIC,&start);
+    
+    while (1) 
+    {
+      if (radiant_check_avail(rad)) 
+      {
+        ret = 1; 
+        break; 
+      }
+
+      if (timeout >=0 ) 
+      {
+        clock_gettime(CLOCK_MONOTONIC,&now); 
+        if ( 1000 * (now.tv_sec - start.tv_sec) + 1e-6 * (now.tv_nsec - start.tv_nsec) > timeout)
+        {
+          ret = 0; 
+          break; 
+        }
+      }
+    }
+    clock_gettime(CLOCK_MONOTONIC,&stop);
+  }
 
   if (verbose) printf("Time spent in poll: %g\n", stop.tv_sec - start.tv_sec + 1e-9*(stop.tv_nsec - start.tv_nsec)); 
 
@@ -46,6 +76,8 @@ int usage()
   printf("  -p PPS triggers enabled\n"); 
   printf("  -i Use internal PPS\n"); 
   printf("  -P poll amount = 0.1\n"); 
+  printf("  -u Use UART, not GPIO to check for events\n"); 
+
   printf("  -x external triggers\n"); 
   printf("  -c trigger clear mode\n"); 
   printf("  -v verbose\n"); 
@@ -134,7 +166,11 @@ int main(int nargs, char ** args)
     {
       enable_ext = 1; 
     }
-
+    else if (!strcmp(args[i],"-u"))
+    {
+      no_gpio = 1; 
+    }
+ 
     else if (!strcmp(args[i],"-S"))
     {
       do_sync = 1; 
