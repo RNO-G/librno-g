@@ -276,6 +276,7 @@ struct radiant_dev
   uint8_t prescal[RNO_G_NUM_RADIANT_CHANNELS]; 
   uint32_t thresh[RNO_G_NUM_RADIANT_CHANNELS]; 
   uint32_t pedram[RNO_G_PEDESTAL_NSAMPLES]; 
+  double read_timeout; 
 
 }; 
 
@@ -917,6 +918,7 @@ radiant_dev_t * radiant_open(const char *spi_device, const char * uart_device, i
   dev = calloc(sizeof(radiant_dev_t),1); 
   dev->spi_fd = spi_fd; 
   dev->uart_fd = uart_fd; 
+  dev->read_timeout = 1; 
 
   // verify that we identify correctly
   char check_bm[4]; 
@@ -1351,7 +1353,7 @@ static int read_until_zero(radiant_dev_t * bd, double timeout)
 
         if (elapsed > timeout) 
         {
-          return -nread; 
+          return -1-nread; 
         }
       }
 
@@ -1413,7 +1415,13 @@ static int radiant_real_set_mem(radiant_dev_t * bd, radiant_dest_t dest, uint32_
     uint8_t expected[3] = { bd->reg_buf[0], bd->reg_buf[1], bd->reg_buf[2]}; 
 
     //read until we get a 0
-    int rd = read_until_zero(bd, 0); 
+    int rd = read_until_zero(bd, bd->read_timeout ); 
+    if (rd < 0) 
+    {
+      fprintf(stderr,"Timed out waiting for ack radiant_set_mem: %d\n", rd); 
+
+    }
+
     int decoded_len = cobs_decode_buf(rd, bd->reg_buf_encoded, sizeof(bd->reg_buf), bd->reg_buf); 
     int expected_len = sizeof(expected); 
 
@@ -1463,7 +1471,8 @@ int radiant_get_mem(radiant_dev_t * bd, radiant_dest_t dest, uint32_t addr, uint
 
   if (written != encoded_len) 
   {
-    fprintf(stderr,"Wrote only %d bytes instead of %d in radiant_get_mem(0x%p, %s,0x%x, %u,0x%p)\n", written, encoded_len, bd, dest == DEST_MANAGER ? "DEST_MANAGER" : "DEST_FPGA",addr,len,bytes); 
+    fprintf(stderr,"Wrote only %d bytes instead of %d in radiant_get_mem(0x%p, %s,0x%x, %u,0x%p)\n", written, encoded_len, 
+              bd, dest == DEST_MANAGER ? "DEST_MANAGER" : "DEST_FPGA",addr,len,bytes); 
     return -1; 
   }
 
@@ -1472,7 +1481,13 @@ int radiant_get_mem(radiant_dev_t * bd, radiant_dest_t dest, uint32_t addr, uint
   int expected_len = sizeof(expected); 
 
   //read until we get a 0
-  int rd = read_until_zero(bd, 0); 
+  int rd = read_until_zero(bd, bd->read_timeout); 
+  if (rd < 0) 
+  {
+    fprintf(stderr,"Timed out in radiant_get_mem(0x%p, %s, 0x%x,%u, 0x%p)\n", 
+              bd, dest == DEST_MANAGER ? "DEST_MANAGER" : "DEST_FPGA",addr,len,bytes); 
+    return -1; 
+  }
   //decode 
   int decoded_len = cobs_decode_buf(rd, bd->reg_buf_encoded, sizeof(bd->reg_buf), bd->reg_buf); 
 
