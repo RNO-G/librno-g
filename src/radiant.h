@@ -205,10 +205,10 @@ int radiant_disable_cal_mode(radiant_dev_t * bd, int quad);
  * It is probably better to use the radsig-cli until these are tested */ 
 typedef enum
 {
+  RADIANT_CAL_600_PLUS, //make this 0 so it's default if zeroed
   RADIANT_CAL_50_100, 
   RADIANT_CAL_100_300, 
-  RADIANT_CAL_300_600, 
-  RADIANT_CAL_600_PLUS
+  RADIANT_CAL_300_600 
 } radiant_cal_band_t; 
 
 typedef enum
@@ -217,14 +217,23 @@ typedef enum
   RADIANT_CAL_SINE
 } radiant_cal_pulse_type_t; 
 
+typedef struct radiant_pulse_cfg 
+{
+  int pulse_period_ns; 
+  int pulse_sharpen :1;
+  int pulse_disable :1; 
+} radiant_pulse_config_t;
+
 typedef struct
 {
   radiant_cal_band_t band; 
+  radiant_pulse_config_t pulse_settings; 
   radiant_cal_pulse_type_t pulse_type; 
 } radiant_cal_config_t;  
 
 // Sets the calpulser band / pulse or sinewave
 int radiant_configure_cal(radiant_dev_t *bd, const radiant_cal_config_t * cfg ) ;
+
 
 //enables or disables the signal generator
 int radiant_enable_cal(radiant_dev_t* bd, int enable) ; 

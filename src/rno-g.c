@@ -317,6 +317,7 @@ int rno_g_init_handle(rno_g_file_handle_t * h, const char * name, const char * m
 
   //check for gz ending
   char * dot = strrchr(name,'.'); 
+  h->handle.raw = NULL;
 
   if (!strcasecmp(dot, ".gz"))
   {

@@ -229,6 +229,7 @@ int flower_read_register(flower_dev_t*dev, uint8_t addr, flower_word_t * result)
 
 int flower_set_thresholds(flower_dev_t *dev, const uint8_t * trigger_thresholds, const uint8_t * servo_thresholds, uint8_t mask) 
 {
+  if (!dev) return -1; 
 
   flower_word_t words[4] = {0}; 
 
@@ -254,6 +255,7 @@ int flower_set_thresholds(flower_dev_t *dev, const uint8_t * trigger_thresholds,
 
 int flower_configure_trigger(flower_dev_t * dev, rno_g_lt_simple_trigger_config_t  cfg) 
 {
+  if (!dev) return -1; 
   int ret = 0;
   flower_word_t word = {0}; 
   word.bytes[0] = FLWR_REG_TRIG_PARAM;
@@ -267,6 +269,7 @@ int flower_configure_trigger(flower_dev_t * dev, rno_g_lt_simple_trigger_config_
 
 int flower_fill_header(flower_dev_t * dev, rno_g_header_t * hd)
 {
+  if (!dev) return -1; 
   hd->lt_simple_trigger_cfg = dev->trig_cfg; 
   return 0; 
 }
@@ -294,6 +297,8 @@ static void fill_scal_sel_regs()
 
 int flower_fill_daqstatus(flower_dev_t *dev, rno_g_daqstatus_t *ds)
 {
+
+  if (!dev) return -1; 
 
   #define DSNMSG (3*(19)+5)
 
@@ -390,6 +395,11 @@ int flower_dump(FILE * f, flower_dev_t *dev)
 {
   int ret = 0; 
   ret+= fprintf(f,"FLOWER HANDLE at 0x%p\n", dev); 
+  if (!dev) 
+  {
+    fprintf(f,"  NULL HANDLE!!!\n"); 
+    return -1; 
+  }
   ret+= fprintf(f,"  FWVER:  %02d.%02d.%02d (0x%x, [0x%x,0x%x,0x%x,0x%x])\n", 
                 dev->fwver.ver.major, dev->fwver.ver.minor, dev->fwver.ver.rev, 
                 dev->fwver.word.word, 
@@ -416,6 +426,7 @@ static flower_word_t sw_trig_high = {.bytes={FLWR_REG_FORCE_TRIG,0,0,1}};
 
 int flower_force_trigger(flower_dev_t * dev) 
 {
+  if (!dev) return -1; 
   int ret = 0; 
 
   if (dev->fwver_int < 6)
@@ -528,6 +539,7 @@ int flower_read_waveforms(flower_dev_t *dev, int len, uint8_t ** dest)
 int flower_set_gains(flower_dev_t *dev, const uint8_t * codes) 
 {
 
+  if (!dev) return -1; 
   for (int ichip = 0; ichip < 2; ichip++) 
   {
     //select chip  

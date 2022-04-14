@@ -775,7 +775,7 @@ static int read_bm_gpios(radiant_dev_t * dev)
 static int write_bm_gpio(radiant_dev_t * dev, int which) 
 {
   int gpioval = dev->gpio_status[which]; 
-  return 4 == radiant_set_mem(dev, DEST_MANAGER, BM_REG_GPIO_BASE+BM_REG_GPIO_INCR* which, sizeof(gpioval), (uint8_t*) &gpioval); 
+  return 4 != radiant_set_mem(dev, DEST_MANAGER, BM_REG_GPIO_BASE+BM_REG_GPIO_INCR* which, sizeof(gpioval), (uint8_t*) &gpioval); 
 }
  
 
@@ -1171,6 +1171,12 @@ int radiant_dump(radiant_dev_t *dev, FILE * stream, int flags)
   radiant_bm_analog_read_all(dev, &voltages);
   fprintf(stream, "    ANALOG: V1.0: %f, V1.8: %f, V2.5: %f, LEFTMON: %f, RIGHTMON: %f\n", 
       voltages.V_1_0,voltages.V_1_8,voltages.V_2_5,voltages.V_LeftMon,voltages.V_RightMon); 
+  uint8_t pulse_cfg[4]; 
+  radiant_get_mem(dev, DEST_FPGA, RAD_REG_TRIG_PULSECTRL, 4, pulse_cfg); 
+  int pulse_period = pulse_cfg[0] |  (pulse_cfg[1] << 8) | (pulse_cfg[2] << 16) | (( pulse_cfg[3] & 0x3f) << 24);
+  pulse_period*=5; 
+  printf("    PULSECTRL: PERIOD %d ns, SHARPEN: %d, DISABLE: %d\n", pulse_period, !!(pulse_cfg[3] & ( 1<<6)), !!(pulse_cfg[3] & (1 <<7))); 
+
 
   fprintf(stream, "    CPLDCTRL (cached): %x\n", dev->cpldctrl); 
 
@@ -1606,25 +1612,24 @@ int radiant_enable_cal_mode(radiant_dev_t * bd, int quad)
   //check if we are already enabled 
   if ( bd->gpio_status[quad] & QGPIO_BIT_SEL_CAL) 
   {
-    //we area already enabled! do nothing and say we did. 
+    //we are already enabled! do nothing and say we did. 
     return 0; 
   }
 
-  //check if we need to disable another quad
+  //check if we need to disable another quad in our half
 
-  int partner = (quad + 3 ) % 6; 
+  int other_start = quad < 3 ? 0 : 3; 
 
-  if (bd->gpio_status[partner] & QGPIO_BIT_SEL_CAL) 
+  for (int other = other_start; other < other_start +3; other++) 
   {
-    //helpfully disable our partner. Let's emit a diagnostic too since why not?
-    fprintf(stderr,"Disabling calibration on partner quad %d since was asked to enable quad %d...", partner, quad); 
-
-    if (!radiant_disable_cal_mode(bd, partner))
+    if (bd->gpio_status[other] & QGPIO_BIT_SEL_CAL) 
     {
-      fprintf(stderr,"FAIL. Aborting.\n"); 
-      return -1; 
+      if (radiant_disable_cal_mode(bd, other))
+      {
+        fprintf(stderr,"FAIL. Aborting.\n"); 
+        return -1; 
+      }
     }
-    fprintf(stderr, "SUCCESS"); 
   }
 
 
@@ -1661,26 +1666,7 @@ int radiant_configure_cal(radiant_dev_t *bd, const radiant_cal_config_t * cfg)
   if (!bd) return -1; 
 
   // clear the bits we might change
-  uint8_t cal_data  = bd->gpio_status[BM_REG_SIGPIO_IDX] & ~(SGPIO_BIT_CAL_FIL0 | SGPIO_BIT_N_CAL_FIL1 | SGPIO_BIT_CAL_FIL1 | SGPIO_BIT_CALPULSE | SGPIO_BIT_N_CALPULSE);  
-
-  switch (cfg->band) 
-  {
-    case  RADIANT_CAL_100_300: 
-      cal_data = SGPIO_BIT_CAL_FIL0 | SGPIO_BIT_N_CAL_FIL1; 
-      break;
-    case  RADIANT_CAL_50_100:
-      cal_data = SGPIO_BIT_N_CAL_FIL1; 
-      break; 
-    case RADIANT_CAL_600_PLUS: 
-      cal_data = SGPIO_BIT_CAL_FIL0 | SGPIO_BIT_CAL_FIL1; 
-      break;
-    case  RADIANT_CAL_300_600:
-      cal_data = SGPIO_BIT_CAL_FIL1; 
-      break; 
-    default:
-      fprintf(stderr,"UNKNOWN CALBAND: %d\n", cfg->band); 
-      return 1; 
-  }
+  uint8_t cal_data  = bd->gpio_status[BM_REG_SIGPIO_IDX] & ~( SGPIO_BIT_CALPULSE | SGPIO_BIT_N_CALPULSE);  
 
   if (cfg->pulse_type == RADIANT_CAL_PULSE)
   {
@@ -1689,10 +1675,44 @@ int radiant_configure_cal(radiant_dev_t *bd, const radiant_cal_config_t * cfg)
   else
   {
     cal_data |= SGPIO_BIT_N_CALPULSE;  
+    cal_data &= ~(SGPIO_BIT_CAL_FIL0 | SGPIO_BIT_N_CAL_FIL1 | SGPIO_BIT_CAL_FIL1);
+    switch (cfg->band) 
+    {
+      case  RADIANT_CAL_100_300: 
+        cal_data |= SGPIO_BIT_CAL_FIL0 | SGPIO_BIT_N_CAL_FIL1; 
+        break;
+      case  RADIANT_CAL_50_100:
+        cal_data |= SGPIO_BIT_N_CAL_FIL1; 
+        break; 
+      case RADIANT_CAL_600_PLUS: 
+        cal_data |= SGPIO_BIT_CAL_FIL0 | SGPIO_BIT_CAL_FIL1; 
+        break;
+      case  RADIANT_CAL_300_600:
+        cal_data |= SGPIO_BIT_CAL_FIL1; 
+        break; 
+      default:
+        fprintf(stderr,"UNKNOWN CALBAND: %d\n", cfg->band); 
+        return 1; 
+    }
   }
 
   bd->gpio_status[BM_REG_SIGPIO_IDX] = cal_data; 
-  return write_bm_gpio(bd, BM_REG_SIGPIO_IDX); 
+  int write_ok =  write_bm_gpio(bd, BM_REG_SIGPIO_IDX); 
+
+  if (write_ok) return write_ok; 
+  uint8_t bytes[4]; 
+
+  int pulse_period = cfg->pulse_settings.pulse_period_ns / 5; 
+  if (pulse_period <=0) pulse_period = 200000; //use 1 Khz if 0
+  bytes[0] =pulse_period & 0xff;
+  bytes[1] = (pulse_period >> 8 ) & 0xff; 
+  bytes[2] = (pulse_period >> 16 ) & 0xff; 
+  bytes[3] = (pulse_period >> 24 ) & 0x3f; 
+  bytes[3] |= cfg->pulse_settings.pulse_sharpen << 6; 
+  bytes[3] |= cfg->pulse_settings.pulse_disable << 7; 
+
+  return radiant_set_mem(bd, DEST_FPGA, RAD_REG_TRIG_PULSECTRL, sizeof(bytes),bytes); 
+
 }
 
 int radiant_enable_cal(radiant_dev_t * bd, int enable) 

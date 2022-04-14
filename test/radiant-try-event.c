@@ -8,13 +8,43 @@
 #include <signal.h> 
 
 
+static int no_gpio = 0; 
 static int instrumented_poll(radiant_dev_t * rad, int timeout, int verbose) 
 {
   struct timespec start;
   struct timespec stop;
-  clock_gettime(CLOCK_REALTIME,&start);
-  int ret = radiant_poll_trigger_ready(rad,timeout); 
-  clock_gettime(CLOCK_REALTIME,&stop);
+  int ret = 0;
+  if (!no_gpio) 
+  {
+    clock_gettime(CLOCK_MONOTONIC,&start);
+    ret = radiant_poll_trigger_ready(rad,timeout); 
+    clock_gettime(CLOCK_MONOTONIC,&stop);
+  }
+  else
+  {
+    struct timespec now; 
+    clock_gettime(CLOCK_MONOTONIC,&start);
+    
+    while (1) 
+    {
+      if (radiant_check_avail(rad)) 
+      {
+        ret = 1; 
+        break; 
+      }
+
+      if (timeout >=0 ) 
+      {
+        clock_gettime(CLOCK_MONOTONIC,&now); 
+        if ( 1000 * (now.tv_sec - start.tv_sec) + 1e-6 * (now.tv_nsec - start.tv_nsec) > timeout)
+        {
+          ret = 0; 
+          break; 
+        }
+      }
+    }
+    clock_gettime(CLOCK_MONOTONIC,&stop);
+  }
 
   if (verbose) printf("Time spent in poll: %g\n", stop.tv_sec - start.tv_sec + 1e-9*(stop.tv_nsec - start.tv_nsec)); 
 
@@ -32,7 +62,7 @@ double get_now()
 
 int usage() 
 {
-  printf("radiant-try-event [-N NEVENTS=100] [-b buffers=2] [-M TRIGMASK=0x37b000] [-W TRIGWINDOW=20] [-T THRESH=0.2] [-C MINCOINCIDENT =3] [-B BIAS=1100]  [-z] [-f] [-I INTERVAL=0] [-p]  [-c] [-h]\n"); 
+  printf("radiant-try-event [-N NEVENTS=100] [-b buffers=2] [-M TRIGMASK=0x37b000] [-W TRIGWINDOW=20] [-T THRESH=0.2] [-C MINCOINCIDENT =3] [-B BIAS=1861]  [-z] [-f] [-I INTERVAL=0] [-p]  [-c] [-h]\n"); 
   printf("  -N NEVENTS number of events\n"); 
   printf("  -b BUFFERS number of buffers\n"); 
   printf("  -M TRIGMASK  trigger mask used (default 0x37b000)\n"); 
@@ -46,6 +76,8 @@ int usage()
   printf("  -p PPS triggers enabled\n"); 
   printf("  -i Use internal PPS\n"); 
   printf("  -P poll amount = 0.1\n"); 
+  printf("  -u Use UART, not GPIO to check for events\n"); 
+
   printf("  -x external triggers\n"); 
   printf("  -c trigger clear mode\n"); 
   printf("  -v verbose\n"); 
@@ -94,7 +126,7 @@ int main(int nargs, char ** args)
   float trigwindow = 20; 
   float trigthresh = 0; 
   uint8_t mincoincident = 3; 
-  uint16_t bias = 1100; 
+  uint16_t bias = 1861; 
   double last_force = 0; 
   double poll_amount = 0.01; 
   int internal_pps = 0; 
@@ -134,7 +166,11 @@ int main(int nargs, char ** args)
     {
       enable_ext = 1; 
     }
-
+    else if (!strcmp(args[i],"-u"))
+    {
+      no_gpio = 1; 
+    }
+ 
     else if (!strcmp(args[i],"-S"))
     {
       do_sync = 1; 
