@@ -32,13 +32,25 @@ int main(int nargs, char ** args)
 
   if (nargs > 1) gpio = atoi(args[1]); 
 
+  
+  
+
   sprintf(edge_path,"/sys/class/gpio/gpio%d/edge",gpio); 
 
   sprintf(val_path,"/sys/class/gpio/gpio%d/value", gpio); 
 
   if (access(edge_path,F_OK))
   {
-    fprintf(stderr,"No %s\n", edge_path);
+    fprintf(stderr,"No %s, will try exporting\n", edge_path);
+    FILE * fexport = fopen("/sys/class/gpio/export","w"); 
+    fprintf(fexport,"%d\n", gpio);
+    fclose(fexport); 
+    sleep(1); 
+    if (access(edge_path,F_OK))
+    {
+      fprintf(stderr,"exporting failed!!\n");
+      return 1; 
+    }
   }
 
 
