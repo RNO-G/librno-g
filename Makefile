@@ -73,6 +73,8 @@ install-daq: install $(BUILD_DIR)/libradiant.so $(BUILD_DIR)
 	install $(BUILD_DIR)/libradiant.so $(PREFIX)/lib/
 	install $(BUILD_DIR)/libflower.so $(PREFIX)/lib/
 	install src/radiant.h src/flower.h $(PREFIX)/include/
+	mkdir -p /data/test
+	chown rno-g:rno-g /data/test 
 
 
 
