@@ -1,7 +1,10 @@
 BUILD_DIR=build
 RNO_G_INSTALL_DIR?=/rno-g/
 PREFIX?=$(RNO_G_INSTALL_DIR)
-CFLAGS=-fPIC -Og -Wall -Wextra -g -std=gnu11 -I./src 
+
+include config.mk
+
+CFLAGS=-fPIC -Og -Wall -Wextra -g -std=gnu11 -I./src -DRADIANT_SPI_SPEED=$(RADIANT_SPI_SPEED_MHZ)
 #CFLAGS+=-fanalyzer
 CXXFLAGS+=-fPIC -Og -Wall -Wextra -g
 
@@ -118,7 +121,7 @@ $(BUILD_DIR)/radiant.so:  src/radiant-pybind.cc  $(INCLUDES) $(BUILD_DIR)/librno
 
 $(BUILD_DIR)/%.o: src/%.c $(DAQ_INCLUDES) | $(BUILD_DIR)
 	@echo Compiling $@
-	@cc -c -o $@ $(CFLAGS) $< 
+	cc -c -o $@ $(CFLAGS) $< 
 
 
 $(BUILD_DIR)/test/%: test/%.c $(INCLUDES) $(DAQ_INCLUDES) $(BUILD_DIR)/librno-g.so $(BUILD_DIR)/libradiant.so $(BUILD_DIR)/libflower.so | $(BUILD_DIR)
@@ -132,4 +135,7 @@ $(BUILD_DIR)/test/%: test/%.py $(INCLUDES) $(DAQ_INCLUDES) $(BUILD_DIR)/librno-g
 cppcheck: 
 	cppcheck --enable=portability --enable=performance --enable=information  src 
 
+config.mk: 
+	@echo "Creating a default config.mk"
+	@cat config.mk.default > $@
 
