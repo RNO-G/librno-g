@@ -835,7 +835,7 @@ radiant_dev_t * radiant_open(const char *spi_device, const char * uart_device, i
 
 
   //now set up the SPI 
-  int spi_clock = 48000000; 
+  int spi_clock = RADIANT_SPI_SPEED * 1000000; 
   ioctl(spi_fd, SPI_IOC_WR_MAX_SPEED_HZ,&spi_clock); 
 
   uint8_t mode = 0; 

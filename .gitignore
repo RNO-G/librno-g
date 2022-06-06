@@ -2,4 +2,5 @@
 *.a
 *~
 src/rno-g-version.c 
+config.mk
 build/* 
