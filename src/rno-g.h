@@ -24,6 +24,9 @@ extern "C"
 //for CHAR_BIT
 #include <limits.h>   
 
+//for FILE* 
+#include <stdio.h> 
+
 #define RNO_G_MAX_RADIANT_NSAMPLES 2048
 #define RNO_G_LAB4D_NSAMPLES 4096
 #define RNO_G_PEDESTAL_NSAMPLES RNO_G_LAB4D_NSAMPLES 
@@ -37,7 +40,6 @@ extern "C"
 
 /** Forward declarations of file backends, because some may be conditionally compiled in the future */ 
 typedef struct gzFile_s * gzFile;
-typedef struct _IO_FILE FILE;
 
 /* File handles so that we can handle different compression schemes in the same way. 
  *
