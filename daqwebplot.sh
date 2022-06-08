@@ -26,6 +26,11 @@ fi
 echo "Copying data from $HOST" 
 
 OUT="${DEST}/${HOST}/${ID}" 
+
+if [ -d "${OUT}" ] ; then 
+  read -p "'$OUT' exists already, proceed? [y/N] " resp && [ "${resp}" = 'y' ] || exit 1
+fi 
+
 mkdir -p "${OUT}"
 mkdir -p "${OUT}/wfs"
 mkdir -p "${OUT}/peds"
