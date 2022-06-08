@@ -28,7 +28,7 @@ void median_subtract_blocks(int len, int16_t * data, int block_size = 128)
 }
 
  std::vector<TGraph *> pows; 
-void quick_spectra(const char * file, int mask = 16777215, int ev0 = 0, int maxEv = -1, int zero_sub = 0, int median_sub = 0,  double mindb = -10, double maxdb = 30, double freqmin = 30, double freqmax = 1000)
+void quick_spectra(const char * file, int mask = 16777215, const char * save = NULL, int ev0 = 0, int maxEv = -1, int zero_sub = 0, int median_sub = 0,  double mindb = -10, double maxdb = 30, double freqmin = 30, double freqmax = 1000)
 {
   int nplot = __builtin_popcount(mask); 
   printf("nplot=%d\n", nplot); 
@@ -158,5 +158,7 @@ void quick_spectra(const char * file, int mask = 16777215, int ev0 = 0, int maxE
      gPad->SetGridx();
      gPad->SetGridy();
   }
+
+  if (save) c->SaveAs(save); 
 
 }
