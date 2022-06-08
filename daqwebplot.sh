@@ -50,14 +50,14 @@ echo "<img src='wfs/0.png'><br>" >> ${OUT}/index.html
 echo "<hr>Spectra:<br><img src='spectra.png'><br><hr><ul>" >> ${OUT}/index.html
 echo "</ul></body></html>" >> ${OUT}/index.html
 
-LD_LIBRARY_PATH+=`pwd`/build build/test/rno-g-wf-stats "${OUT}/wfs.dat" > "${OUT}/wfstats.txt"
-LD_LIBRARY_PATH+=`pwd`/build:/usr/local/lib root -b -q test/quick_spectra.C\(\"${OUT}/wfs.dat\",16777215,\"${OUT}/spectra.png\"\) 
-LD_LIBRARY_PATH+=`pwd`/build:/usr/local/lib root -b -q test/quick_plot.C\(\"${OUT}/wfs.dat\",0,1,${MAXEV},\"${OUT}/wfs\"\) 
-LD_LIBRARY_PATH+=`pwd`/build root -b -q test/quick_peds.C\(\"${OUT}/peds.dat\",\"${OUT}/peds\"\) 
-LD_LIBRARY_PATH+=`pwd`/build build/test/rno-g-dump-hdr "${OUT}/header.dat" > "${OUT}/headers.txt"
-LD_LIBRARY_PATH+=`pwd`/build build/test/rno-g-dump-ped "${OUT}/peds.dat" > "${OUT}/peds.csv"
-LD_LIBRARY_PATH+=`pwd`/build build/test/rno-g-dump-wf "${OUT}/wfs.dat" > "${OUT}/wfs.csv"
-LD_LIBRARY_PATH+=`pwd`/build build/test/rno-g-dump-ds "${OUT}/daqstatus.dat" > "${OUT}/ds.txt"
+LD_LIBRARY_PATH+=:`pwd`/build build/test/rno-g-wf-stats "${OUT}/wfs.dat" > "${OUT}/wfstats.txt"
+LD_LIBRARY_PATH+=:`pwd`/build:/usr/local/lib root -b -q test/quick_spectra.C\(\"${OUT}/wfs.dat\",16777215,\"${OUT}/spectra.png\"\) 
+LD_LIBRARY_PATH+=:`pwd`/build:/usr/local/lib root -b -q test/quick_plot.C\(\"${OUT}/wfs.dat\",0,1,${MAXEV},\"${OUT}/wfs\"\) 
+LD_LIBRARY_PATH+=:`pwd`/build root -b -q test/quick_peds.C\(\"${OUT}/peds.dat\",\"${OUT}/peds\"\) 
+LD_LIBRARY_PATH+=:`pwd`/build build/test/rno-g-dump-hdr "${OUT}/header.dat" > "${OUT}/headers.txt"
+LD_LIBRARY_PATH+=:`pwd`/build build/test/rno-g-dump-ped "${OUT}/peds.dat" > "${OUT}/peds.csv"
+LD_LIBRARY_PATH+=:`pwd`/build build/test/rno-g-dump-wf "${OUT}/wfs.dat" > "${OUT}/wfs.csv"
+LD_LIBRARY_PATH+=:`pwd`/build build/test/rno-g-dump-ds "${OUT}/daqstatus.dat" > "${OUT}/ds.txt"
 gzip -f -k ${OUT}/wfs.csv
 gzip -f -k ${OUT}/peds.csv
 
