@@ -2,7 +2,7 @@
 
 if [ $# -lt 1 ] 
 then 
- echo usage: ./test/daqwebplot.sh host id=`date -Is` dest=~/public_html/daqwebplot maxev=100
+ echo usage: ./daqwebplot.sh host id=`date -Is` dest=~/public_html/daqwebplot maxev=100
  exit 1
 fi 
 
@@ -17,7 +17,7 @@ MAXEV=${4-100}
 
 if [ "$(basename $(pwd))" != "librno-g" ] 
 then 
-  echo "Run this script from librno-g (i.e. as ./test/daqwebplot.sh" 
+  echo "Run this script from librno-g (i.e. as ./daqwebplot.sh" 
   echo "Or, even better, fix it so it can run from other places :" 
   exit 1
 fi 
