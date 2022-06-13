@@ -14,7 +14,7 @@ then
   args="-f" 
 fi 
 
-ssh rno-g@${host} "LD_LIBRARY_PATH+=/home/rno-g/librno-g/build /home/rno-g/librno-g/build/radiant-try-event ${args}" 
+ssh rno-g@${host} "LD_LIBRARY_PATH+=/home/rno-g/librno-g/build /home/rno-g/librno-g/build/test/radiant-try-event ${args}" 
 
 
 
