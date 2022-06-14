@@ -19,14 +19,14 @@ endif
 LDFLAGS=-shared 
 LIBS=-lz -pthread
 INCLUDES=src/rno-g.h
-DAQ_INCLUDES=src/radiant.h src/cobs.h src/adf4350.h src/flower.h 
+DAQ_INCLUDES=src/radiant.h src/cobs.h src/adf4350.h src/flower.h src/rno-g-cal.h 
 PYBIND_INCLUDES=$(shell python3 -m pybind11 --includes) 
 
 .PHONY: client daq clean install install-daq client-py daq-py install-py install-daq-py cppcheck
 
 client:  $(BUILD_DIR)/librno-g.so  
 
-daq: client $(BUILD_DIR)/libradiant.so  $(BUILD_DIR)/libflower.so 
+daq: client $(BUILD_DIR)/libradiant.so  $(BUILD_DIR)/libflower.so $(BUILD_DIR)/librno-g-cal.so 
 
 client-py: client $(BUILD_DIR)/rno_g.so 
 daq-py: daq client-py $(BUILD_DIR)/radiant.so 
@@ -77,7 +77,7 @@ install: client
 
 install-py: install
 
-install-daq: install $(BUILD_DIR)/libradiant.so $(BUILD_DIR)
+install-daq: install $(BUILD_DIR)/libradiant.so $(BUILD_DIR)/libflower.so $(BUILD_DIR)/librno-g-cal.so  
 	install $(BUILD_DIR)/libradiant.so $(PREFIX)/lib/
 	install $(BUILD_DIR)/libflower.so $(PREFIX)/lib/
 	install src/radiant.h src/flower.h $(PREFIX)/include/
@@ -106,6 +106,11 @@ $(BUILD_DIR)/libradiant.so: $(addprefix $(BUILD_DIR)/, $(RAD_OBJS))
 	@echo Linking $@
 	@cc -o $@ $(LDFLAGS) $^  $(LIBS) 
 
+CAL_OBJS=rno-g-cal.o 
+$(BUILD_DIR)/librno-g-cal.so: $(addprefix $(BUILD_DIR)/, $(CAL_OBJS))
+	@echo Linking $@
+	@cc -o $@ $(LDFLAGS) $^  $(LIBS) 
+
 FLWR_OBJS=flower.o 
 $(BUILD_DIR)/libflower.so: $(addprefix $(BUILD_DIR)/, $(FLWR_OBJS))
 	@echo Linking $@
@@ -129,9 +134,9 @@ $(BUILD_DIR)/%.o: src/%.c $(DAQ_INCLUDES) | $(BUILD_DIR)
 	cc -c -o $@ $(CFLAGS) $< 
 
 
-$(BUILD_DIR)/test/%: test/%.c $(INCLUDES) $(DAQ_INCLUDES) $(BUILD_DIR)/librno-g.so $(BUILD_DIR)/libradiant.so $(BUILD_DIR)/libflower.so | $(BUILD_DIR)
+$(BUILD_DIR)/test/%: test/%.c $(INCLUDES) $(DAQ_INCLUDES) $(BUILD_DIR)/librno-g.so $(BUILD_DIR)/libradiant.so $(BUILD_DIR)/libflower.so $(BUILD_DIR)/librno-g-cal.so | $(BUILD_DIR)
 	@echo Compiling $@
-	@cc  -o $@ $(CFLAGS) -Isrc/ -L$(BUILD_DIR) -lradiant -lrno-g -lflower -lz -lm $< 
+	@cc  -o $@ $(CFLAGS) -Isrc/ -L$(BUILD_DIR) -lradiant -lrno-g -lflower -lrno-g-cal -lz -lm $< 
 
 $(BUILD_DIR)/test/%: test/%.py $(INCLUDES) $(DAQ_INCLUDES) $(BUILD_DIR)/librno-g.so  $(BUILD_DIR)/_rno_g.so $(BUILD_DIR)/libradiant.so | $(BUILD_DIR)
 	ln  $@ $<
