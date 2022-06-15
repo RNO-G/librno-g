@@ -19,6 +19,7 @@ struct rno_g_cal_dev
   int fd; 
   int bus; 
   char rev; 
+  int debug; 
   uint8_t addr; 
   rno_g_cal_channel_t ch; 
   FILE * fgpiodir;
@@ -145,6 +146,11 @@ static int do_write(rno_g_cal_dev_t * dev, uint8_t addr, uint8_t reg, uint8_t va
     .buf = buf 
   }; 
 
+  if (dev->debug) 
+  {
+    printf("DBG: do_write(.addr=0x%02x, .flags=0x%02x, .len=%02x, .buf={0x%02x,0x%02x}\n", msg.addr, msg.flags, msg.len, msg.buf[0], msg.buf[1]); 
+  }
+
   struct i2c_rdwr_ioctl_data i2c_data = {.msgs = &msg, .nmsgs = 1 }; 
 
   if (ioctl(dev->fd, I2C_RDWR, &i2c_data) < 0 )
@@ -163,12 +169,24 @@ static int do_readv(rno_g_cal_dev_t * dev, uint8_t addr, uint8_t reg, int N, uin
     {.addr = addr, .flags = 0, .len = sizeof(reg), .buf = &reg},
     {.addr = addr, .flags = I2C_M_RD, .len = N, .buf = data} }; 
 
+  if (dev->debug) 
+  {
+    printf("DBG: do_readv(.addr=0x%02x, .reg=0x%02x, .len=%d)\n", addr, reg, N); 
+
+  }
   struct i2c_rdwr_ioctl_data i2c_data = {.msgs = txn, .nmsgs = 2 }; 
 
   if (ioctl(dev->fd, I2C_RDWR, &i2c_data) < 0 )
   {
     return -errno; 
   }
+
+  printf("  read: "); 
+  for (int i = 0; i < N; i++) 
+  {
+    printf ("0x%02x ", data[i]); 
+  }
+  printf("\n"); 
 
   return 0; 
 }
@@ -337,6 +355,12 @@ int rno_g_cal_read_temp(rno_g_cal_dev_t *dev, float *Tout)
     *Tout = T; 
 
   return 0; 
+
+}
+
+void rno_g_cal_enable_dbg(rno_g_cal_dev_t * dev, int dbg) 
+{
+  dev->debug = dbg; 
 
 }
 

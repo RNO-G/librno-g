@@ -42,6 +42,7 @@ int rno_g_cal_set_pulse(rno_g_cal_dev_t *dev);
 int rno_g_cal_set_vco(rno_g_cal_dev_t *dev); 
 
 
+void rno_g_cal_enable_dbg(rno_g_cal_dev_t * dev, int dbg); 
 
 #ifdef __cplusplus
 }

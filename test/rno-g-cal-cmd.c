@@ -40,6 +40,7 @@ int main (int nargs, char ** args)
 
 
   uint8_t bus = 2; 
+  int dbg = 0; 
   uint16_t gpio = 49; 
   char rev='D'; 
   
@@ -54,11 +55,17 @@ int main (int nargs, char ** args)
     {
       bus = atoi(args[++iarg]);
     }
-    if (!strcmp(args[iarg],"--gpio"))
+
+    else if (!strcmp(args[iarg],"--debug"))
+    {
+      dbg =1; 
+    }
+ 
+    else if (!strcmp(args[iarg],"--gpio"))
     {
       gpio = atoi(args[++iarg]);
     }
-    if (!strcmp(args[iarg],"--rev"))
+    else if (!strcmp(args[iarg],"--rev"))
     {
       rev = args[++iarg][0];
     }
@@ -84,6 +91,7 @@ int main (int nargs, char ** args)
 
   rno_g_cal_dev_t * dev = rno_g_cal_open(bus,gpio, rev); 
 
+  rno_g_cal_enable_dbg(dev,dbg); 
 
   for (int i = 0; i < ncmds; i++) 
   {
