@@ -330,11 +330,11 @@ int rno_g_cal_set_atten(rno_g_cal_dev_t *dev, uint8_t atten)
 
   //bit reverse 
   uint8_t reversed = (atten & 1) << 5 ; 
-  reversed |=  (atten & 2) << 4; 
-  reversed |=  (atten & 4) << 3; 
-  reversed |=  (atten & 8) << 2; 
-  reversed |=  (atten & 16) << 1; 
-  reversed |=  (atten & 32); 
+  reversed |=  ((atten & 2) >> 1 ) << 4; 
+  reversed |=  ((atten & 4) >> 2)  << 3; 
+  reversed |=  ((atten & 8) >> 3)  << 2; 
+  reversed |=  ((atten & 16) >> 4)  << 1; 
+  reversed |=  (atten & 32) >> 5; 
   if (dev->debug) printf("reversed: 0x%02x\n", reversed); 
 
   val |= (reversed << 2); 
