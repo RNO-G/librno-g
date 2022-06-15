@@ -326,12 +326,12 @@ int rno_g_cal_set_atten(rno_g_cal_dev_t *dev, uint8_t atten)
   atten = 63-atten; 
 
   //bit reverse 
-  uint8_t reversed = (atten & 1) << 6 ; 
-  reversed |=  (atten & 2) << 5; 
-  reversed |=  (atten & 4) << 4; 
-  reversed |=  (atten & 8) << 3; 
-  reversed |=  (atten & 16) << 2; 
-  reversed |=  (atten & 32) << 1; 
+  uint8_t reversed = (atten & 1) << 5 ; 
+  reversed |=  (atten & 2) << 4; 
+  reversed |=  (atten & 4) << 3; 
+  reversed |=  (atten & 8) << 2; 
+  reversed |=  (atten & 16) << 1; 
+  reversed |=  (atten & 32) << 0; 
 
   val = (reversed <<2)  | ( val & 0x02); 
 
