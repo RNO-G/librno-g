@@ -237,6 +237,32 @@ typedef struct rno_g_radiant_voltages
 } rno_g_radiant_voltages_t; 
 
 
+typedef enum 
+{
+  RNO_G_CAL_OFF, 
+  RNO_G_CAL_COAX, 
+  RNO_G_CAL_FIB0, 
+  RNO_G_CAL_FIB1 
+} rno_g_calpulser_out_t; 
+
+typedef enum 
+{
+  RNO_G_CAL_PULSER, 
+  RNO_G_CAL_VCO 
+} rno_g_calpulser_mode_t; 
+
+typedef struct rno_g_calpulser_info
+{
+  int16_t T_times_16 : 12;  // Temperature of calboard, times 16 
+  rno_g_calpulser_mode_t mode : 1;  //calpulser mode 
+  uint8_t enabled : 1; // was calpulser enabled? 
+
+  uint8_t atten_times_2 : 6;  // attenuation of calpulser, times 2 
+  rno_g_calpulser_out_t out: 2; //which output did we use? 
+
+  char rev; //Rev of controller board (if 0, this means that we didn't fill this in) 
+} rno_g_calpulser_info_t; 
+
 typedef struct rno_g_daqstatus 
 {
   double when_radiant; 
@@ -249,6 +275,7 @@ typedef struct rno_g_daqstatus
   uint8_t  lt_servo_thresholds[RNO_G_NUM_LT_CHANNELS]; 
   rno_g_lt_scalers_t lt_scalers; 
   rno_g_radiant_voltages_t radiant_voltages; 
+  rno_g_calpulser_info_t cal; 
   uint8_t station;
 } rno_g_daqstatus_t; 
 
