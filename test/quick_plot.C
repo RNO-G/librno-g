@@ -1,7 +1,6 @@
-
+R__LOAD_LIBRARY(libRootFftwWrapper.so) 
 R__LOAD_LIBRARY(librno-g.so) 
 R__LOAD_LIBRARY(libz.so) 
-R__LOAD_LIBRARY(libRootFftwWrapper.so) 
 #include <zlib.h> 
 #include "../src/rno-g.h" 
 #include "FFTtools.h" 
@@ -10,6 +9,8 @@ TCanvas * c = 0;
 std::vector<TGraph*> gs; 
 std::vector<TGraph*> envs; 
 
+
+bool enable_hilbert = false; 
 
 
 void median_subtract_blocks(int len, int16_t * data, int block_size = 128) 
@@ -33,7 +34,7 @@ void median_subtract_blocks(int len, int16_t * data, int block_size = 128)
 }
 
 
-void quick_plot(const char * file, int ev = 0, int symmetric=1, int Nev = 1, int save = false, int resfactor=1,int mask=16777215, int min_rms_sample = 0, int max_rms_sample = 400, int zero_sub=0, int median_sub = 0)
+void quick_plot(const char * file, int ev = 0, int symmetric=1, int Nev = 1, const char *save = NULL, int resfactor=1,int mask=16777215, int min_rms_sample = 0, int max_rms_sample = 400, int zero_sub=0, int median_sub = 0)
 {
 
   FFTtools::ButterworthFilter but(FFTtools::LOWPASS, 2, 0.6/1.6); 
@@ -59,7 +60,8 @@ void quick_plot(const char * file, int ev = 0, int symmetric=1, int Nev = 1, int
   for (int iev = 0; iev < Nev; iev++) 
   {
 
-    rno_g_waveform_read(h, &wf); 
+    if (rno_g_waveform_read(h, &wf)<=0)
+      break; 
 
     if (c) 
     {
@@ -153,9 +155,13 @@ void quick_plot(const char * file, int ev = 0, int symmetric=1, int Nev = 1, int
       }
 
 //      TGraph * filtered = new TGraph(g->GetN(), g->GetX(), g->GetY()); 
-      TGraph * env = FFTtools::getHilbertEnvelope(g); 
-      but.filterGraph(env); 
-      envs.push_back(env); 
+     if (enable_hilbert)
+     {
+       TGraph * env = FFTtools::getHilbertEnvelope(g); 
+       but.filterGraph(env); 
+       envs.push_back(env); 
+     }
+
       gs.push_back(g); 
     }
 
@@ -188,13 +194,16 @@ void quick_plot(const char * file, int ev = 0, int symmetric=1, int Nev = 1, int
       TText * t = new TText(3.8*g->GetN()/5.,1.01*umax, Form("RMS=%g", TMath::RMS(max_samp-min_samp, g->GetY()+min_samp))); 
       t->SetTextSize(0.07); 
       g->Draw("alp"); 
-      TGraph * env = envs[icd-1]; 
-      env->SetLineColor(3); 
-      env->SetLineStyle(3); 
-      env->Draw("lsame"); 
+      if (enable_hilbert)
+      {
+        TGraph * env = envs[icd-1]; 
+        env->SetLineColor(3); 
+        env->SetLineStyle(3); 
+        env->Draw("lsame"); 
+      }
       t->Draw(); 
     }
 
-    if (save) c->SaveAs(Form("out/c%d.png", ev+iev)); 
+    if (save) c->SaveAs(Form("%s/%d.png",save, ev+iev)); 
   }
 }
