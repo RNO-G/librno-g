@@ -321,9 +321,12 @@ int rno_g_cal_set_atten(rno_g_cal_dev_t *dev, uint8_t atten)
   {
     return -errno; 
   }
+  val &=0x02; 
 
   if (atten > 63) atten = 63; 
   atten = 63-atten; 
+
+  if (dev->debug) printf("atten (inv): 0x%02x\n", atten); 
 
   //bit reverse 
   uint8_t reversed = (atten & 1) << 5 ; 
@@ -331,9 +334,10 @@ int rno_g_cal_set_atten(rno_g_cal_dev_t *dev, uint8_t atten)
   reversed |=  (atten & 4) << 3; 
   reversed |=  (atten & 8) << 2; 
   reversed |=  (atten & 16) << 1; 
-  reversed |=  (atten & 32) << 0; 
+  reversed |=  (atten & 32); 
+  if (dev->debug) printf("reversed: 0x%02x\n", reversed); 
 
-  val = (reversed <<2)  | ( val & 0x02); 
+  val |= (reversed << 2); 
 
   if (do_write(dev, addr0, output_reg, val)) return -errno; 
   if (do_write(dev, addr0, output_reg, val | 0x1)) return -errno; //load enable
