@@ -181,12 +181,15 @@ static int do_readv(rno_g_cal_dev_t * dev, uint8_t addr, uint8_t reg, int N, uin
     return -errno; 
   }
 
-  printf("  read: "); 
-  for (int i = 0; i < N; i++) 
+  if (dev->debug) 
   {
-    printf ("0x%02x ", data[i]); 
+    printf("  read: "); 
+    for (int i = 0; i < N; i++) 
+    {
+      printf ("0x%02x ", data[i]); 
+    }
+    printf("\n"); 
   }
-  printf("\n"); 
 
   return 0; 
 }
