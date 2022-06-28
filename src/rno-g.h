@@ -227,13 +227,14 @@ typedef struct rno_g_lt_scalers
 } rno_g_lt_scalers_t; 
 
 
+// these are all 16-bit relative to 3.3 V rail
 typedef struct rno_g_radiant_voltages
 {
-  float V_1_0; 
-  float V_1_8; 
-  float V_2_5; 
-  float V_LeftMon; 
-  float V_RightMon; 
+  uint16_t V_1_0; 
+  uint16_t V_1_8; 
+  uint16_t V_2_5; 
+  uint16_t V_LeftMon; 
+  uint16_t V_RightMon; 
 } rno_g_radiant_voltages_t; 
 
 

@@ -1170,7 +1170,7 @@ int radiant_dump(radiant_dev_t *dev, FILE * stream, int flags)
   rno_g_radiant_voltages_t voltages; 
   radiant_bm_analog_read_all(dev, &voltages);
   fprintf(stream, "    ANALOG: V1.0: %f, V1.8: %f, V2.5: %f, LEFTMON: %f, RIGHTMON: %f\n", 
-      voltages.V_1_0,voltages.V_1_8,voltages.V_2_5,voltages.V_LeftMon,voltages.V_RightMon); 
+      voltages.V_1_0*3.3/65535,voltages.V_1_8*3.3/65535,voltages.V_2_5*3.3/655355,voltages.V_LeftMon*3.3/65535,voltages.V_RightMon*3.3/65535); 
   uint8_t pulse_cfg[4]; 
   radiant_get_mem(dev, DEST_FPGA, RAD_REG_TRIG_PULSECTRL, 4, pulse_cfg); 
   int pulse_period = pulse_cfg[0] |  (pulse_cfg[1] << 8) | (pulse_cfg[2] << 16) | (( pulse_cfg[3] & 0x3f) << 24);
@@ -1559,7 +1559,7 @@ int radiant_bm_get_ctrl(radiant_dev_t * bd, uint8_t * ctrl)
   return -1; 
 }
 
-int radiant_bm_analog_read(radiant_dev_t * bd, radiant_bm_analog_rd_t what, float *v) 
+int radiant_bm_analog_read(radiant_dev_t * bd, radiant_bm_analog_rd_t what, float *v, uint16_t *raw) 
 {
   if (!bd || !v) return -1; 
   uint32_t addr; 
@@ -1583,7 +1583,10 @@ int radiant_bm_analog_read(radiant_dev_t * bd, radiant_bm_analog_rd_t what, floa
   int ret = radiant_get_mem(bd, DEST_MANAGER, addr, sizeof(val), (uint8_t*) &val); 
   if (ret == 4) 
   {
-    *v = 3.3 *val/65536.; 
+    if (v) 
+      *v = 3.3 *val/65535.; 
+    if (raw) 
+      *raw = val; 
     return 0;
   }
 
@@ -1592,11 +1595,11 @@ int radiant_bm_analog_read(radiant_dev_t * bd, radiant_bm_analog_rd_t what, floa
 
 int radiant_bm_analog_read_all(radiant_dev_t * dev, rno_g_radiant_voltages_t *v)
 {
-  radiant_bm_analog_read(dev, RADIANT_BM_ANALOG_V10, &v->V_1_0);
-  radiant_bm_analog_read(dev, RADIANT_BM_ANALOG_V18, &v->V_1_8);
-  radiant_bm_analog_read(dev, RADIANT_BM_ANALOG_V25, &v->V_2_5);
-  radiant_bm_analog_read(dev, RADIANT_BM_ANALOG_LEFTMON, &v->V_LeftMon);
-  radiant_bm_analog_read(dev, RADIANT_BM_ANALOG_RIGHTMON, &v->V_RightMon);
+  radiant_bm_analog_read(dev, RADIANT_BM_ANALOG_V10, 0, &v->V_1_0);
+  radiant_bm_analog_read(dev, RADIANT_BM_ANALOG_V18, 0, &v->V_1_8);
+  radiant_bm_analog_read(dev, RADIANT_BM_ANALOG_V25, 0, &v->V_2_5);
+  radiant_bm_analog_read(dev, RADIANT_BM_ANALOG_LEFTMON, 0, &v->V_LeftMon);
+  radiant_bm_analog_read(dev, RADIANT_BM_ANALOG_RIGHTMON, 0, &v->V_RightMon);
   return 0; 
 }
 

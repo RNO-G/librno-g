@@ -519,6 +519,13 @@ int rno_g_daqstatus_dump_radiant(FILE*f, const rno_g_daqstatus_t *ds)
   ret += fprintf(f,", recorded at %04d-%02d-%02d %02d:%02d:%02d.%09dZ\n", 
                  when_tm_radiant.tm_year + 1900, 1+when_tm_radiant.tm_mon, when_tm_radiant.tm_mday, when_tm_radiant.tm_hour, 
                  when_tm_radiant.tm_min, when_tm_radiant.tm_sec,  radiant_ns); 
+  ret+=fprintf(f,"Voltages: V1: %f, V1.8: %f, V2.5: %f, VLeftMon: %f, VRightMon: %f\n", 
+      3.3*ds->radiant_voltages.V_1_0/65535, 
+      3.3*ds->radiant_voltages.V_1_8/65535, 
+      3.3*ds->radiant_voltages.V_2_5/65535, 
+      3.3*ds->radiant_voltages.V_LeftMon/65535, 
+      3.3*ds->radiant_voltages.V_RightMon/65535); 
+
   ret+=fprintf(f,  "==CH==THRESH(V)==SCALER==PRESCALER\n"); 
 
   for (int i = 0; i < RNO_G_NUM_RADIANT_CHANNELS; i++) 
