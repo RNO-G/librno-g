@@ -63,7 +63,7 @@ double get_now()
 int usage() 
 {
   printf("radiant-try-event [-N NEVENTS=100] [-b buffers=2] [-M TRIGMASK=0x37b000] [-W TRIGWINDOW=20] [-T THRESH=0.2] [-C MINCOINCIDENT =3] [-B BIAS=1861]  [-z] [-f] [-I INTERVAL=0] [-p]  [-c] [-h]\n"); 
-  printf("  -N NEVENTS number of events\n"); 
+  printf("  -N NEVENTS number of events (0 for infinite) \n"); 
   printf("  -b BUFFERS number of buffers\n"); 
   printf("  -M TRIGMASK  trigger mask used (default 0x37b000)\n"); 
   printf("  -W TRIGWINDOW  ns for trig window\n") ;
@@ -357,8 +357,10 @@ int main(int nargs, char ** args)
   clock_gettime(CLOCK_REALTIME,&start);
 
   int i = 0;
-  for (i = 0; i < N; i++) 
+  while (1) 
   {
+    if ( N > 0 && i >= N ) break; 
+    
     if (quit) break;
     printf("====%d=====\n",i); 
 
@@ -402,6 +404,7 @@ int main(int nargs, char ** args)
     rno_g_header_dump(stdout, &hd);
     rno_g_header_write(hh, &hd); 
     rno_g_waveform_write(eh, &wf); 
+    i++; 
   }
 
   clock_gettime(CLOCK_REALTIME,&stop);
