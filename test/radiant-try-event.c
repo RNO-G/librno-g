@@ -7,7 +7,9 @@
 #include <time.h> 
 #include <signal.h> 
 
+#include <sys/stat.h> 
 
+static char strbuf[1024]; 
 static int no_gpio = 0; 
 static int instrumented_poll(radiant_dev_t * rad, int timeout, int verbose) 
 {
@@ -62,7 +64,7 @@ double get_now()
 
 int usage() 
 {
-  printf("radiant-try-event [-N NEVENTS=100] [-b buffers=2] [-M TRIGMASK=0x37b000] [-W TRIGWINDOW=20] [-T THRESH=0.2] [-C MINCOINCIDENT =3] [-B BIAS=1861]  [-z] [-f] [-I INTERVAL=0] [-p]  [-c] [-h]\n"); 
+  printf("radiant-try-event [-N NEVENTS=100] [-b buffers=2] [-M TRIGMASK=0x37b000] [-W TRIGWINDOW=20] [-T THRESH=0.2] [-C MINCOINCIDENT =3] [-B BIAS=1861]  [-z] [-f] [-I INTERVAL=0] [-p] [-L LABEL]  [-c] [-h]\n"); 
   printf("  -N NEVENTS number of events (0 for infinite) \n"); 
   printf("  -b BUFFERS number of buffers\n"); 
   printf("  -M TRIGMASK  trigger mask used (default 0x37b000)\n"); 
@@ -77,10 +79,10 @@ int usage()
   printf("  -i Use internal PPS\n"); 
   printf("  -P poll amount = 0.1\n"); 
   printf("  -u Use UART, not GPIO to check for events\n"); 
-
   printf("  -x external triggers\n"); 
   printf("  -c trigger clear mode\n"); 
   printf("  -v verbose\n"); 
+  printf("  -L label the data, will be written to /data/test/LABEL and will exit with failure if /data/test/LABEL already exists\n"); 
   printf("  -h this message\n"); 
   exit(1); 
 
@@ -113,6 +115,7 @@ int maybe_dump_daqstatus(radiant_dev_t * rad, rno_g_file_handle_t h,  rno_g_daqs
 int main(int nargs, char ** args) 
 {
   int N = 100; 
+  char * label = NULL; 
   int nbuffers = 2; 
   int gzipped = 0;
   int verbose = 0; 
@@ -216,6 +219,12 @@ int main(int nargs, char ** args)
       {
         poll_amount = atoi(args[++i]); 
       }
+      else if (!strcmp(args[i],"-L"))
+      {
+        label = args[++i]; 
+
+      }
+            
  
       else usage(); 
     }
@@ -228,6 +237,23 @@ int main(int nargs, char ** args)
 
   radiant_dev_t * rad = radiant_open("/dev/spi/0.0", "/dev/ttyRadiant", 46, -61);
   if (!rad) return 1; 
+
+   //check if label already exists 
+   if (label) 
+   {
+     snprintf(strbuf,sizeof(strbuf),"/data/test/%s", label); 
+     if (access(strbuf, F_OK) == 0)
+     {
+       fprintf(stderr, "Label specified but %s already exists\n", strbuf); 
+       radiant_close(rad); 
+       return 1; 
+     }
+     else
+     {
+       mkdir(strbuf,0755); 
+     }
+   }
+
 
 
   if (do_sync) radiant_sync(rad); 
@@ -242,7 +268,10 @@ int main(int nargs, char ** args)
 
 
   rno_g_file_handle_t ph; 
-  rno_g_init_handle(&ph, gzipped ? "/data/test/peds.dat.gz" : "/data/test/peds.dat", "w"); 
+
+  snprintf(strbuf,sizeof(strbuf), "/data/test/%s/peds.dat%s", label ?: "", gzipped ? ".gz" : ""); 
+  rno_g_init_handle(&ph, strbuf, "w"); 
+ 
 
 
   int sig_is_enabled = 0; 
@@ -344,9 +373,12 @@ int main(int nargs, char ** args)
   rno_g_file_handle_t eh;
   rno_g_file_handle_t dsh;
 
-  rno_g_init_handle(&hh, gzipped ? "/data/test/header.dat.gz" : "/data/test/header.dat", "w");
-  rno_g_init_handle(&eh, gzipped ? "/data/test/wfs.dat.gz" : "/data/test/wfs.dat", "w");
-  rno_g_init_handle(&dsh, gzipped ? "/data/test/daqstatus.dat.gz" : "/data/test/daqstatus.dat", "w");
+  snprintf(strbuf, sizeof(strbuf), "/data/test/%s/header.dat%s", label ?: "", gzipped ? ".gz" : ""); 
+  rno_g_init_handle(&hh, strbuf, "w");
+  snprintf(strbuf, sizeof(strbuf), "/data/test/%s/wfs.dat%s", label ?: "", gzipped ? ".gz" : ""); 
+  rno_g_init_handle(&eh, strbuf, "w");
+  snprintf(strbuf, sizeof(strbuf), "/data/test/%s/daqstatus.dat%s", label ?: "", gzipped ? ".gz" : ""); 
+  rno_g_init_handle(&dsh, strbuf, "w");
 
 
   signal(SIGINT, sighandler); 
