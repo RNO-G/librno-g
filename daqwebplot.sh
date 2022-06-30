@@ -2,7 +2,7 @@
 
 if [ $# -lt 1 ] 
 then 
- echo usage: ./daqwebplot.sh host id=`date -Is` dest=~/public_html/daqwebplot maxev=100 user=rno-g
+ echo usage: ./daqwebplot.sh host id=`date -Is` label=\"\" dest=~/public_html/daqwebplot maxev=100 user=rno-g
  exit 1
 fi 
 
@@ -11,9 +11,10 @@ fi
 
 HOST=$1 
 ID=${2-`date -Is`} 
-DEST=${3-${HOME}/public_html/daqwebplot} 
-MAXEV=${4-100} 
-USER=${5-rno-g} 
+LABEL=${3-""} 
+DEST=${4-${HOME}/public_html/daqwebplot} 
+MAXEV=${5-100} 
+USER=${6-rno-g} 
 
 
 if [ "$(basename $(pwd))" != "librno-g" ] 
@@ -36,7 +37,7 @@ mkdir -p "${OUT}"
 mkdir -p "${OUT}/wfs"
 mkdir -p "${OUT}/peds"
 
-rsync --compress -a -P ${USER}@${HOST}:/data/test/\{wfs.dat,header.dat,daqstatus.dat,peds.dat\} "$OUT"
+rsync --compress -a -P ${USER}@${HOST}:/data/test/${LABEL}/\{wfs.dat,header.dat,daqstatus.dat,peds.dat\} "$OUT"
 
 make -s build/test/rno-g-dump-hdr build/test/rno-g-dump-ped build/test/rno-g-dump-wf build/test/rno-g-dump-ds build/test/rno-g-wf-stats
 
