@@ -319,7 +319,7 @@ int rno_g_init_handle(rno_g_file_handle_t * h, const char * name, const char * m
   char * dot = strrchr(name,'.'); 
   h->handle.raw = NULL;
 
-  if (!strcasecmp(dot, ".gz"))
+  if (dot && !strcasecmp(dot, ".gz"))
   {
     h->type = RNO_G_GZIP; 
     h->handle.gz = gzopen(name,mode); 
