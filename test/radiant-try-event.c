@@ -58,13 +58,13 @@ static int instrumented_poll(radiant_dev_t * rad, int timeout, int verbose)
 double get_now() 
 {
   struct timespec spec; 
-  clock_gettime(CLOCK_REALTIME, &spec); 
+  clock_gettime(CLOCK_MONOTONIC, &spec); 
   return spec.tv_sec + 1e-9 * spec.tv_nsec; 
 }
 
 int usage() 
 {
-  printf("radiant-try-event [-N NEVENTS=100] [-b buffers=2] [-M TRIGMASK=0x37b000] [-W TRIGWINDOW=20] [-T THRESH=0.2] [-C MINCOINCIDENT =3] [-B BIAS=1861]  [-z] [-f] [-I INTERVAL=0] [-p] [-L LABEL]  [-c] [-h]\n"); 
+  printf("radiant-try-event [-N NEVENTS=100] [-b buffers=2] [-M TRIGMASK=0x37b000] [-W TRIGWINDOW=20] [-T THRESH=0.2] [-C MINCOINCIDENT =3] [-B BIAS=1861]  [-z] [-f] [-I INTERVAL=0] [-p] [-L LABEL] [-w WATCHDOG=0] [-d DURATION=0] [-c] [-h]\n"); 
   printf("  -N NEVENTS number of events (0 for infinite) \n"); 
   printf("  -b BUFFERS number of buffers\n"); 
   printf("  -M TRIGMASK  trigger mask used (default 0x37b000)\n"); 
@@ -83,6 +83,8 @@ int usage()
   printf("  -c trigger clear mode\n"); 
   printf("  -v verbose\n"); 
   printf("  -L label the data, will be written to /data/test/LABEL and will exit with failure if /data/test/LABEL already exists\n"); 
+  printf("  -w watchdog: The longest to wait to get a trigger before quitting, in seconds (0, default, to disable)\n"); 
+  printf("  -d Maximum duration (in seconds) to run for (0, default for no limit)\n"); 
   printf("  -h this message\n"); 
   exit(1); 
 
@@ -133,6 +135,8 @@ int main(int nargs, char ** args)
   double last_force = 0; 
   double poll_amount = 0.01; 
   int internal_pps = 0; 
+  int watchdog = 0; 
+  int duration = 0; 
 
   for (int i = 1; i < nargs; i++) 
   {
@@ -222,9 +226,15 @@ int main(int nargs, char ** args)
       else if (!strcmp(args[i],"-L"))
       {
         label = args[++i]; 
-
       }
-            
+      else if (!strcmp(args[i],"-w"))
+      {
+        watchdog = atoi(args[++i]); 
+      }
+      else if (!strcmp(args[i],"-d"))
+      {
+        duration = atoi(args[++i]); 
+      }
  
       else usage(); 
     }
@@ -386,7 +396,7 @@ int main(int nargs, char ** args)
   struct timespec stop;
 
   radiant_trigger_enable(rad,enables,0);
-  clock_gettime(CLOCK_REALTIME,&start);
+  clock_gettime(CLOCK_MONOTONIC,&start);
 
   int i = 0;
   while (1) 
@@ -402,32 +412,65 @@ int main(int nargs, char ** args)
         radiant_dump(rad,stdout,0); 
     }
 
-    while(!instrumented_poll(rad, clearmode ? 0 :  poll_amount*1000, verbose) && !quit) 
+    double start_wait = get_now(); ; 
+    int failed_watchdog = 0;
+    int failed_duration= 0; 
+    while(!instrumented_poll(rad, clearmode ? 0 :  poll_amount*1000, verbose) && !quit )
     {
       if (maybe_dump_daqstatus(rad,dsh,&ds))
       {
         radiant_dump(rad,stdout,0); 
       }
-      int bsy,clear_pending;; 
-      radiant_trigger_busy(rad, &bsy, &clear_pending); 
-      if (verbose) printf("OVERLORDSTAT is: bsy: %d, clear_pending: %d\n",  bsy, clear_pending); 
-      if (clearmode) 
+
+      if (clearmode || verbose) 
       {
-        if (clear_pending) radiant_cpu_clear(rad); 
-        else  usleep(1e6*poll_amount); //make up for the short poll 
+        int bsy,clear_pending;; 
+        radiant_trigger_busy(rad, &bsy, &clear_pending); 
+        if (verbose) printf("OVERLORDSTAT is: bsy: %d, clear_pending: %d\n",  bsy, clear_pending); 
+        if (clearmode) 
+        {
+          if (clear_pending) radiant_cpu_clear(rad); 
+          else  usleep(1e6*poll_amount); //make up for the short poll 
+        }
       }
 
-      if (force) 
+      if (force || watchdog > 0 || duration > 0) 
       {
         double now = get_now(); 
-        if (now > last_force + force_interval) 
+        if (force && now > last_force + force_interval) 
         {
           printf("Sending force trigger\n"); 
           radiant_soft_trigger(rad); 
           last_force = now; 
         }
+
+        if (watchdog > 0 && now - start_wait > watchdog) 
+        {
+          failed_watchdog = 1; 
+          break; 
+        }
+
+        if (duration > 0 && now - (start.tv_sec+1e-9 *start.tv_nsec) > duration)
+        {
+          failed_duration = 1; 
+          break;
+        }
+
       }
     }
+
+    if (failed_watchdog)
+    {
+      printf("Waited too long for trigger! Quitting\n"); 
+      break; 
+    }
+
+    if (failed_duration)
+    {
+      printf("Hit duration limit! Quitting\n"); 
+      break; 
+    }
+
 
     if (quit) break; 
 
@@ -439,7 +482,7 @@ int main(int nargs, char ** args)
     i++; 
   }
 
-  clock_gettime(CLOCK_REALTIME,&stop);
+  clock_gettime(CLOCK_MONOTONIC,&stop);
   double time = stop.tv_sec - start.tv_sec + 1e-9*(stop.tv_nsec - start.tv_nsec); 
   printf("Elapsed time: %g, (%g Hz)\n",  time, i/time); 
   printf("  Note: for fastest speed, don't let this print to your terminal!!!\n"); 
