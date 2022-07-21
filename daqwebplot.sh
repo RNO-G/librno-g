@@ -41,16 +41,33 @@ rsync --compress -a -P ${USER}@${HOST}:/data/test/${LABEL}/\{wfs.dat,header.dat,
 
 make -s build/test/rno-g-dump-hdr build/test/rno-g-dump-ped build/test/rno-g-dump-wf build/test/rno-g-dump-ds build/test/rno-g-wf-stats
 
-echo "<html><head><title>$HOST -- $ID</title></head><body>" > ${OUT}/index.html
-echo "<h1>$HOST -- $ID</h1><hr>" >> ${OUT}/index.html
-echo "<li>header: <a href='header.dat'>.dat</a> <a href='headers.txt'>.txt</a>" >> ${OUT}/index.html 
-echo "<li>wfs: <a href='wfstats.txt'>stats</a> <a href='wfs'>plots</a>  <a href='wfs.dat'>.dat</a> <a href='wfs.csv'>.csv</a> <a href='wfs.csv.gz'>compressed .csv</a>" >> ${OUT}/index.html 
-echo "<li>daqstatus: <a href='daqstatus.dat'>.dat</a> <a href='ds.txt'>.txt</a>" >> ${OUT}/index.html 
-echo "<li>peds: <a href='peds'>plots</a> <a href='peds.dat'>.dat</a> <a href='peds.csv'>.csv</a> <a href="peds.csv.gz">compressed .csv</a>" >> ${OUT}/index.html 
-echo "</ul><hr>First event:<br>" >> ${OUT}/index.html 
-echo "<img src='wfs/0.png'><br>" >> ${OUT}/index.html
-echo "<hr>Spectra:<br><img src='spectra.png'><br><hr><ul>" >> ${OUT}/index.html
-echo "</ul></body></html>" >> ${OUT}/index.html
+cat <<EOF > ${OUT}/index.html 
+<html><head><title>$HOST -- $ID</title>
+<script type='text/javascript'>
+function get() 
+{
+  return parseInt(document.getElementById("whichwf").value);
+}
+function go(i) 
+{
+  document.getElementById("wfimg").src="wfs/" + i + ".png"; 
+  document.getElementById("whichwf").value = i; 
+  document.getElementById("whichwf").alt = "event"  + i; 
+}
+</script>
+</head><body>
+<h1>$HOST -- $ID</h1><hr>
+<li>header: <a href='header.dat'>.dat</a> <a href='headers.txt'>.txt</a>
+<li>wfs: <a href='wfstats.txt'>stats</a> <a href='wfs'>plots</a>  <a href='wfs.dat'>.dat</a> <a href='wfs.csv'>.csv</a> <a href='wfs.csv.gz'>compressed .csv</a>
+<li>daqstatus: <a href='daqstatus.dat'>.dat</a> <a href='ds.txt'>.txt</a>
+<li>peds: <a href='peds'>plots</a> <a href='peds.dat'>.dat</a> <a href='peds.csv'>.csv</a> <a href="peds.csv.gz">compressed .csv</a>
+</ul><hr>Event <input id='whichwf' size=4 value='0' onchange='document.getElementById("wfimg").src="wfs/" + document.getElementById("whichwf").value+".png"'> 
+<input type='button' value='<--' onclick='go(get()-1)'>
+<input type='button' value='-->' onclick='go(get()+1)'>: <br>
+<img src='wfs/0.png' id='wfimg'><br>
+<hr>Spectra:<br><img src='spectra.png'><br><hr><ul>
+</ul></body></html>
+EOF
 
 LD_LIBRARY_PATH+=:`pwd`/build build/test/rno-g-wf-stats "${OUT}/wfs.dat" > "${OUT}/wfstats.txt"
 LD_LIBRARY_PATH+=:`pwd`/build:/usr/local/lib root -b -q test/quick_spectra.C\(\"${OUT}/wfs.dat\",16777215,\"${OUT}/spectra.png\"\) 
