@@ -201,6 +201,7 @@ typedef struct rno_g_pedestal
   int16_t vbias[2];  //signed so that we can have -1 as unknown
   uint16_t pedestals[RNO_G_NUM_RADIANT_CHANNELS][RNO_G_PEDESTAL_NSAMPLES]; 
   uint8_t station; 
+  int run; 
 } rno_g_pedestal_t; 
 
 int rno_g_pedestal_dump(FILE *f, const rno_g_pedestal_t * pedestal); 

@@ -14,7 +14,7 @@
 
 #define HEADER_VER 1
 #define WF_VER 3 
-#define PED_VER 2 
+#define PED_VER 3 
 #define DAQSTATUS_VER 3 
 
 #define HEADER_MAGIC 0xead1 
@@ -426,6 +426,18 @@ typedef struct rno_g_pedestal_v1
   uint16_t pedestals[RNO_G_NUM_RADIANT_CHANNELS][RNO_G_PEDESTAL_NSAMPLES]; 
 } rno_g_pedestal_v1_t; 
 
+typedef struct rno_g_pedestal_v2
+{
+  uint32_t when; 
+  uint32_t nevents; 
+  uint32_t mask : 24; 
+  uint8_t flags; //TBD 
+  int16_t vbias[2];  //signed so that we can have -1 as unknown
+  uint16_t pedestals[RNO_G_NUM_RADIANT_CHANNELS][RNO_G_PEDESTAL_NSAMPLES]; 
+  uint8_t station; 
+} rno_g_pedestal_v2_t; 
+
+
 
 int rno_g_pedestal_read(rno_g_file_handle_t h, rno_g_pedestal_t * pd) 
 {
@@ -457,6 +469,7 @@ int rno_g_pedestal_read(rno_g_file_handle_t h, rno_g_pedestal_t * pd)
       pd->vbias[0]=-1;
       pd->vbias[1]=-1;
       pd->station = 0;
+      pd->run=-1; 
       memcpy(pd->pedestals, pdv0.pedestals, sizeof(pd->pedestals)); 
       break; 
     }
@@ -471,9 +484,26 @@ int rno_g_pedestal_read(rno_g_file_handle_t h, rno_g_pedestal_t * pd)
       pd->vbias[0]= pdv1.vbias[0];
       pd->vbias[1]= pdv1.vbias[1]; 
       pd->station = 0; 
+      pd->run=-1;
       memcpy(pd->pedestals, pdv1.pedestals, sizeof(pd->pedestals)); 
       break;
     }
+    case 2:
+    {
+      rno_g_pedestal_v2_t pdv2; 
+      rd += do_read(h, sizeof(rno_g_pedestal_v2_t), &pdv2, &sum); 
+      pd->when = pdv2.when; 
+      pd->nevents = pdv2.nevents; 
+      pd->mask = pdv2.mask; 
+      pd->flags = pdv2.flags; 
+      pd->vbias[0]= pdv2.vbias[0];
+      pd->vbias[1]= pdv2.vbias[1]; 
+      pd->station = pdv2.station; 
+      pd->run=-1; 
+      memcpy(pd->pedestals, pdv2.pedestals, sizeof(pd->pedestals)); 
+      break;
+    }
+
     case PED_VER: 
       rd += do_read(h, sizeof(rno_g_pedestal_t), pd, &sum); 
       break; 
