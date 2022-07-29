@@ -661,6 +661,7 @@ int radiant_read_event(radiant_dev_t * bd, rno_g_header_t * hd, rno_g_waveform_t
   hd->run_number = bd->run; 
   hd->sysclk_last_pps = fwhd.sysclk_last_pps; 
   hd->sysclk_last_last_pps = fwhd.sysclk_last_last_pps; 
+  hd->radiant_nsamples = nsamples; 
 
   hd->raw_evstatus = fwhd.status_flags; 
   hd->raw_tinfo = fwhd.trig_info; 
