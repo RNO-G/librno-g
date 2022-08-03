@@ -497,8 +497,29 @@ int rno_g_pedestal_read(rno_g_file_handle_t h, rno_g_pedestal_t * pd)
 
 int rno_g_daqstatus_dump(FILE *f, const rno_g_daqstatus_t* ds) 
 {
-  return rno_g_daqstatus_dump_radiant(f,ds) + rno_g_daqstatus_dump_flower(f,ds); 
+  return rno_g_daqstatus_dump_radiant(f,ds) + rno_g_daqstatus_dump_flower(f,ds) + rno_g_daqstatus_dump_calpulser(f,ds); 
 }
+
+static const char * calpulse_mode_strings[] ={ "PULSE","VCO","VCO2"}; 
+static const char * calpulse_output_strings[] ={ "NONE","COAX","FIBER0","FIBER1"}; 
+int rno_g_daqstatus_dump_calpulser(FILE *f, const rno_g_daqstatus_t * ds) 
+{
+  int ret = 0;
+  if (! ds->cal.enabled) 
+  {
+    ret+= fprintf(f, "================================\n"); 
+    ret+= fprintf(f, "===== CALPULSER REV%c IS OFF====\n)", ds->cal.rev); 
+    ret+= fprintf(f, "================================\n"); 
+    return ret; 
+  }
+  ret+= fprintf(f, "===== CALPULSER REV%c IS ENABLED=====\n", ds->cal.rev); 
+  ret+= fprintf(f, "   Temperature: %0.3f C\n", ds->cal.T_times_16/16.); 
+  ret+= fprintf(f, "   Mode: %s\n", calpulse_mode_strings[ds->cal.mode]); 
+  ret+= fprintf(f,"    Attenuation: %g\n", ds->cal.atten_times_2/2.); 
+  ret+= fprintf(f,"    Output: %s\n", calpulse_output_strings[ds->cal.out]); 
+  return ret; 
+}
+
 
 int rno_g_daqstatus_dump_radiant(FILE*f, const rno_g_daqstatus_t *ds) 
 {

@@ -240,7 +240,7 @@ typedef struct rno_g_radiant_voltages
 
 typedef enum 
 {
-  RNO_G_CAL_OFF, 
+  RNO_G_CAL_NONE, 
   RNO_G_CAL_COAX, 
   RNO_G_CAL_FIB0, 
   RNO_G_CAL_FIB1 
@@ -249,15 +249,15 @@ typedef enum
 typedef enum 
 {
   RNO_G_CAL_PULSER, 
-  RNO_G_CAL_VCO 
+  RNO_G_CAL_VCO,
+  RNO_G_CAL_VCO2
 } rno_g_calpulser_mode_t; 
 
 typedef struct rno_g_calpulser_info
 {
   int16_t T_times_16 : 12;  // Temperature of calboard, times 16 
-  rno_g_calpulser_mode_t mode : 1;  //calpulser mode 
-  uint8_t enabled : 1; // was calpulser enabled? 
-
+  rno_g_calpulser_mode_t mode : 2;  //calpulser mode 
+  uint8_t enabled: 1; //calpulser turned on
   uint8_t atten_times_2 : 6;  // attenuation of calpulser, times 2 
   rno_g_calpulser_out_t out: 2; //which output did we use? 
 
@@ -283,6 +283,7 @@ typedef struct rno_g_daqstatus
 int rno_g_daqstatus_dump(FILE *f, const rno_g_daqstatus_t * ds); 
 int rno_g_daqstatus_dump_flower(FILE *f, const rno_g_daqstatus_t * ds); 
 int rno_g_daqstatus_dump_radiant(FILE *f, const rno_g_daqstatus_t * ds); 
+int rno_g_daqstatus_dump_calpulser(FILE *f, const rno_g_daqstatus_t * ds); 
 int rno_g_daqstatus_write(rno_g_file_handle_t handle, const rno_g_daqstatus_t * ds);
 int rno_g_daqstatus_read(rno_g_file_handle_t handle, rno_g_daqstatus_t * ds);
 
