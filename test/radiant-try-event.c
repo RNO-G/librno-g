@@ -7,7 +7,9 @@
 #include <time.h> 
 #include <signal.h> 
 
+#include <sys/stat.h> 
 
+static char strbuf[1024]; 
 static int no_gpio = 0; 
 static int instrumented_poll(radiant_dev_t * rad, int timeout, int verbose) 
 {
@@ -56,14 +58,14 @@ static int instrumented_poll(radiant_dev_t * rad, int timeout, int verbose)
 double get_now() 
 {
   struct timespec spec; 
-  clock_gettime(CLOCK_REALTIME, &spec); 
+  clock_gettime(CLOCK_MONOTONIC, &spec); 
   return spec.tv_sec + 1e-9 * spec.tv_nsec; 
 }
 
 int usage() 
 {
-  printf("radiant-try-event [-N NEVENTS=100] [-b buffers=2] [-M TRIGMASK=0x37b000] [-W TRIGWINDOW=20] [-T THRESH=0.2] [-C MINCOINCIDENT =3] [-B BIAS=1861]  [-z] [-f] [-I INTERVAL=0] [-p]  [-c] [-h]\n"); 
-  printf("  -N NEVENTS number of events\n"); 
+  printf("radiant-try-event [-N NEVENTS=100] [-b buffers=2] [-M TRIGMASK=0x37b000] [-W TRIGWINDOW=20] [-T THRESH=0.2] [-C MINCOINCIDENT =3] [-B BIAS=1861]  [-z] [-f] [-I INTERVAL=0] [-p] [-L LABEL] [-w WATCHDOG=0] [-d DURATION=0] [-c] [-h]\n"); 
+  printf("  -N NEVENTS number of events (0 for infinite) \n"); 
   printf("  -b BUFFERS number of buffers\n"); 
   printf("  -M TRIGMASK  trigger mask used (default 0x37b000)\n"); 
   printf("  -W TRIGWINDOW  ns for trig window\n") ;
@@ -77,10 +79,12 @@ int usage()
   printf("  -i Use internal PPS\n"); 
   printf("  -P poll amount = 0.1\n"); 
   printf("  -u Use UART, not GPIO to check for events\n"); 
-
   printf("  -x external triggers\n"); 
   printf("  -c trigger clear mode\n"); 
   printf("  -v verbose\n"); 
+  printf("  -L label the data, will be written to /data/test/LABEL and will exit with failure if /data/test/LABEL already exists\n"); 
+  printf("  -w watchdog: The longest to wait to get a trigger before quitting, in seconds (0, default, to disable)\n"); 
+  printf("  -d Maximum duration (in seconds) to run for (0, default for no limit)\n"); 
   printf("  -h this message\n"); 
   exit(1); 
 
@@ -113,6 +117,7 @@ int maybe_dump_daqstatus(radiant_dev_t * rad, rno_g_file_handle_t h,  rno_g_daqs
 int main(int nargs, char ** args) 
 {
   int N = 100; 
+  char * label = NULL; 
   int nbuffers = 2; 
   int gzipped = 0;
   int verbose = 0; 
@@ -130,6 +135,8 @@ int main(int nargs, char ** args)
   double last_force = 0; 
   double poll_amount = 0.01; 
   int internal_pps = 0; 
+  int watchdog = 0; 
+  int duration = 0; 
 
   for (int i = 1; i < nargs; i++) 
   {
@@ -216,6 +223,18 @@ int main(int nargs, char ** args)
       {
         poll_amount = atoi(args[++i]); 
       }
+      else if (!strcmp(args[i],"-L"))
+      {
+        label = args[++i]; 
+      }
+      else if (!strcmp(args[i],"-w"))
+      {
+        watchdog = atoi(args[++i]); 
+      }
+      else if (!strcmp(args[i],"-d"))
+      {
+        duration = atoi(args[++i]); 
+      }
  
       else usage(); 
     }
@@ -228,6 +247,23 @@ int main(int nargs, char ** args)
 
   radiant_dev_t * rad = radiant_open("/dev/spi/0.0", "/dev/ttyRadiant", 46, -61);
   if (!rad) return 1; 
+
+   //check if label already exists 
+   if (label) 
+   {
+     snprintf(strbuf,sizeof(strbuf),"/data/test/%s", label); 
+     if (access(strbuf, F_OK) == 0)
+     {
+       fprintf(stderr, "Label specified but %s already exists\n", strbuf); 
+       radiant_close(rad); 
+       return 1; 
+     }
+     else
+     {
+       mkdir(strbuf,0755); 
+     }
+   }
+
 
 
   if (do_sync) radiant_sync(rad); 
@@ -242,7 +278,10 @@ int main(int nargs, char ** args)
 
 
   rno_g_file_handle_t ph; 
-  rno_g_init_handle(&ph, gzipped ? "/data/test/peds.dat.gz" : "/data/test/peds.dat", "w"); 
+
+  snprintf(strbuf,sizeof(strbuf), "/data/test/%s/peds.dat%s", label ?: "", gzipped ? ".gz" : ""); 
+  rno_g_init_handle(&ph, strbuf, "w"); 
+ 
 
 
   int sig_is_enabled = 0; 
@@ -344,9 +383,12 @@ int main(int nargs, char ** args)
   rno_g_file_handle_t eh;
   rno_g_file_handle_t dsh;
 
-  rno_g_init_handle(&hh, gzipped ? "/data/test/header.dat.gz" : "/data/test/header.dat", "w");
-  rno_g_init_handle(&eh, gzipped ? "/data/test/wfs.dat.gz" : "/data/test/wfs.dat", "w");
-  rno_g_init_handle(&dsh, gzipped ? "/data/test/daqstatus.dat.gz" : "/data/test/daqstatus.dat", "w");
+  snprintf(strbuf, sizeof(strbuf), "/data/test/%s/header.dat%s", label ?: "", gzipped ? ".gz" : ""); 
+  rno_g_init_handle(&hh, strbuf, "w");
+  snprintf(strbuf, sizeof(strbuf), "/data/test/%s/wfs.dat%s", label ?: "", gzipped ? ".gz" : ""); 
+  rno_g_init_handle(&eh, strbuf, "w");
+  snprintf(strbuf, sizeof(strbuf), "/data/test/%s/daqstatus.dat%s", label ?: "", gzipped ? ".gz" : ""); 
+  rno_g_init_handle(&dsh, strbuf, "w");
 
 
   signal(SIGINT, sighandler); 
@@ -354,11 +396,13 @@ int main(int nargs, char ** args)
   struct timespec stop;
 
   radiant_trigger_enable(rad,enables,0);
-  clock_gettime(CLOCK_REALTIME,&start);
+  clock_gettime(CLOCK_MONOTONIC,&start);
 
   int i = 0;
-  for (i = 0; i < N; i++) 
+  while (1) 
   {
+    if ( N > 0 && i >= N ) break; 
+    
     if (quit) break;
     printf("====%d=====\n",i); 
 
@@ -368,32 +412,65 @@ int main(int nargs, char ** args)
         radiant_dump(rad,stdout,0); 
     }
 
-    while(!instrumented_poll(rad, clearmode ? 0 :  poll_amount*1000, verbose) && !quit) 
+    double start_wait = get_now(); ; 
+    int failed_watchdog = 0;
+    int failed_duration= 0; 
+    while(!instrumented_poll(rad, clearmode ? 0 :  poll_amount*1000, verbose) && !quit )
     {
       if (maybe_dump_daqstatus(rad,dsh,&ds))
       {
         radiant_dump(rad,stdout,0); 
       }
-      int bsy,clear_pending;; 
-      radiant_trigger_busy(rad, &bsy, &clear_pending); 
-      if (verbose) printf("OVERLORDSTAT is: bsy: %d, clear_pending: %d\n",  bsy, clear_pending); 
-      if (clearmode) 
+
+      if (clearmode || verbose) 
       {
-        if (clear_pending) radiant_cpu_clear(rad); 
-        else  usleep(1e6*poll_amount); //make up for the short poll 
+        int bsy,clear_pending;; 
+        radiant_trigger_busy(rad, &bsy, &clear_pending); 
+        if (verbose) printf("OVERLORDSTAT is: bsy: %d, clear_pending: %d\n",  bsy, clear_pending); 
+        if (clearmode) 
+        {
+          if (clear_pending) radiant_cpu_clear(rad); 
+          else  usleep(1e6*poll_amount); //make up for the short poll 
+        }
       }
 
-      if (force) 
+      if (force || watchdog > 0 || duration > 0) 
       {
         double now = get_now(); 
-        if (now > last_force + force_interval) 
+        if (force && now > last_force + force_interval) 
         {
           printf("Sending force trigger\n"); 
           radiant_soft_trigger(rad); 
           last_force = now; 
         }
+
+        if (watchdog > 0 && now - start_wait > watchdog) 
+        {
+          failed_watchdog = 1; 
+          break; 
+        }
+
+        if (duration > 0 && now - (start.tv_sec+1e-9 *start.tv_nsec) > duration)
+        {
+          failed_duration = 1; 
+          break;
+        }
+
       }
     }
+
+    if (failed_watchdog)
+    {
+      printf("Waited too long for trigger! Quitting\n"); 
+      break; 
+    }
+
+    if (failed_duration)
+    {
+      printf("Hit duration limit! Quitting\n"); 
+      break; 
+    }
+
 
     if (quit) break; 
 
@@ -402,9 +479,10 @@ int main(int nargs, char ** args)
     rno_g_header_dump(stdout, &hd);
     rno_g_header_write(hh, &hd); 
     rno_g_waveform_write(eh, &wf); 
+    i++; 
   }
 
-  clock_gettime(CLOCK_REALTIME,&stop);
+  clock_gettime(CLOCK_MONOTONIC,&stop);
   double time = stop.tv_sec - start.tv_sec + 1e-9*(stop.tv_nsec - start.tv_nsec); 
   printf("Elapsed time: %g, (%g Hz)\n",  time, i/time); 
   printf("  Note: for fastest speed, don't let this print to your terminal!!!\n"); 
