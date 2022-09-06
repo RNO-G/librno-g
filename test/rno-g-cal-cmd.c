@@ -112,28 +112,28 @@ int main (int nargs, char ** args)
         printf("Temperature: %f\n", T); 
         break; 
       case CMD_COAX: 
-        rno_g_cal_select(dev, RNOG_CAL_CH_COAX); 
+        rno_g_cal_select(dev, RNO_G_CAL_COAX); 
         break; 
       case CMD_FIB0: 
-        rno_g_cal_select(dev, RNOG_CAL_CH_FIBER0); 
+        rno_g_cal_select(dev, RNO_G_CAL_FIB0); 
         break; 
       case CMD_FIB1: 
-        rno_g_cal_select(dev, RNOG_CAL_CH_FIBER1); 
+        rno_g_cal_select(dev, RNO_G_CAL_FIB1); 
         break; 
      case CMD_NONE: 
-        rno_g_cal_select(dev, RNOG_CAL_CH_NONE); 
+        rno_g_cal_select(dev, RNO_G_CAL_NONE); 
         break; 
      case CMD_ATTEN: 
         rno_g_cal_set_atten(dev, vals[i]); 
         break; 
      case CMD_PULSE: 
-        rno_g_cal_set_pulse_type(dev, RNOG_CAL_PULSE);
+        rno_g_cal_set_pulse_mode(dev, RNO_G_CAL_PULSER);
         break; 
      case CMD_VCO: 
-        rno_g_cal_set_pulse_type(dev, RNOG_CAL_VCO);
+        rno_g_cal_set_pulse_mode(dev, RNO_G_CAL_VCO);
         break; 
      case CMD_VCO2: 
-        rno_g_cal_set_pulse_type(dev, RNOG_CAL_VCO2);
+        rno_g_cal_set_pulse_mode(dev, RNO_G_CAL_VCO2);
         break; 
      case CMD_SLEEP: 
         sleep(vals[i]); 

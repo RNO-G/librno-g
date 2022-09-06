@@ -21,7 +21,7 @@ struct rno_g_cal_dev
   char rev; 
   int debug; 
   uint8_t addr; 
-  rno_g_cal_channel_t ch; 
+  rno_g_calpulser_out_t ch; 
   FILE * fgpiodir;
 }; 
 
@@ -109,6 +109,7 @@ rno_g_cal_dev_t * rno_g_cal_open(uint8_t bus, uint16_t gpio, char rev)
   dev->fd = fd; 
   dev->rev = rev; 
   dev->bus = bus; 
+  dev->ch = RNO_G_CAL_NONE; 
 
   return dev; 
 }
@@ -210,15 +211,16 @@ int rno_g_cal_setup(rno_g_cal_dev_t* dev)
 }
 
 
-int rno_g_cal_set_pulse_type(rno_g_cal_dev_t *dev, rno_g_cal_pulse_type_t type) 
+int rno_g_cal_set_pulse_mode(rno_g_cal_dev_t *dev, rno_g_calpulser_mode_t type) 
 {
   uint8_t val; 
+
   if (do_read(dev, addr1, output_reg, &val)) 
   {
     return -errno; 
   }
 
-  if (type == RNOG_CAL_PULSE) 
+  if (type == RNO_G_CAL_PULSER) 
   {
     val|=0x40; //turn on pulser
 
@@ -238,7 +240,7 @@ int rno_g_cal_set_pulse_type(rno_g_cal_dev_t *dev, rno_g_cal_pulse_type_t type)
   }
   else 
   {
-    uint8_t orwith = type == RNOG_CAL_VCO ? 0x01 : 0x02; 
+    uint8_t orwith = type == RNO_G_CAL_VCO ? 0x01 : 0x02; 
     val&=(~0x40); //turn off pulser?
     val|=orwith; //turn on correct VCO 
   }
@@ -251,11 +253,12 @@ int rno_g_cal_set_pulse_type(rno_g_cal_dev_t *dev, rno_g_cal_pulse_type_t type)
 }
 
 
-int rno_g_cal_select(rno_g_cal_dev_t * dev, rno_g_cal_channel_t ch) 
+int rno_g_cal_select(rno_g_cal_dev_t * dev, rno_g_calpulser_out_t ch) 
 {
   uint8_t val0; 
   uint8_t val1; 
 
+  if (dev->ch ==  ch) return 0; 
   if (do_read(dev, addr0, output_reg, &val0)) 
     return -errno; 
 
@@ -269,12 +272,12 @@ int rno_g_cal_select(rno_g_cal_dev_t * dev, rno_g_cal_channel_t ch)
       return -errno; 
   }
 
-  if (ch == RNOG_CAL_CH_COAX)
+  if (ch == RNO_G_CAL_COAX)
   {
     val0 &= (~0x02); 
     val1 &= (~0x80); 
   }
-  else if ( ch == RNOG_CAL_CH_FIBER0 ) 
+  else if ( ch == RNO_G_CAL_FIB0) 
   {
     if (dev->rev=='D')
     {
@@ -288,7 +291,7 @@ int rno_g_cal_select(rno_g_cal_dev_t * dev, rno_g_cal_channel_t ch)
       val1 &= ~0x04; 
     }
   }
-  else if ( ch == RNOG_CAL_CH_FIBER1 ) 
+  else if ( ch == RNO_G_CAL_FIB1 ) 
   {
     if (dev->rev=='D')
     {
@@ -313,6 +316,7 @@ int rno_g_cal_select(rno_g_cal_dev_t * dev, rno_g_cal_channel_t ch)
 
   if (do_write(dev, addr0, output_reg, val0)) return -errno; 
   if (do_write(dev, addr1, output_reg, val1)) return -errno; 
+  dev->ch = ch; 
   return 0; 
 }
 
