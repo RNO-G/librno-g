@@ -31,7 +31,7 @@ int rno_g_cal_set_atten(rno_g_cal_dev_t * dev, uint8_t atten); //attenuation, in
 
 int rno_g_cal_set_pulse_mode(rno_g_cal_dev_t * dev, rno_g_calpulser_mode_t type); 
 
-
+int rno_g_cal_fill_info(rno_g_cal_dev_t *dev, rno_g_calpulser_info_t *info);
 void rno_g_cal_enable_dbg(rno_g_cal_dev_t * dev, int dbg); 
 
 #ifdef __cplusplus
