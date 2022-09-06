@@ -240,7 +240,7 @@ typedef struct rno_g_radiant_voltages
 
 typedef enum 
 {
-  RNO_G_CAL_NONE, 
+  RNO_G_CAL_NO_OUTPUT, 
   RNO_G_CAL_COAX, 
   RNO_G_CAL_FIB0, 
   RNO_G_CAL_FIB1 
@@ -248,6 +248,7 @@ typedef enum
 
 typedef enum 
 {
+  RNO_G_CAL_NO_SIGNAL, 
   RNO_G_CAL_PULSER, 
   RNO_G_CAL_VCO,
   RNO_G_CAL_VCO2
