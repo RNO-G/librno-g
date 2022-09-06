@@ -14,8 +14,8 @@ void usage()
   fprintf(stderr,"      Up to 1024 commands are supported\n"); 
 }
 
-const char * valid_cmds[] = {"off","on","setup","temp","select-coax","select-fiber0","select-fiber1","select-none", "atten", "pulse", "vco", "sleep",}; 
-enum { CMD_OFF, CMD_ON, CMD_SETUP, CMD_TEMP, CMD_COAX, CMD_FIB0, CMD_FIB1, CMD_NONE, CMD_ATTEN, CMD_PULSE, CMD_VCO, CMD_SLEEP} e_cmds; 
+const char * valid_cmds[] = {"off","on","setup","temp","select-coax","select-fiber0","select-fiber1","select-none", "atten", "pulse", "vco","vco2", "sleep",}; 
+enum { CMD_OFF, CMD_ON, CMD_SETUP, CMD_TEMP, CMD_COAX, CMD_FIB0, CMD_FIB1, CMD_NONE, CMD_ATTEN, CMD_PULSE, CMD_VCO, CMD_VCO2, CMD_SLEEP} e_cmds; 
 
 int is_valid(const char * cmd) 
 {
@@ -127,10 +127,13 @@ int main (int nargs, char ** args)
         rno_g_cal_set_atten(dev, vals[i]); 
         break; 
      case CMD_PULSE: 
-        rno_g_cal_set_pulse(dev);
+        rno_g_cal_set_pulse_type(dev, RNOG_CAL_PULSE);
         break; 
      case CMD_VCO: 
-        rno_g_cal_set_vco(dev);
+        rno_g_cal_set_pulse_type(dev, RNOG_CAL_VCO);
+        break; 
+     case CMD_VCO2: 
+        rno_g_cal_set_pulse_type(dev, RNOG_CAL_VCO2);
         break; 
      case CMD_SLEEP: 
         sleep(vals[i]); 
