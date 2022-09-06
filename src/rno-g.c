@@ -505,6 +505,13 @@ static const char * calpulse_output_strings[] ={ "NONE","COAX","FIBER0","FIBER1"
 int rno_g_daqstatus_dump_calpulser(FILE *f, const rno_g_daqstatus_t * ds) 
 {
   int ret = 0;
+
+  // no calpulser was actually filled in if it's 0
+  if (ds->cal.rev=='\0') 
+  {
+    return 0; 
+  }
+
   if (! ds->cal.enabled) 
   {
     ret+= fprintf(f, "================================\n"); 
