@@ -210,7 +210,7 @@ int rno_g_cal_setup(rno_g_cal_dev_t* dev)
 }
 
 
-static int do_set(rno_g_cal_dev_t *dev, int pulser) 
+int rno_g_cal_set_pulse_type(rno_g_cal_dev_t *dev, rno_g_cal_pulse_type_t type) 
 {
   uint8_t val; 
   if (do_read(dev, addr1, output_reg, &val)) 
@@ -218,17 +218,30 @@ static int do_set(rno_g_cal_dev_t *dev, int pulser)
     return -errno; 
   }
 
-  if (pulser) 
+  if (type == RNOG_CAL_PULSE) 
   {
     val|=0x40; //turn on pulser
-    val&=(~0x08); //turn off VCO? 
+
+    if (dev->rev == 'D') 
+    {
+      val&=(~0x08); //turn off VCO? 
+    }
+    else
+    {
+      val&=(~0x03); // turn off VCO for revE 
+    }
   }
-  else
+  else if (dev->rev=='D') //only one VCO for revD 
   {
-    val&=(~0x40); //turn off pulser
+    val&=(~0x40); //turn off pulser?
     val|=0x08; //turn on VCO? 
   }
-                
+  else 
+  {
+    uint8_t orwith = type == RNOG_CAL_VCO ? 0x01 : 0x02; 
+    val&=(~0x40); //turn off pulser?
+    val|=orwith; //turn on correct VCO 
+  }
                   
   if (do_write(dev,addr1,output_reg,val)) 
   {
@@ -237,16 +250,6 @@ static int do_set(rno_g_cal_dev_t *dev, int pulser)
   return 0; 
 }
 
-int rno_g_cal_set_pulse(rno_g_cal_dev_t * dev) 
-{
-  return do_set(dev,1); 
-
-}
-
-int rno_g_cal_set_vco(rno_g_cal_dev_t* dev)
-{
-  return do_set(dev,0); 
-}
 
 int rno_g_cal_select(rno_g_cal_dev_t * dev, rno_g_cal_channel_t ch) 
 {
