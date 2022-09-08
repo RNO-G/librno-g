@@ -1170,7 +1170,7 @@ int radiant_dump(radiant_dev_t *dev, FILE * stream, int flags)
   rno_g_radiant_voltages_t voltages; 
   radiant_bm_analog_read_all(dev, &voltages);
   fprintf(stream, "    ANALOG: V1.0: %f, V1.8: %f, V2.5: %f, LEFTMON: %f, RIGHTMON: %f\n", 
-      voltages.V_1_0*3.3/65535,voltages.V_1_8*3.3/65535,voltages.V_2_5*3.3/655355,voltages.V_LeftMon*3.3/65535,voltages.V_RightMon*3.3/65535); 
+      voltages.V_1_0*3.3/65535,voltages.V_1_8*3.3/65535,voltages.V_2_5*3.3/65535,voltages.V_LeftMon*3.3/65535,voltages.V_RightMon*3.3/65535); 
   uint8_t pulse_cfg[4]; 
   radiant_get_mem(dev, DEST_FPGA, RAD_REG_TRIG_PULSECTRL, 4, pulse_cfg); 
   int pulse_period = pulse_cfg[0] |  (pulse_cfg[1] << 8) | (pulse_cfg[2] << 16) | (( pulse_cfg[3] & 0x3f) << 24);
