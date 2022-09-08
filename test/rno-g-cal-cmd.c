@@ -121,7 +121,7 @@ int main (int nargs, char ** args)
         rno_g_cal_select(dev, RNO_G_CAL_FIB1); 
         break; 
      case CMD_NONE: 
-        rno_g_cal_select(dev, RNO_G_CAL_NONE); 
+        rno_g_cal_select(dev, RNO_G_CAL_NO_OUTPUT); 
         break; 
      case CMD_ATTEN: 
         rno_g_cal_set_atten(dev, vals[i]); 
