@@ -1355,7 +1355,7 @@ static int read_until_zero(radiant_dev_t * bd, double timeout)
       {
         struct timespec now; 
         clock_gettime(CLOCK_MONOTONIC,&now); 
-        double elapsed = now.tv_sec - start.tv_sec + 1e9 * (now.tv_nsec - start.tv_nsec); 
+        double elapsed = now.tv_sec - start.tv_sec + 1e-9 * (now.tv_nsec - start.tv_nsec); 
 
         if (elapsed > timeout) 
         {
