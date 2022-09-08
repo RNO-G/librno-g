@@ -1561,7 +1561,7 @@ int radiant_bm_get_ctrl(radiant_dev_t * bd, uint8_t * ctrl)
 
 int radiant_bm_analog_read(radiant_dev_t * bd, radiant_bm_analog_rd_t what, float *v, uint16_t *raw) 
 {
-  if (!bd || !v) return -1; 
+  if (!bd || (!v && !raw)) return -1; 
   uint32_t addr; 
   int val; 
   switch(what) 
@@ -1586,7 +1586,7 @@ int radiant_bm_analog_read(radiant_dev_t * bd, radiant_bm_analog_rd_t what, floa
     if (v) 
       *v = 3.3 *val/65535.; 
     if (raw) 
-      *raw = val; 
+      *raw = (uint16_t) val; 
     return 0;
   }
 
