@@ -82,6 +82,7 @@ install-py: install
 install-daq: install $(BUILD_DIR)/libradiant.so $(BUILD_DIR)/libflower.so $(BUILD_DIR)/librno-g-cal.so  
 	install $(BUILD_DIR)/libradiant.so $(PREFIX)/lib/
 	install $(BUILD_DIR)/libflower.so $(PREFIX)/lib/
+	install $(BUILD_DIR)/librno-g-cal.so $(PREFIX)/lib/
 	install src/radiant.h src/flower.h src/rno-g-cal.h $(PREFIX)/include/
 
 ifeq ($(ON_BBB),yes)
