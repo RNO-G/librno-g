@@ -415,6 +415,7 @@ int rno_g_cal_fill_info(rno_g_cal_dev_t * dev, rno_g_calpulser_info_t *info)
   info->atten_times_2 = dev->atten; 
   info->mode = dev->mode; 
   info->out = dev->ch; 
+  info->enabled = dev->enabled; 
   float T = 0; 
   rno_g_cal_read_temp(dev,&T); 
   info->T_times_16 = T*16; 
