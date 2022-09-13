@@ -500,7 +500,7 @@ int rno_g_daqstatus_dump(FILE *f, const rno_g_daqstatus_t* ds)
   return rno_g_daqstatus_dump_radiant(f,ds) + rno_g_daqstatus_dump_flower(f,ds) + rno_g_daqstatus_dump_calpulser(f,ds); 
 }
 
-static const char * calpulse_mode_strings[] ={ "PULSE","VCO","VCO2"}; 
+static const char * calpulse_mode_strings[] ={ "NONE", "PULSE","VCO","VCO2"}; 
 static const char * calpulse_output_strings[] ={ "NONE","COAX","FIBER0","FIBER1"}; 
 int rno_g_daqstatus_dump_calpulser(FILE *f, const rno_g_daqstatus_t * ds) 
 {
