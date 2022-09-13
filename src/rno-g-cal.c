@@ -346,6 +346,7 @@ int rno_g_cal_set_atten(rno_g_cal_dev_t *dev, uint8_t atten)
   }
   val &=0x02; 
 
+  uint8_t set_atten = atten;
   if (atten > 63) atten = 63; 
   atten = 63-atten; 
 
@@ -366,7 +367,7 @@ int rno_g_cal_set_atten(rno_g_cal_dev_t *dev, uint8_t atten)
   if (do_write(dev, addr0, output_reg, val | 0x1)) return -errno; //load enable
   if (do_write(dev, addr0, output_reg, val)) return -errno; 
 
-  if (dev->setup) dev->atten = atten; 
+  if (dev->setup) dev->atten = set_atten; 
   return 0; 
 }
 
