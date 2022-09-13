@@ -1,6 +1,7 @@
 #include <stdio.h> 
 #include <string.h> 
 #include <assert.h> 
+#include <stdint.h> 
 
 #if defined(__arm__) 
 #include <arm_neon.h> 

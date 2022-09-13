@@ -275,6 +275,9 @@ struct radiant_dev
   uint32_t trigBen; 
   uint8_t prescal[RNO_G_NUM_RADIANT_CHANNELS]; 
   uint32_t thresh[RNO_G_NUM_RADIANT_CHANNELS]; 
+  uint32_t pedram[RNO_G_PEDESTAL_NSAMPLES]; 
+  double read_timeout; 
+
 }; 
 
 
@@ -916,6 +919,7 @@ radiant_dev_t * radiant_open(const char *spi_device, const char * uart_device, i
   dev = calloc(sizeof(radiant_dev_t),1); 
   dev->spi_fd = spi_fd; 
   dev->uart_fd = uart_fd; 
+  dev->read_timeout = 1; 
 
   // verify that we identify correctly
   char check_bm[4]; 
@@ -970,7 +974,7 @@ radiant_dev_t * radiant_open(const char *spi_device, const char * uart_device, i
     }
   }
 
-  uint32_t check_bits = (1 << 31) | (1 <<15); 
+  uint32_t check_bits = (1u << 31) | (1 <<15); 
 
   if ((dev->cpldctrl & check_bits)  != check_bits) 
   {
@@ -1164,19 +1168,16 @@ int radiant_dump(radiant_dev_t *dev, FILE * stream, int flags)
                   !!(sgpio_status & SGPIO_BIT_CALPULSE), !!(sgpio_status & SGPIO_BIT_N_CALPULSE), 
                   !!(sgpio_status & SGPIO_BIT_SG_ENABLE),!!(sgpio_status & SGPIO_BIT_SG_MUXOUT));
 
+  rno_g_radiant_voltages_t voltages; 
+  radiant_bm_analog_read_all(dev, &voltages);
+  fprintf(stream, "    ANALOG: V1.0: %f, V1.8: %f, V2.5: %f, LEFTMON: %f, RIGHTMON: %f\n", 
+      voltages.V_1_0*3.3/65535,voltages.V_1_8*3.3/65535,voltages.V_2_5*3.3/65535,voltages.V_LeftMon*3.3/65535,voltages.V_RightMon*3.3/65535); 
   uint8_t pulse_cfg[4]; 
   radiant_get_mem(dev, DEST_FPGA, RAD_REG_TRIG_PULSECTRL, 4, pulse_cfg); 
   int pulse_period = pulse_cfg[0] |  (pulse_cfg[1] << 8) | (pulse_cfg[2] << 16) | (( pulse_cfg[3] & 0x3f) << 24);
   pulse_period*=5; 
   printf("    PULSECTRL: PERIOD %d ns, SHARPEN: %d, DISABLE: %d\n", pulse_period, !!(pulse_cfg[3] & ( 1<<6)), !!(pulse_cfg[3] & (1 <<7))); 
 
-  float v10, v18, v25, left, right; 
-  radiant_bm_analog_read(dev, RADIANT_BM_ANALOG_V10, &v10);
-  radiant_bm_analog_read(dev, RADIANT_BM_ANALOG_V18, &v18);
-  radiant_bm_analog_read(dev, RADIANT_BM_ANALOG_V25, &v25);
-  radiant_bm_analog_read(dev, RADIANT_BM_ANALOG_LEFTMON, &left);
-  radiant_bm_analog_read(dev, RADIANT_BM_ANALOG_RIGHTMON, &right);
-  fprintf(stream, "    ANALOG: V1.0: %f, V1.8: %f, V2.5: %f, LEFTMON: %f, RIGHTMON: %f\n", v10,v18,v25,left,right); 
 
   fprintf(stream, "    CPLDCTRL (cached): %x\n", dev->cpldctrl); 
 
@@ -1355,11 +1356,11 @@ static int read_until_zero(radiant_dev_t * bd, double timeout)
       {
         struct timespec now; 
         clock_gettime(CLOCK_MONOTONIC,&now); 
-        double elapsed = now.tv_sec - start.tv_sec + 1e9 * (now.tv_nsec - start.tv_nsec); 
+        double elapsed = now.tv_sec - start.tv_sec + 1e-9 * (now.tv_nsec - start.tv_nsec); 
 
         if (elapsed > timeout) 
         {
-          return -nread; 
+          return -1-nread; 
         }
       }
 
@@ -1421,7 +1422,13 @@ static int radiant_real_set_mem(radiant_dev_t * bd, radiant_dest_t dest, uint32_
     uint8_t expected[3] = { bd->reg_buf[0], bd->reg_buf[1], bd->reg_buf[2]}; 
 
     //read until we get a 0
-    int rd = read_until_zero(bd, 0); 
+    int rd = read_until_zero(bd, bd->read_timeout ); 
+    if (rd < 0) 
+    {
+      fprintf(stderr,"Timed out waiting for ack radiant_set_mem: %d\n", rd); 
+
+    }
+
     int decoded_len = cobs_decode_buf(rd, bd->reg_buf_encoded, sizeof(bd->reg_buf), bd->reg_buf); 
     int expected_len = sizeof(expected); 
 
@@ -1471,7 +1478,8 @@ int radiant_get_mem(radiant_dev_t * bd, radiant_dest_t dest, uint32_t addr, uint
 
   if (written != encoded_len) 
   {
-    fprintf(stderr,"Wrote only %d bytes instead of %d in radiant_get_mem(0x%p, %s,0x%x, %u,0x%p)\n", written, encoded_len, bd, dest == DEST_MANAGER ? "DEST_MANAGER" : "DEST_FPGA",addr,len,bytes); 
+    fprintf(stderr,"Wrote only %d bytes instead of %d in radiant_get_mem(0x%p, %s,0x%x, %u,0x%p)\n", written, encoded_len, 
+              bd, dest == DEST_MANAGER ? "DEST_MANAGER" : "DEST_FPGA",addr,len,bytes); 
     return -1; 
   }
 
@@ -1480,7 +1488,13 @@ int radiant_get_mem(radiant_dev_t * bd, radiant_dest_t dest, uint32_t addr, uint
   int expected_len = sizeof(expected); 
 
   //read until we get a 0
-  int rd = read_until_zero(bd, 0); 
+  int rd = read_until_zero(bd, bd->read_timeout); 
+  if (rd < 0) 
+  {
+    fprintf(stderr,"Timed out in radiant_get_mem(0x%p, %s, 0x%x,%u, 0x%p)\n", 
+              bd, dest == DEST_MANAGER ? "DEST_MANAGER" : "DEST_FPGA",addr,len,bytes); 
+    return -1; 
+  }
   //decode 
   int decoded_len = cobs_decode_buf(rd, bd->reg_buf_encoded, sizeof(bd->reg_buf), bd->reg_buf); 
 
@@ -1546,9 +1560,9 @@ int radiant_bm_get_ctrl(radiant_dev_t * bd, uint8_t * ctrl)
   return -1; 
 }
 
-int radiant_bm_analog_read(radiant_dev_t * bd, radiant_bm_analog_rd_t what, float *v) 
+int radiant_bm_analog_read(radiant_dev_t * bd, radiant_bm_analog_rd_t what, float *v, uint16_t *raw) 
 {
-  if (!bd || !v) return -1; 
+  if (!bd || (!v && !raw)) return -1; 
   uint32_t addr; 
   int val; 
   switch(what) 
@@ -1570,11 +1584,24 @@ int radiant_bm_analog_read(radiant_dev_t * bd, radiant_bm_analog_rd_t what, floa
   int ret = radiant_get_mem(bd, DEST_MANAGER, addr, sizeof(val), (uint8_t*) &val); 
   if (ret == 4) 
   {
-    *v = 3.3 *val/65536.; 
+    if (v) 
+      *v = 3.3 *val/65535.; 
+    if (raw) 
+      *raw = (uint16_t) val; 
     return 0;
   }
 
   return -1; 
+}
+
+int radiant_bm_analog_read_all(radiant_dev_t * dev, rno_g_radiant_voltages_t *v)
+{
+  radiant_bm_analog_read(dev, RADIANT_BM_ANALOG_V10, 0, &v->V_1_0);
+  radiant_bm_analog_read(dev, RADIANT_BM_ANALOG_V18, 0, &v->V_1_8);
+  radiant_bm_analog_read(dev, RADIANT_BM_ANALOG_V25, 0, &v->V_2_5);
+  radiant_bm_analog_read(dev, RADIANT_BM_ANALOG_LEFTMON, 0, &v->V_LeftMon);
+  radiant_bm_analog_read(dev, RADIANT_BM_ANALOG_RIGHTMON, 0, &v->V_RightMon);
+  return 0; 
 }
 
 
@@ -2295,7 +2322,6 @@ int radiant_compute_pedestals(radiant_dev_t *bd, uint32_t mask, uint16_t ntrigge
   }
 
 
-  uint32_t * pedram = malloc(sizeof(uint32_t) * RNO_G_PEDESTAL_NSAMPLES); 
 
   usleep(10000); 
   radiant_dma_request(bd); 
@@ -2312,7 +2338,7 @@ int radiant_compute_pedestals(radiant_dev_t *bd, uint32_t mask, uint16_t ntrigge
     else
     {
       uint16_t N = RNO_G_PEDESTAL_NSAMPLES * sizeof(uint32_t); 
-      uint8_t * memptr[1] = { (uint8_t*) pedram} ; 
+      uint8_t * memptr[1] = { (uint8_t*) bd->pedram} ; 
       int nrd = radiant_read(bd, 1, &N, memptr); 
       if (nrd != N)
       {
@@ -2322,7 +2348,7 @@ int radiant_compute_pedestals(radiant_dev_t *bd, uint32_t mask, uint16_t ntrigge
       {
         for (unsigned j = 0; j < RNO_G_PEDESTAL_NSAMPLES; j++) 
         {
-          ped->pedestals[i][j] = pedram[j] / ntriggers; 
+          ped->pedestals[i][j] = bd->pedram[j] / ntriggers; 
         }
       }
     }
@@ -2332,7 +2358,6 @@ int radiant_compute_pedestals(radiant_dev_t *bd, uint32_t mask, uint16_t ntrigge
   ped->nevents = ntriggers; 
   ped->when = time(0); 
 
-  free(pedram); 
   // take out of calram mode? 
   calram_zero(bd); // TODO: IS THIS NEEDED? Dan has this, but why? 
   calram_mode(bd,CALRAM_MODE_NONE); 
@@ -2774,7 +2799,7 @@ int radiant_set_scaler_period(radiant_dev_t * bd, float period)
   uint32_t mem = 0; 
   if (period==0)
   {
-     mem = 1 << 31; 
+     mem = 1u << 31; 
   }
   else
   {
@@ -2822,7 +2847,7 @@ int radiant_read_daqstatus(radiant_dev_t * bd, rno_g_daqstatus_t * ds)
   //TODO: check return values
   radiant_get_scaler_period(bd,&ds->radiant_scaler_period); 
   radiant_get_trigger_thresholds(bd,0, RNO_G_NUM_RADIANT_CHANNELS-1, ds->radiant_thresholds); 
-
+  radiant_bm_analog_read_all(bd, &ds->radiant_voltages); 
   radiant_get_scalers(bd,0, RNO_G_NUM_RADIANT_CHANNELS-1, ds->radiant_scalers); 
   clock_gettime(CLOCK_REALTIME,&end); 
 

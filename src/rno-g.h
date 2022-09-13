@@ -228,6 +228,49 @@ typedef struct rno_g_lt_scalers
 } rno_g_lt_scalers_t; 
 
 
+// these are all 16-bit relative to 3.3 V rail
+typedef struct rno_g_radiant_voltages
+{
+  uint16_t V_1_0; 
+  uint16_t V_1_8; 
+  uint16_t V_2_5; 
+  uint16_t V_LeftMon; 
+  uint16_t V_RightMon; 
+} rno_g_radiant_voltages_t; 
+
+
+typedef enum 
+{
+  RNO_G_CAL_NO_OUTPUT = 0, 
+  RNO_G_CAL_COAX, 
+  RNO_G_CAL_FIB0, 
+  RNO_G_CAL_FIB1
+} rno_g_calpulser_out_t; 
+
+#define RNO_G_CALPULSER_OUT_STRS {"none","coax","fiber0", "fiber1"}
+
+typedef enum 
+{
+  RNO_G_CAL_NO_SIGNAL = 0, 
+  RNO_G_CAL_PULSER, 
+  RNO_G_CAL_VCO,
+  RNO_G_CAL_VCO2
+} rno_g_calpulser_mode_t; 
+
+#define RNO_G_CALPULSER_MODE_STRS {"none","pulser","vco", "vco2"}
+
+
+typedef struct rno_g_calpulser_info
+{
+  int16_t T_times_16 : 12;  // Temperature of calboard, times 16 
+  rno_g_calpulser_mode_t mode : 2;  //calpulser mode 
+  uint8_t enabled: 1; //calpulser turned on
+  uint8_t atten_times_2 : 6;  // attenuation of calpulser, times 2 
+  rno_g_calpulser_out_t out: 2; //which output did we use? 
+
+  char rev; //Rev of controller board (if 0, this means that we didn't fill this in) 
+} rno_g_calpulser_info_t; 
+
 typedef struct rno_g_daqstatus 
 {
   double when_radiant; 
@@ -239,12 +282,15 @@ typedef struct rno_g_daqstatus
   uint8_t  lt_trigger_thresholds[RNO_G_NUM_LT_CHANNELS]; 
   uint8_t  lt_servo_thresholds[RNO_G_NUM_LT_CHANNELS]; 
   rno_g_lt_scalers_t lt_scalers; 
+  rno_g_radiant_voltages_t radiant_voltages; 
+  rno_g_calpulser_info_t cal; 
   uint8_t station;
 } rno_g_daqstatus_t; 
 
 int rno_g_daqstatus_dump(FILE *f, const rno_g_daqstatus_t * ds); 
 int rno_g_daqstatus_dump_flower(FILE *f, const rno_g_daqstatus_t * ds); 
 int rno_g_daqstatus_dump_radiant(FILE *f, const rno_g_daqstatus_t * ds); 
+int rno_g_daqstatus_dump_calpulser(FILE *f, const rno_g_daqstatus_t * ds); 
 int rno_g_daqstatus_write(rno_g_file_handle_t handle, const rno_g_daqstatus_t * ds);
 int rno_g_daqstatus_read(rno_g_file_handle_t handle, rno_g_daqstatus_t * ds);
 

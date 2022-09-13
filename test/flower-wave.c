@@ -7,15 +7,13 @@ int main (int nargs, char ** args)
 {
   flower_dev_t * flwr = flower_open("/dev/spidev1.0",-61); 
  
+  int force = 1; 
   if (nargs> 1)
   {
-    int gain_code = atoi(args[1]); 
-    uint8_t codes[RNO_G_NUM_LT_CHANNELS] = {gain_code,gain_code,gain_code,gain_code}; 
-    printf("Gaincode = %d\n", gain_code); 
-    flower_set_gains(flwr,codes); 
+    force = atoi(args[1]); 
   }
 
-  uint8_t data[RNO_G_NUM_LT_CHANNELS][256]; 
+  uint8_t data[RNO_G_NUM_LT_CHANNELS][512]; 
 //  memset(data,0x0,sizeof(data)); 
   uint8_t * data_ptr[RNO_G_NUM_LT_CHANNELS] = {&data[0][0],&data[1][0],&data[2][0],&data[3][0] }; 
 
@@ -23,7 +21,7 @@ int main (int nargs, char ** args)
   flower_force_trigger(flwr); 
   int avail = 0; 
   while (!avail) flower_buffer_check(flwr,&avail); 
-  flower_read_waveforms(flwr, 256, data_ptr); 
+  flower_read_waveforms(flwr, 512, data_ptr); 
 
   for (int i = 0 ; i < RNO_G_NUM_LT_CHANNELS; i++) 
   {

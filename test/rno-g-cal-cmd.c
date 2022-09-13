@@ -14,8 +14,8 @@ void usage()
   fprintf(stderr,"      Up to 1024 commands are supported\n"); 
 }
 
-const char * valid_cmds[] = {"off","on","setup","temp","select-coax","select-fiber0","select-fiber1","select-none", "atten", "pulse", "vco", "sleep",}; 
-enum { CMD_OFF, CMD_ON, CMD_SETUP, CMD_TEMP, CMD_COAX, CMD_FIB0, CMD_FIB1, CMD_NONE, CMD_ATTEN, CMD_PULSE, CMD_VCO, CMD_SLEEP} e_cmds; 
+const char * valid_cmds[] = {"off","on","setup","temp","select-coax","select-fiber0","select-fiber1","select-none", "atten", "pulse", "vco","vco2", "sleep",}; 
+enum { CMD_OFF, CMD_ON, CMD_SETUP, CMD_TEMP, CMD_COAX, CMD_FIB0, CMD_FIB1, CMD_NONE, CMD_ATTEN, CMD_PULSE, CMD_VCO, CMD_VCO2, CMD_SLEEP} e_cmds; 
 
 int is_valid(const char * cmd) 
 {
@@ -112,25 +112,28 @@ int main (int nargs, char ** args)
         printf("Temperature: %f\n", T); 
         break; 
       case CMD_COAX: 
-        rno_g_cal_select(dev, RNOG_CAL_CH_COAX); 
+        rno_g_cal_select(dev, RNO_G_CAL_COAX); 
         break; 
       case CMD_FIB0: 
-        rno_g_cal_select(dev, RNOG_CAL_CH_FIBER0); 
+        rno_g_cal_select(dev, RNO_G_CAL_FIB0); 
         break; 
       case CMD_FIB1: 
-        rno_g_cal_select(dev, RNOG_CAL_CH_FIBER1); 
+        rno_g_cal_select(dev, RNO_G_CAL_FIB1); 
         break; 
      case CMD_NONE: 
-        rno_g_cal_select(dev, RNOG_CAL_CH_NONE); 
+        rno_g_cal_select(dev, RNO_G_CAL_NO_OUTPUT); 
         break; 
      case CMD_ATTEN: 
         rno_g_cal_set_atten(dev, vals[i]); 
         break; 
      case CMD_PULSE: 
-        rno_g_cal_set_pulse(dev);
+        rno_g_cal_set_pulse_mode(dev, RNO_G_CAL_PULSER);
         break; 
      case CMD_VCO: 
-        rno_g_cal_set_vco(dev);
+        rno_g_cal_set_pulse_mode(dev, RNO_G_CAL_VCO);
+        break; 
+     case CMD_VCO2: 
+        rno_g_cal_set_pulse_mode(dev, RNO_G_CAL_VCO2);
         break; 
      case CMD_SLEEP: 
         sleep(vals[i]); 

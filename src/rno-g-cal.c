@@ -21,7 +21,11 @@ struct rno_g_cal_dev
   char rev; 
   int debug; 
   uint8_t addr; 
-  rno_g_cal_channel_t ch; 
+  rno_g_calpulser_out_t ch; 
+  rno_g_calpulser_mode_t mode; 
+  uint8_t atten; 
+  int enabled; 
+  int setup; 
   FILE * fgpiodir;
 }; 
 
@@ -83,7 +87,7 @@ rno_g_cal_dev_t * rno_g_cal_open(uint8_t bus, uint16_t gpio, char rev)
 
 
 
-  //open the pgio file
+  //open the gpio file
   FILE * fgpio = fopen(gpio_dir,"w"); 
   if (!fgpio) 
   {
@@ -110,6 +114,9 @@ rno_g_cal_dev_t * rno_g_cal_open(uint8_t bus, uint16_t gpio, char rev)
   dev->rev = rev; 
   dev->bus = bus; 
 
+  dev->setup = 0 ;
+  dev->enabled = -1; 
+
   return dev; 
 }
 
@@ -124,11 +131,13 @@ int rno_g_cal_close(rno_g_cal_dev_t * dev)
 
 int rno_g_cal_enable(rno_g_cal_dev_t * dev) 
 {
+  dev->enabled = 1; 
   return fprintf(dev->fgpiodir,"high\n") != sizeof("high\n");
 }
 
 int rno_g_cal_disable(rno_g_cal_dev_t * dev) 
 {
+  dev->enabled = 0; 
   return fprintf(dev->fgpiodir,"low\n") != sizeof("low\n");
 }
 
@@ -206,53 +215,65 @@ int rno_g_cal_setup(rno_g_cal_dev_t* dev)
   if (do_write(dev, addr0, config_reg,0x00)) return -errno; 
   if (do_write(dev, addr1, output_reg,0x00)) return -errno; 
   if (do_write(dev, addr1, config_reg,0x00)) return -errno; 
+  dev->ch = RNO_G_CAL_NO_OUTPUT; 
+  dev->mode = RNO_G_CAL_NO_SIGNAL; 
+  dev->atten = 63; //max, I think
+  dev->setup = 1; 
   return 0; 
 }
 
 
-static int do_set(rno_g_cal_dev_t *dev, int pulser) 
+int rno_g_cal_set_pulse_mode(rno_g_cal_dev_t *dev, rno_g_calpulser_mode_t type) 
 {
   uint8_t val; 
+
+  if (dev->setup && dev->mode == type) return 0; 
+
   if (do_read(dev, addr1, output_reg, &val)) 
   {
     return -errno; 
   }
 
-  if (pulser) 
+  if (type == RNO_G_CAL_PULSER) 
   {
     val|=0x40; //turn on pulser
-    val&=(~0x08); //turn off VCO? 
+
+    if (dev->rev == 'D') 
+    {
+      val&=(~0x08); //turn off VCO? 
+    }
+    else
+    {
+      val&=(~0x03); // turn off VCO for revE 
+    }
   }
-  else
+  else if (dev->rev=='D') //only one VCO for revD 
   {
-    val&=(~0x40); //turn off pulser
+    val&=(~0x40); //turn off pulser?
     val|=0x08; //turn on VCO? 
   }
-                
+  else 
+  {
+    uint8_t orwith = type == RNO_G_CAL_VCO ? 0x01 : 0x02; 
+    val&=(~0x40); //turn off pulser?
+    val|=orwith; //turn on correct VCO 
+  }
                   
   if (do_write(dev,addr1,output_reg,val)) 
   {
       return -errno; 
   }
+  if (dev->setup) dev->mode = type; 
   return 0; 
 }
 
-int rno_g_cal_set_pulse(rno_g_cal_dev_t * dev) 
-{
-  return do_set(dev,1); 
 
-}
-
-int rno_g_cal_set_vco(rno_g_cal_dev_t* dev)
-{
-  return do_set(dev,0); 
-}
-
-int rno_g_cal_select(rno_g_cal_dev_t * dev, rno_g_cal_channel_t ch) 
+int rno_g_cal_select(rno_g_cal_dev_t * dev, rno_g_calpulser_out_t ch) 
 {
   uint8_t val0; 
   uint8_t val1; 
 
+  if (dev->setup && dev->ch ==  ch) return 0; 
   if (do_read(dev, addr0, output_reg, &val0)) 
     return -errno; 
 
@@ -266,12 +287,12 @@ int rno_g_cal_select(rno_g_cal_dev_t * dev, rno_g_cal_channel_t ch)
       return -errno; 
   }
 
-  if (ch == RNOG_CAL_CH_COAX)
+  if (ch == RNO_G_CAL_COAX)
   {
     val0 &= (~0x02); 
     val1 &= (~0x80); 
   }
-  else if ( ch == RNOG_CAL_CH_FIBER0 ) 
+  else if ( ch == RNO_G_CAL_FIB0) 
   {
     if (dev->rev=='D')
     {
@@ -285,7 +306,7 @@ int rno_g_cal_select(rno_g_cal_dev_t * dev, rno_g_cal_channel_t ch)
       val1 &= ~0x04; 
     }
   }
-  else if ( ch == RNOG_CAL_CH_FIBER1 ) 
+  else if ( ch == RNO_G_CAL_FIB1 ) 
   {
     if (dev->rev=='D')
     {
@@ -310,11 +331,13 @@ int rno_g_cal_select(rno_g_cal_dev_t * dev, rno_g_cal_channel_t ch)
 
   if (do_write(dev, addr0, output_reg, val0)) return -errno; 
   if (do_write(dev, addr1, output_reg, val1)) return -errno; 
+  if (dev->setup) dev->ch = ch; 
   return 0; 
 }
 
 int rno_g_cal_set_atten(rno_g_cal_dev_t *dev, uint8_t atten) 
 {
+  if (dev->setup && dev->atten == atten) return 0; 
   //read addr0
   uint8_t val;
   if (do_read(dev, addr0, output_reg, &val))
@@ -323,6 +346,7 @@ int rno_g_cal_set_atten(rno_g_cal_dev_t *dev, uint8_t atten)
   }
   val &=0x02; 
 
+  uint8_t set_atten = atten;
   if (atten > 63) atten = 63; 
   atten = 63-atten; 
 
@@ -343,6 +367,7 @@ int rno_g_cal_set_atten(rno_g_cal_dev_t *dev, uint8_t atten)
   if (do_write(dev, addr0, output_reg, val | 0x1)) return -errno; //load enable
   if (do_write(dev, addr0, output_reg, val)) return -errno; 
 
+  if (dev->setup) dev->atten = set_atten; 
   return 0; 
 }
 
@@ -369,5 +394,32 @@ void rno_g_cal_enable_dbg(rno_g_cal_dev_t * dev, int dbg)
 {
   dev->debug = dbg; 
 
+}
+
+int rno_g_cal_fill_info(rno_g_cal_dev_t * dev, rno_g_calpulser_info_t *info) 
+{
+  
+  if (dev->enabled!=1 || !dev->setup) 
+  {
+   //just fill with 0's 
+    memset(info,0,sizeof(*info)); 
+    //except for rev 
+    info->rev = dev->rev; 
+    if (!dev->setup || dev->enabled == -1) 
+    {
+      fprintf(stderr,"WARNING, asking for calpulser info but not properly setup yet!\n"); 
+      return 1; 
+    }
+    return 0; 
+  }
+
+  info->atten_times_2 = dev->atten; 
+  info->mode = dev->mode; 
+  info->out = dev->ch; 
+  info->enabled = dev->enabled; 
+  float T = 0; 
+  rno_g_cal_read_temp(dev,&T); 
+  info->T_times_16 = T*16; 
+  return 0; 
 }
 
