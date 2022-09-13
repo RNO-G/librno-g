@@ -218,6 +218,7 @@ int rno_g_cal_setup(rno_g_cal_dev_t* dev)
   dev->ch = RNO_G_CAL_NO_OUTPUT; 
   dev->mode = RNO_G_CAL_NO_SIGNAL; 
   dev->atten = 63; //max, I think
+  dev->setup = 1; 
   return 0; 
 }
 
