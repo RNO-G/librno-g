@@ -448,8 +448,8 @@ int rno_g_cal_wait_ready(rno_g_cal_dev_t * dev)
 {
   if (!dev) return 1; 
 
-  uint8_t dummy;
-  while (do_read(dev, addr1,output_reg,&dummy)  < 0) 
+
+  while (do_write(dev, addr0, output_reg,0x00))
   {
     usleep(2500); 
   }
