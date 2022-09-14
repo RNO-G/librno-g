@@ -27,6 +27,7 @@ struct rno_g_cal_dev
   int enabled; 
   int setup; 
   FILE * fgpiodir;
+  FILE * fgpioval;
 }; 
 
 const char valid_revs[] = "DE"; 
@@ -39,6 +40,7 @@ const uint8_t config_reg = 0x03;
 const uint8_t tmp_reg = 0x05; 
 
 const char gpio_dir_format[] = "/sys/class/gpio/gpio%hu/direction"; 
+const char gpio_val_format[] = "/sys/class/gpio/gpio%hu/value"; 
 
 
 rno_g_cal_dev_t * rno_g_cal_open(uint8_t bus, uint16_t gpio, char rev) 
@@ -99,6 +101,19 @@ rno_g_cal_dev_t * rno_g_cal_open(uint8_t bus, uint16_t gpio, char rev)
 
   free(gpio_dir); 
 
+  char * gpio_val = 0; 
+  asprintf(&gpio_val, gpio_val_format, gpio); 
+  FILE * fval = fopen(gpio_val,"w"); 
+  if (!fval) 
+  {
+    fprintf(stderr, "Could not open %s for writing\n", gpio_val); 
+    close(fd); 
+    free(gpio_val); 
+    return NULL; 
+  }
+
+  free(gpio_val); 
+
   if (!dev) 
   {
     fprintf(stderr,"Could not allocate memory for rno_g_cal_dev_t!!!\n"); 
@@ -110,6 +125,7 @@ rno_g_cal_dev_t * rno_g_cal_open(uint8_t bus, uint16_t gpio, char rev)
 
 
   dev->fgpiodir = fgpio; 
+  dev->fgpioval = fval; 
   dev->fd = fd; 
   dev->rev = rev; 
   dev->bus = bus; 
@@ -124,6 +140,7 @@ int rno_g_cal_close(rno_g_cal_dev_t * dev)
 {
   if (!dev) return -1; 
   fclose(dev->fgpiodir); 
+  fclose(dev->fgpioval); 
   close(dev->fd); 
   free(dev); 
   return 0; 
@@ -132,13 +149,13 @@ int rno_g_cal_close(rno_g_cal_dev_t * dev)
 int rno_g_cal_enable(rno_g_cal_dev_t * dev) 
 {
   dev->enabled = 1; 
-  return fprintf(dev->fgpiodir,"high\n") != sizeof("high\n");
+  return (fprintf(dev->fgpiodir,"out\n") != sizeof("out\n")) || (fprintf(dev->fgpioval,"1\n") != sizeof("1\n"));
 }
 
 int rno_g_cal_disable(rno_g_cal_dev_t * dev) 
 {
   dev->enabled = 0; 
-  return fprintf(dev->fgpiodir,"low\n") != sizeof("low\n");
+  return (fprintf(dev->fgpioval,"0\n") != sizeof("0\n")) || (fprintf(dev->fgpiodir,"in\n") != sizeof("in\n"));
 }
 
 int rno_g_cal_disable_no_handle(uint16_t gpio) 
@@ -155,7 +172,7 @@ int rno_g_cal_disable_no_handle(uint16_t gpio)
   }
 
   FILE * f = fopen(gpio_dir,"w"); 
-  int ret = fprintf(f,"low\n") != sizeof("low\n");
+  int ret = fprintf(f,"in\n") != sizeof("in\n");
   fclose(f); 
   return ret; 
 }
