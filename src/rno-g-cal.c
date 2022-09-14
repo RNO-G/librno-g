@@ -163,6 +163,7 @@ int rno_g_cal_disable_no_handle(uint16_t gpio)
 
 
 
+
 static int do_write(rno_g_cal_dev_t * dev, uint8_t addr, uint8_t reg, uint8_t val) 
 {
 
@@ -443,3 +444,15 @@ int rno_g_cal_fill_info(rno_g_cal_dev_t * dev, rno_g_calpulser_info_t *info)
   return 0; 
 }
 
+int rno_g_cal_wait_ready(rno_g_cal_dev_t * dev) 
+{
+  if (!dev) return 1; 
+
+  uint8_t dummy;
+  while (do_read(dev, addr1,output_reg,&dummy)  < 0) 
+  {
+    usleep(2500); 
+  }
+
+  return 0; 
+}
