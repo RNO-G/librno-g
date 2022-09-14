@@ -124,6 +124,8 @@ rno_g_cal_dev_t * rno_g_cal_open(uint8_t bus, uint16_t gpio, char rev)
 
 
 
+  setbuf(fgpio,0);
+  setbuf(fval,0);
   dev->fgpiodir = fgpio; 
   dev->fgpioval = fval; 
   dev->fd = fd; 
