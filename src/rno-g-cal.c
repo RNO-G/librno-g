@@ -141,6 +141,26 @@ int rno_g_cal_disable(rno_g_cal_dev_t * dev)
   return fprintf(dev->fgpiodir,"low\n") != sizeof("low\n");
 }
 
+int rno_g_cal_disable_no_handle(uint16_t gpio) 
+{
+  char gpio_dir[128]; 
+  snprintf(gpio_dir,sizeof(gpio_dir), gpio_dir_format, gpio); 
+
+  if (access(gpio_dir, W_OK))
+  {
+    //not exported (at least in a way we canwrite to); 
+    // so it's probably off
+    return 0; 
+
+  }
+
+  FILE * f = fopen(gpio_dir,"w"); 
+  int ret = fprintf(f,"low\n") != sizeof("low\n");
+  fclose(f); 
+  return ret; 
+}
+
+
 
 
 static int do_write(rno_g_cal_dev_t * dev, uint8_t addr, uint8_t reg, uint8_t val) 

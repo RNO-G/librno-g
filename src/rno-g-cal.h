@@ -21,6 +21,9 @@ int rno_g_cal_close(rno_g_cal_dev_t* dev);
 int rno_g_cal_enable(rno_g_cal_dev_t *dev); 
 int rno_g_cal_disable(rno_g_cal_dev_t *dev); 
 
+//disable calpulser without a reference (basically for making sure it's off) 
+int rno_g_cal_disable_no_handle(uint16_t gpio); 
+
 int rno_g_cal_setup(rno_g_cal_dev_t* dev); 
 
 int rno_g_cal_read_temp(rno_g_cal_dev_t * dev, float *T); 
