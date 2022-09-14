@@ -466,9 +466,14 @@ int rno_g_cal_wait_ready(rno_g_cal_dev_t * dev)
   if (!dev) return 1; 
 
 
+  int nwait = 0; 
   while (do_write(dev, addr0, output_reg,0x00))
   {
     usleep(2500); 
+    if (nwait++ > 40)
+    {  //100 ms 
+       return -1; 
+    }
   }
 
   return 0; 
