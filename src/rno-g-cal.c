@@ -151,13 +151,13 @@ int rno_g_cal_close(rno_g_cal_dev_t * dev)
 int rno_g_cal_enable(rno_g_cal_dev_t * dev) 
 {
   dev->enabled = 1; 
-  return (fprintf(dev->fgpiodir,"out\n") != sizeof("out\n")) || (fprintf(dev->fgpioval,"1\n") != sizeof("1\n"));
+  return (fprintf(dev->fgpiodir,"out\n") != sizeof("out\n")-1) || (fprintf(dev->fgpioval,"1\n") != sizeof("1\n")-1);
 }
 
 int rno_g_cal_disable(rno_g_cal_dev_t * dev) 
 {
   dev->enabled = 0; 
-  return (fprintf(dev->fgpioval,"0\n") != sizeof("0\n")) || (fprintf(dev->fgpiodir,"in\n") != sizeof("in\n"));
+  return (fprintf(dev->fgpioval,"0\n") != sizeof("0\n")-1) || (fprintf(dev->fgpiodir,"in\n") != sizeof("in\n")-1);
 }
 
 int rno_g_cal_disable_no_handle(uint16_t gpio) 
@@ -174,7 +174,7 @@ int rno_g_cal_disable_no_handle(uint16_t gpio)
   }
 
   FILE * f = fopen(gpio_dir,"w"); 
-  int ret = fprintf(f,"in\n") != sizeof("in\n");
+  int ret = fprintf(f,"in\n") != sizeof("in\n"-1);
   fclose(f); 
   return ret; 
 }
