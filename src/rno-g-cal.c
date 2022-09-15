@@ -70,6 +70,12 @@ rno_g_cal_dev_t * rno_g_cal_open(uint8_t bus, uint16_t gpio, char rev)
   if (access(gpio_dir, W_OK))
   {
     FILE * f = fopen("/sys/class/gpio/export","w"); 
+    if (!f) 
+    {
+      fprintf(stderr,"Do we even have GPIOs? Bailing\n"); 
+      return 0; 
+    }
+
     fprintf(f,"%d\n", gpio); 
     fclose(f); 
     usleep(50000); // long enough? 
@@ -178,6 +184,8 @@ int rno_g_cal_disable_no_handle(uint16_t gpio)
   }
 
   FILE * f = fopen(gpio_dir,"w"); 
+  if (!f) return 0; 
+
   int ret = fprintf(f,"in\n") != sizeof("in\n"-1);
   fclose(f); 
   return ret; 
