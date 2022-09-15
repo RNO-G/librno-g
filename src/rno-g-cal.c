@@ -87,6 +87,14 @@ rno_g_cal_dev_t * rno_g_cal_open(uint8_t bus, uint16_t gpio, char rev)
 
   rno_g_cal_dev_t * dev = calloc(sizeof(rno_g_cal_dev_t),1); 
 
+  if (!dev) 
+  {
+    fprintf(stderr,"Could not allocate memory for rno_g_cal_dev_t!!!\n"); 
+    close(fd); 
+    return NULL; 
+  }
+
+
 
 
   //open the gpio file
@@ -96,6 +104,7 @@ rno_g_cal_dev_t * rno_g_cal_open(uint8_t bus, uint16_t gpio, char rev)
     fprintf(stderr, "Could not open %s for writing\n", gpio_dir); 
     close(fd); 
     free(gpio_dir); 
+    free(dev); 
     return NULL; 
   }
 
@@ -109,18 +118,12 @@ rno_g_cal_dev_t * rno_g_cal_open(uint8_t bus, uint16_t gpio, char rev)
     fprintf(stderr, "Could not open %s for writing\n", gpio_val); 
     close(fd); 
     free(gpio_val); 
+    fclose(fgpio); 
+    free(dev); 
     return NULL; 
   }
 
   free(gpio_val); 
-
-  if (!dev) 
-  {
-    fprintf(stderr,"Could not allocate memory for rno_g_cal_dev_t!!!\n"); 
-    fclose(fgpio); 
-    close(fd); 
-    return NULL; 
-  }
 
 
 
@@ -136,6 +139,7 @@ rno_g_cal_dev_t * rno_g_cal_open(uint8_t bus, uint16_t gpio, char rev)
   dev->enabled = -1; 
 
   return dev; 
+
 }
 
 int rno_g_cal_close(rno_g_cal_dev_t * dev) 
