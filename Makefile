@@ -5,7 +5,7 @@ PREFIX?=$(RNO_G_INSTALL_DIR)
 include config.mk
 
 CFLAGS=-fPIC -Og -Wall -Wextra -g -std=gnu11 -I./src -DRADIANT_SPI_SPEED=$(RADIANT_SPI_SPEED_MHZ)
-#CFLAGS+=-fanalyzer
+CFLAGS+=$(EXTRA_CFLAGS) 
 CXXFLAGS+=-fPIC -Og -Wall -Wextra -g
 
 #CFLAGS+=-DRADIANT_SET_DBG
