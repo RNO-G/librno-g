@@ -88,6 +88,7 @@ install-daq: install $(BUILD_DIR)/libradiant.so $(BUILD_DIR)/libflower.so $(BUIL
 ifeq ($(ON_BBB),yes)
 	mkdir -p /data/test
 	chown rno-g:rno-g /data/test 
+	ldconfig  # just put this here... doesn't seem to be needed on my laptop but mabye on BBB (Debian things?) 
 endif
 
 
