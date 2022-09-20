@@ -13,6 +13,7 @@
 extern "C" {
 #endif
 
+#include <time.h> 
 #include "rno-g.h" 
 
 /*---------------------------------------------------------------------
@@ -110,6 +111,7 @@ int radiant_labs_stop(radiant_dev_t*bd);
 /** 
  * High-level read event interface
  * THIS DOESN'T ACTUALLY CHECK IF THERE'S ANYTHING TO READ. DO THAT EITHER WITH check_avail or poll. 
+ * Note that this is equivalent to radiant_read_raw_event and radiant_process_raw_event. 
  *
  * @param bd opaque handle for the board
  * @param hd The RNO-G header to populate (if there's something available) 
@@ -512,7 +514,49 @@ int radiant_get_pps_config( radiant_dev_t *bd, radiant_pps_config_t *cfg);
 int radiant_get_fw_version( const radiant_dev_t * bd, radiant_dest_t what,  uint8_t * major, uint8_t *minor, uint8_t* rev, uint8_t * year_minus_2000, uint8_t *month, uint8_t * day); 
 
 uint16_t radiant_get_sample_rate(const radiant_dev_t * bd); //Sample rate in MHz
+                                                            //
+struct radiant_fw_event_header
+{
+    uint32_t magic; 
+    uint32_t pps;
+    uint32_t count;
+    uint32_t sysclk;
+    uint32_t trig_info; 
+    uint32_t status_flags;
+    uint32_t sysclk_last_pps;
+    uint32_t sysclk_last_last_pps;
+};
 
+typedef struct radiant_raw_event_info
+{
+  struct radiant_fw_event_header fwhd; 
+  struct timespec read_start;
+  struct timespec read_end;
+}radiant_raw_event_info_t; 
+
+
+/** This performs the actual reading part of reading a radiant event, but does not
+ * leave wf in a usable state until radiant_process_raw_event is called. 
+ *
+ * In most cases you want radiant_read_event. This is only useful to decouple the 
+ * readout from the processing (i.e. if you want them to run in different threads). 
+ *
+ *
+ */
+int radiant_read_raw_event( radiant_dev_t * rad, radiant_raw_event_info_t *
+    raw_info, rno_g_waveform_t * wf);
+
+/** This performs the processing of a radiant event read with read_raw_event. Pass it the wf you got from radiant_read_raw_event as well as the raw_info.
+ *
+ * You do not need to call this if you used radiant_read_event. After calling this, hd and wf iwll be filled.
+ *
+ * If you change radiant parameters... well don't do that. 
+ * */ 
+int radiant_process_raw_event(
+      radiant_dev_t * rad, 
+      const radiant_raw_event_info_t * raw_info,
+      rno_g_header_t * hd, 
+      rno_g_waveform_t * wf); 
 
 #ifdef __cplusplus
 }

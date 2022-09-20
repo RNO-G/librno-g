@@ -1,6 +1,5 @@
 #include "radiant.h" 
 #include "cobs.h" 
-#include <time.h> 
 #include <linux/spi/spidev.h> 
 #include <sys/types.h> 
 #include <stdio.h>
@@ -28,18 +27,6 @@
 #include "adf4350.h" 
 
 #define EVENT_MAGIC 0x52444530
-struct fw_event_header
-{
-  uint32_t magic; 
-  uint32_t pps;
-  uint32_t count;
-  uint32_t sysclk;
-  uint32_t trig_info; 
-  uint32_t status_flags;
-  uint32_t sysclk_last_pps;
-  uint32_t sysclk_last_last_pps;
-}; 
-
 
 
 // BOARD MANAGER REGISTERS
@@ -610,19 +597,28 @@ static void bswap16(uint16_t *vv, int N)
 
 
 
+
 int radiant_read_event(radiant_dev_t * bd, rno_g_header_t * hd, rno_g_waveform_t *wf) 
 {
 
+  radiant_raw_event_info_t raw_info; 
+  int ret =radiant_read_raw_event(bd, &raw_info, wf); 
+  if (ret < 0) return ret; 
+  int ret2= radiant_process_raw_event(bd, &raw_info, hd, wf); 
+  return ret2 ?: ret; 
+}
 
+
+int radiant_read_raw_event(radiant_dev_t *bd, radiant_raw_event_info_t * raw_info, rno_g_waveform_t *wf)
+{
   if (!bd) return -1 ; 
-  struct fw_event_header fwhd; 
  
 
   uint16_t Ns[2+RNO_G_NUM_RADIANT_CHANNELS]; 
   uint8_t* bufs[2+RNO_G_NUM_RADIANT_CHANNELS]; 
 
-  Ns[0] = sizeof(fwhd); 
-  bufs[0] = (uint8_t*) &fwhd; 
+  Ns[0] = sizeof(raw_info->fwhd); 
+  bufs[0] = (uint8_t*) &(raw_info->fwhd); 
 
   int nsamples = bd->readout_nsamp; 
   int iactual = 0;
@@ -638,36 +634,39 @@ int radiant_read_event(radiant_dev_t * bd, rno_g_header_t * hd, rno_g_waveform_t
 
   int nactual = iactual; 
 
-  struct timespec start; 
-  struct timespec end; 
 
-  clock_gettime(CLOCK_REALTIME, &start); 
+  clock_gettime(CLOCK_REALTIME, &raw_info->read_start); 
   int ret = radiant_read(bd, 1+nactual, Ns,bufs); 
-  clock_gettime(CLOCK_REALTIME, &end); 
+  clock_gettime(CLOCK_REALTIME, &raw_info->read_end); 
 
-  
   //check magic 
-  if (fwhd.magic!= EVENT_MAGIC )
+  if (raw_info->fwhd.magic!= EVENT_MAGIC )
   {
-    fprintf(stderr,"Bad magic :%x\n", fwhd.magic);
+    fprintf(stderr,"Bad magic :%x\n", raw_info->fwhd.magic);
     return -1; 
   }
 
+  return ret;
+}
 
+
+int radiant_process_raw_event(radiant_dev_t * bd, const radiant_raw_event_info_t *raw_info, rno_g_header_t * hd, rno_g_waveform_t *wf)
+{
+  int nsamples = bd->readout_nsamp; 
   memset(hd,0,sizeof(*hd)); 
-  hd->event_number = fwhd.count;
-  hd->pps_count = fwhd.pps; 
-  hd->sys_clk = fwhd.sysclk; 
-  hd->readout_time_secs = start.tv_sec; 
-  hd->readout_time_nsecs = start.tv_nsec; 
-  hd->readout_elapsed_nsecs = (end.tv_nsec - start.tv_nsec) + 1000000000 * (end.tv_sec-start.tv_sec); 
+  hd->event_number = raw_info->fwhd.count;
+  hd->pps_count = raw_info->fwhd.pps; 
+  hd->sys_clk = raw_info->fwhd.sysclk; 
+  hd->readout_time_secs = raw_info->read_start.tv_sec; 
+  hd->readout_time_nsecs = raw_info->read_end.tv_nsec; 
+  hd->readout_elapsed_nsecs = (raw_info->read_end.tv_nsec - raw_info->read_start.tv_nsec) + 1000000000 * (raw_info->read_end.tv_sec-raw_info->read_start.tv_sec); 
   hd->run_number = bd->run; 
-  hd->sysclk_last_pps = fwhd.sysclk_last_pps; 
-  hd->sysclk_last_last_pps = fwhd.sysclk_last_last_pps; 
+  hd->sysclk_last_pps = raw_info->fwhd.sysclk_last_pps; 
+  hd->sysclk_last_last_pps = raw_info->fwhd.sysclk_last_last_pps; 
   hd->radiant_nsamples = nsamples; 
 
-  hd->raw_evstatus = fwhd.status_flags; 
-  hd->raw_tinfo = fwhd.trig_info; 
+  hd->raw_evstatus = raw_info->fwhd.status_flags; 
+  hd->raw_tinfo = raw_info->fwhd.trig_info; 
   hd->trigger_type = 0 ;
 
   if (hd->raw_tinfo & RADIANT_TRIGGER_INT0 ) hd->trigger_type |= RNO_G_TRIGGER_RF_RADIANT0;
@@ -751,7 +750,7 @@ int radiant_read_event(radiant_dev_t * bd, rno_g_header_t * hd, rno_g_waveform_t
     }
   }
 
-  return ret; 
+  return 0; 
 }
 
 
@@ -1968,7 +1967,7 @@ int radiant_dma_setup_event(radiant_dev_t*bd, uint32_t mask)
 
   int idesc = 0; 
   //set the first one for the event fifo. this looks like the right place 
-  radiant_dma_desc_t desc = {.addr=RAD_REG_EV_FIFO_BASE, .incr=1, .length=sizeof(struct fw_event_header)/sizeof(uint32_t)}; 
+  radiant_dma_desc_t desc = {.addr=RAD_REG_EV_FIFO_BASE, .incr=1, .length=sizeof(struct radiant_fw_event_header)/sizeof(uint32_t)}; 
   radiant_dma_set_descriptor(bd, idesc++, desc); 
   int last = 31 - __builtin_clz(mask); 
 
