@@ -383,7 +383,10 @@ int flower_fill_daqstatus(flower_dev_t *dev, rno_g_daqstatus_t *ds)
     for (int i = 0; i < 4; i++) ds->lt_scalers.s_100Hz.trig_per_chan[i] = raw_scalers[25+i]; 
     ds->lt_scalers.s_100Hz.servo_coinc = raw_scalers[24+5];
     for (int i = 0; i < 4; i++) ds->lt_scalers.s_100Hz.servo_per_chan[i] = raw_scalers[30+i]; 
-    ds->lt_scalers.ncycles = ( be32toh(dest_time[0].word) & 0xffffff ) | ((be32toh(dest_time[1].word) & (0xffffff)) << 24); 
+    
+    uint64_t t_low = ( be32toh(dest_time[0].word) & 0xffffff ); 
+    uint64_t t_high = ( be32toh(dest_time[1].word) & 0xffffff ); 
+    ds->lt_scalers.ncycles =  t_low | t_high << 24; 
     ds->lt_scalers.scaler_counter_1Hz = raw_scalers[63]; 
 
     return 0; 
