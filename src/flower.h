@@ -92,13 +92,23 @@ typedef struct  flower_trigger_enables
   uint8_t enable_coinc : 1; 
 } flower_trigger_enables_t; 
 
+
+
+// This is used to determine what forms internal triggers on the FLOWER, though the coinc is required to pass it to trigout too since otherwise it's not formed. 
 int flower_set_trigger_enables(flower_dev_t * dev, flower_trigger_enables_t enables); 
+
+/**Set the delayed PPS delay. The delay is in multiples of 100 ns*/
+int flower_set_delayed_pps_delay(flower_dev_t * dev, uint32_t delay); 
+int flower_get_delayed_pps_delay(flower_dev_t * dev, uint32_t  *delay); 
+
 
 
 typedef struct  flower_trigout_enables
 {
-  uint8_t enable_sysout : 1; 
-  uint8_t enable_auxout : 1; 
+  uint8_t enable_rf_sysout : 1; 
+  uint8_t enable_rf_auxout : 1; 
+  uint8_t enable_pps_sysout : 1; 
+  uint8_t enable_pps_auxout : 1; 
 } flower_trigout_enables_t; 
 
 int flower_set_trigout_enables(flower_dev_t * dev, flower_trigout_enables_t enables); 
