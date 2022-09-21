@@ -45,6 +45,7 @@ typedef enum
   FLWR_REG_TRIG_CH2_THR = 0x59,
   FLWR_REG_TRIG_CH3_THR = 0x5a,
   FLWR_REG_TRIG_PARAM  = 0x5b,
+  FLWR_REG_PPS_DELAY = 0x5e, 
   FLWR_REG_SET_READ_REG = 0x6d,
   FLWR_REG_MAX=0x7f
 } e_flower_reg; 
@@ -587,8 +588,8 @@ int flower_set_trigger_enables(flower_dev_t *dev, flower_trigger_enables_t enabl
 
 int flower_set_trigout_enables(flower_dev_t * dev, flower_trigout_enables_t enables) 
 {
-  flower_word_t word1 = {.bytes={FLWR_REG_TRIGOUT_SYSOUT,0,0,enables.enable_sysout}};
-  flower_word_t word2 = {.bytes={FLWR_REG_TRIGOUT_AUXOUT,0,0,enables.enable_auxout}};
+  flower_word_t word1 = {.bytes={FLWR_REG_TRIGOUT_SYSOUT,0,enables.enable_pps_sysout,enables.enable_rf_sysout}};
+  flower_word_t word2 = {.bytes={FLWR_REG_TRIGOUT_AUXOUT,0,enables.enable_pps_auxout,enables.enable_rf_auxout}};
   return write_word(dev, &word1) + write_word(dev, &word2); 
 }
 
@@ -652,5 +653,22 @@ int flower_get_fwversion(flower_dev_t *dev, uint8_t *major, uint8_t *minor,
   if (month) *month = dev->fwdate.date.month; 
   if (day) *day = dev->fwdate.date.day; 
   return 0; 
+
+}
+
+int flower_set_delayed_pps_delay(flower_dev_t * dev, uint32_t delay) 
+{
+  if (!dev) return -1; 
+
+  flower_word_t word = {.bytes = {FLWR_REG_PPS_DELAY, (delay >> 16) & 0xff,(delay >> 8) & 0xff,  delay & 0xff, }}; 
+  return write_word(dev,&word); 
+}
+
+int flower_get_delayed_pps_delay(flower_dev_t * dev, uint32_t *delay) 
+{
+  flower_word_t word; 
+  int ret = flower_read_register(dev, FLWR_REG_PPS_DELAY, &word); 
+  if (!ret)  *delay = word.bytes[3] | (word.bytes[2] <<8) | (word.bytes[1] << 16); 
+  return ret; 
 
 }
