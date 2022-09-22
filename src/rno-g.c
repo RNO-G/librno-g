@@ -614,7 +614,7 @@ int rno_g_daqstatus_dump_flower(FILE  *f, const rno_g_daqstatus_t * ds)
                  when_tm_lt.tm_year + 1900, 1+when_tm_lt.tm_mon, when_tm_lt.tm_mday, when_tm_lt.tm_hour, 
                  when_tm_lt.tm_min, when_tm_lt.tm_sec,  lt_ns); 
   uint64_t ncycles = ds->lt_scalers.ncycles; 
-  ret+=fprintf(f,  "  ncycles: %" PRIu64 " , delay cycle counter: %" PRIu64 ", counter: %hu\n", ncycles, ds->lt_scalers.delay_cycle_counter, ds->lt_scalers.scaler_counter_1Hz); 
+  ret+=fprintf(f,  "  ncycles: %" PRIu64 " , delay cycle counter: %" PRIu64 ", counter: %hu\n", ncycles, ds->lt_scalers.cycle_counter, ds->lt_scalers.scaler_counter_1Hz); 
   ret+=fprintf(f,  "==CH==SERVO_THR=TRIG_THR=SERVO_SCAL_1HZ==SERVO_SCAL_100HZ==SERVO_SCAL_GTE==TRIG_SCAL_1HZ==TRIG_SCAL_100Hz=TRIG_SCAL_GTE\n"); 
   for (int i = 0; i < RNO_G_NUM_LT_CHANNELS; i++)
   {

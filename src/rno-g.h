@@ -225,7 +225,7 @@ typedef struct rno_g_lt_scalers
   rno_g_lt_scaler_group_t s_100Hz; 
   uint64_t ncycles : 48 ;  //this is the 118 MHz clock
   uint16_t scaler_counter_1Hz : 16; 
-  uint64_t delay_cycle_counter;  // cycle counter for the pps delay 
+  uint64_t cycle_counter;  // cycle counter, reset on each PPS 
 } rno_g_lt_scalers_t; 
 
 
