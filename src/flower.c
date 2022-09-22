@@ -301,9 +301,9 @@ int flower_fill_daqstatus(flower_dev_t *dev, rno_g_daqstatus_t *ds)
 
   if (!dev) return -1; 
 
-  #define DSNMSG (3*(21)+5)
+  #define MAX_DSNMSG (3*(21)+5)
 
-  struct spi_ioc_transfer xfer[DSNMSG] = {0}; 
+  struct spi_ioc_transfer xfer[MAX_DSNMSG] = {0}; 
 
   static flower_word_t update_word = {.bytes = {FLWR_REG_SCAL_UPD,0,0,1}}; 
   static flower_word_t selectread_word = {.bytes = {FLWR_REG_SET_READ_REG,0,0, FLWR_REG_SCAL_RD}};
@@ -339,7 +339,8 @@ int flower_fill_daqstatus(flower_dev_t *dev, rno_g_daqstatus_t *ds)
   xfer[4].len = sizeof(flower_word_t); 
 
   int ixfer = 0; 
-  for (int ireg = 0; ireg <34; ireg++) 
+  int max_reg = (dev->fwver.ver.minor < 8 && dev->fwver.ver.major < 1 ) ? 32 : 34; 
+  for (int ireg = 0; ireg <max_reg; ireg++) 
   {
     if (ireg == 18) ireg=31; //scalers 36-61 are empty
     xfer[3*ixfer+5].tx_buf = (uintptr_t) scal_sel_regs[ireg].bytes; 
@@ -355,8 +356,10 @@ int flower_fill_daqstatus(flower_dev_t *dev, rno_g_daqstatus_t *ds)
     ixfer++; 
   }
 
+  int nxfer =  (dev->fwver.ver.minor < 8 && dev->fwver.ver.major < 1 ) ? 3*19+5 : 3*21+5; 
+
   clock_gettime(CLOCK_REALTIME,&start);
-  int ret = ioctl(dev->spi_fd, SPI_IOC_MESSAGE(DSNMSG), xfer); 
+  int ret = ioctl(dev->spi_fd, SPI_IOC_MESSAGE(nxfer), xfer); 
   clock_gettime(CLOCK_REALTIME,&end);
 //  printf("status ioctl: %d\n", ret); 
 
@@ -667,7 +670,7 @@ int flower_get_fwversion(flower_dev_t *dev, uint8_t *major, uint8_t *minor,
 
 int flower_set_delayed_pps_delay(flower_dev_t * dev, uint32_t delay) 
 {
-  if (!dev) return -1; 
+  if (!dev || (dev->fwver.ver.minor < 8 && dev->fwver.ver.major < 1 )) return -1; 
 
   flower_word_t word = {.bytes = {FLWR_REG_PPS_DELAY, (delay >> 16) & 0xff,(delay >> 8) & 0xff,  delay & 0xff, }}; 
   return write_word(dev,&word); 
@@ -675,6 +678,7 @@ int flower_set_delayed_pps_delay(flower_dev_t * dev, uint32_t delay)
 
 int flower_get_delayed_pps_delay(flower_dev_t * dev, uint32_t *delay) 
 {
+  if (!dev || (dev->fwver.ver.minor < 8 && dev->fwver.ver.major < 1 )) return -1; 
   flower_word_t word; 
   int ret = flower_read_register(dev, FLWR_REG_PPS_DELAY, &word); 
   if (!ret)  *delay = word.bytes[3] | (word.bytes[2] <<8) | (word.bytes[1] << 16); 
