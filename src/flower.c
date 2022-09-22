@@ -301,7 +301,7 @@ int flower_fill_daqstatus(flower_dev_t *dev, rno_g_daqstatus_t *ds)
 
   if (!dev) return -1; 
 
-  #define DSNMSG (3*(19)+5)
+  #define DSNMSG (3*(21)+5)
 
   struct spi_ioc_transfer xfer[DSNMSG] = {0}; 
 
@@ -309,7 +309,7 @@ int flower_fill_daqstatus(flower_dev_t *dev, rno_g_daqstatus_t *ds)
   static flower_word_t selectread_word = {.bytes = {FLWR_REG_SET_READ_REG,0,0, FLWR_REG_SCAL_RD}};
   static flower_word_t update_tlow = {.bytes = {FLWR_REG_SET_READ_REG,0,0,FLWR_REG_SCAL_TIME_LOW}}; 
   static flower_word_t update_thigh = {.bytes = {FLWR_REG_SET_READ_REG,0,0,FLWR_REG_SCAL_TIME_HIGH}}; 
-  flower_word_t dest[32] = {0}; 
+  flower_word_t dest_scaler[34] = {0}; 
   uint16_t raw_scalers[64]; 
   flower_word_t dest_time[2] = {0}; 
 
@@ -339,9 +339,9 @@ int flower_fill_daqstatus(flower_dev_t *dev, rno_g_daqstatus_t *ds)
   xfer[4].len = sizeof(flower_word_t); 
 
   int ixfer = 0; 
-  for (int ireg = 0; ireg <32; ireg++) 
+  for (int ireg = 0; ireg <34; ireg++) 
   {
-    if (ireg == 18) ireg=31; 
+    if (ireg == 18) ireg=31; //scalers 36-61 are empty
     xfer[3*ixfer+5].tx_buf = (uintptr_t) scal_sel_regs[ireg].bytes; 
     xfer[3*ixfer+5].len = sizeof(flower_word_t);
     xfer[3*ixfer+5].rx_buf = 0;
@@ -349,7 +349,7 @@ int flower_fill_daqstatus(flower_dev_t *dev, rno_g_daqstatus_t *ds)
     xfer[3*ixfer+6].rx_buf = 0;
 //    xfer[3*ixfer+6].cs_change = 1;
     xfer[3*ixfer+6].len = sizeof(flower_word_t);
-    xfer[3*ixfer+7].rx_buf =  (uintptr_t )dest[ireg].bytes; // will have to finagle these after
+    xfer[3*ixfer+7].rx_buf =  (uintptr_t )dest_scaler[ireg].bytes; // will have to finagle these after
     xfer[3*ixfer+7].len = sizeof(flower_word_t);
     xfer[3*ixfer+7].tx_buf =  0; 
     ixfer++; 
@@ -366,8 +366,8 @@ int flower_fill_daqstatus(flower_dev_t *dev, rno_g_daqstatus_t *ds)
   {
     for (int i = 0; i < 32; i++) 
     {
-      uint16_t low =  dest[i].bytes[3] | ((dest[i].bytes[2] & 0x0f ) << 8) ;
-      uint16_t high = (dest[i].bytes[1] << 4)  | ((dest[i].bytes[2] & 0xf0)>>4); 
+      uint16_t low =  dest_scaler[i].bytes[3] | ((dest_scaler[i].bytes[2] & 0x0f ) << 8) ;
+      uint16_t high = (dest_scaler[i].bytes[1] << 4)  | ((dest_scaler[i].bytes[2] & 0xf0)>>4); 
       raw_scalers[2*i] = low;
       raw_scalers[2*i+1] = high;
     }
@@ -389,6 +389,12 @@ int flower_fill_daqstatus(flower_dev_t *dev, rno_g_daqstatus_t *ds)
     uint64_t t_high = ( be32toh(dest_time[1].word) & 0xffffff ); 
     ds->lt_scalers.ncycles =  t_low | t_high << 24; 
     ds->lt_scalers.scaler_counter_1Hz = raw_scalers[63]; 
+
+    uint64_t cyc_low =( be32toh(dest_scaler[32].word & 0xffffff ));  
+    uint64_t cyc_high =( be32toh(dest_scaler[33].word & 0xffffff ));  
+    ds->lt_scalers.delay_cycle_counter = cyc_low  | (cyc_high << 24); 
+
+
 
     return 0; 
   }
