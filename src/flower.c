@@ -285,11 +285,11 @@ int flower_close(flower_dev_t * dev)
 }
 
 
-static flower_word_t scal_sel_regs[32]; 
+static flower_word_t scal_sel_regs[34]; 
 __attribute__((constructor)) 
 static void fill_scal_sel_regs() 
 {
-  for (int i = 0; i < 32; i++) 
+  for (int i = 0; i < 34; i++) 
   {
     scal_sel_regs[i].bytes[0] = FLWR_REG_SCAL_SEL;
     scal_sel_regs[i].bytes[3] = i; 
@@ -385,13 +385,16 @@ int flower_fill_daqstatus(flower_dev_t *dev, rno_g_daqstatus_t *ds)
     ds->lt_scalers.s_100Hz.servo_coinc = raw_scalers[24+5];
     for (int i = 0; i < 4; i++) ds->lt_scalers.s_100Hz.servo_per_chan[i] = raw_scalers[30+i]; 
     
+
     uint64_t t_low = ( be32toh(dest_time[0].word) & 0xffffff ); 
     uint64_t t_high = ( be32toh(dest_time[1].word) & 0xffffff ); 
     ds->lt_scalers.ncycles =  t_low | t_high << 24; 
     ds->lt_scalers.scaler_counter_1Hz = raw_scalers[63]; 
 
-    uint64_t cyc_low =( be32toh(dest_scaler[32].word & 0xffffff ));  
-    uint64_t cyc_high =( be32toh(dest_scaler[33].word & 0xffffff ));  
+    //printf("scaler 0x20: %x %x %x %x\n", dest_scaler[32].bytes[0], dest_scaler[32].bytes[1], dest_scaler[32].bytes[2], dest_scaler[32].bytes[3]); 
+    //printf("scaler 0x21: %x %x %x %x\n", dest_scaler[33].bytes[0], dest_scaler[33].bytes[1], dest_scaler[33].bytes[2], dest_scaler[33].bytes[3]); 
+    uint64_t cyc_low =( be32toh(dest_scaler[32].word) & 0xffffff);  
+    uint64_t cyc_high =( be32toh(dest_scaler[33].word) & 0xffffff);  
     ds->lt_scalers.delay_cycle_counter = cyc_low  | (cyc_high << 24); 
 
 
