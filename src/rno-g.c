@@ -15,7 +15,7 @@
 #define HEADER_VER 1
 #define WF_VER 3 
 #define PED_VER 3 
-#define DAQSTATUS_VER 4 
+#define DAQSTATUS_VER 5 
 
 #define HEADER_MAGIC 0xead1 
 #define WAVEFORM_MAGIC 0xafd1 
@@ -614,7 +614,7 @@ int rno_g_daqstatus_dump_flower(FILE  *f, const rno_g_daqstatus_t * ds)
                  when_tm_lt.tm_year + 1900, 1+when_tm_lt.tm_mon, when_tm_lt.tm_mday, when_tm_lt.tm_hour, 
                  when_tm_lt.tm_min, when_tm_lt.tm_sec,  lt_ns); 
   uint64_t ncycles = ds->lt_scalers.ncycles; 
-  ret+=fprintf(f,  "  ncycles: %" PRIu64 " , counter: %hu\n", ncycles, ds->lt_scalers.scaler_counter_1Hz); 
+  ret+=fprintf(f,  "  ncycles: %" PRIu64 " , delay cycle counter: %" PRIu64 ", counter: %hu\n", ncycles, ds->lt_scalers.delay_cycle_counter, ds->lt_scalers.scaler_counter_1Hz); 
   ret+=fprintf(f,  "==CH==SERVO_THR=TRIG_THR=SERVO_SCAL_1HZ==SERVO_SCAL_100HZ==SERVO_SCAL_GTE==TRIG_SCAL_1HZ==TRIG_SCAL_100Hz=TRIG_SCAL_GTE\n"); 
   for (int i = 0; i < RNO_G_NUM_LT_CHANNELS; i++)
   {
@@ -641,6 +641,17 @@ int rno_g_daqstatus_write(rno_g_file_handle_t h, const rno_g_daqstatus_t * ds)
   return wr; 
 }
 
+// pre version 5, there was no delay cycle counter 
+typedef struct rno_g_lt_scalers_v0
+{
+  rno_g_lt_scaler_group_t s_1Hz; 
+  rno_g_lt_scaler_group_t s_1Hz_gated; 
+  rno_g_lt_scaler_group_t s_100Hz; 
+  uint64_t ncycles : 48 ;  //this is the 118 MHz clock
+  uint16_t scaler_counter_1Hz : 16; 
+} rno_g_lt_scalers_v0_t; 
+
+
 typedef struct rno_g_daqstatus_v1
 {
   double when; 
@@ -659,7 +670,7 @@ typedef struct rno_g_daqstatus_v2
   float radiant_scaler_period; 
   uint8_t  lt_trigger_thresholds[RNO_G_NUM_LT_CHANNELS]; 
   uint8_t  lt_servo_thresholds[RNO_G_NUM_LT_CHANNELS]; 
-  rno_g_lt_scalers_t lt_scalers; 
+  rno_g_lt_scalers_v0_t lt_scalers; 
   uint8_t station;
 } rno_g_daqstatus_v2_t; 
 
@@ -673,9 +684,25 @@ typedef struct rno_g_daqstatus_v3
   float radiant_scaler_period; 
   uint8_t  lt_trigger_thresholds[RNO_G_NUM_LT_CHANNELS]; 
   uint8_t  lt_servo_thresholds[RNO_G_NUM_LT_CHANNELS]; 
-  rno_g_lt_scalers_t lt_scalers; 
+  rno_g_lt_scalers_v0_t lt_scalers; 
   uint8_t station;
 } rno_g_daqstatus_v3_t; 
+
+typedef struct rno_g_daqstatus_v4
+{
+  double when_radiant; 
+  double when_lt; 
+  uint32_t radiant_thresholds[RNO_G_NUM_RADIANT_CHANNELS]; 
+  uint16_t radiant_scalers[RNO_G_NUM_RADIANT_CHANNELS]; 
+  uint8_t radiant_prescalers[RNO_G_NUM_RADIANT_CHANNELS]; 
+  float radiant_scaler_period; 
+  uint8_t  lt_trigger_thresholds[RNO_G_NUM_LT_CHANNELS]; 
+  uint8_t  lt_servo_thresholds[RNO_G_NUM_LT_CHANNELS]; 
+  rno_g_lt_scalers_v0_t lt_scalers; 
+  rno_g_radiant_voltages_t radiant_voltages; 
+  rno_g_calpulser_info_t cal; 
+  uint8_t station;
+} rno_g_daqstatus_v4_t; 
 
 
 
@@ -714,7 +741,6 @@ int rno_g_daqstatus_read(rno_g_file_handle_t h, rno_g_daqstatus_t *ds)
         memcpy(ds->radiant_scalers, dsv1.scalers, sizeof(ds->radiant_scalers));
         memcpy(ds->radiant_prescalers, dsv1.prescalers, sizeof(ds->radiant_prescalers));
         break;
-
       }
     case 2:
       {
@@ -728,7 +754,7 @@ int rno_g_daqstatus_read(rno_g_file_handle_t h, rno_g_daqstatus_t *ds)
         ds->radiant_scaler_period = dsv2.radiant_scaler_period; 
         memcpy(ds->lt_trigger_thresholds, dsv2.lt_trigger_thresholds, sizeof(ds->lt_trigger_thresholds));
         memcpy(ds->lt_servo_thresholds, dsv2.lt_servo_thresholds, sizeof(ds->lt_servo_thresholds));
-        ds->lt_scalers = dsv2.lt_scalers; 
+        memcpy(&ds->lt_scalers, &dsv2.lt_scalers, sizeof(dsv2.lt_scalers)); 
         ds->station = dsv2.station; 
         break; 
       }
@@ -745,8 +771,27 @@ int rno_g_daqstatus_read(rno_g_file_handle_t h, rno_g_daqstatus_t *ds)
         ds->radiant_scaler_period = dsv3.radiant_scaler_period; 
         memcpy(ds->lt_trigger_thresholds, dsv3.lt_trigger_thresholds, sizeof(ds->lt_trigger_thresholds));
         memcpy(ds->lt_servo_thresholds, dsv3.lt_servo_thresholds, sizeof(ds->lt_servo_thresholds));
-        ds->lt_scalers = dsv3.lt_scalers; 
+        memcpy(&ds->lt_scalers, &dsv3.lt_scalers, sizeof(dsv3.lt_scalers)); 
         ds->station = dsv3.station; 
+        break; 
+      }
+    case 4: 
+      {
+        memset(ds,0,sizeof(*ds)); 
+        rno_g_daqstatus_v4_t dsv4; 
+        rd = do_read(h, sizeof(dsv4), &dsv4, &sum); 
+        ds->when_radiant = dsv4.when_radiant; 
+        ds->when_lt = dsv4.when_lt; 
+        memcpy(ds->radiant_thresholds, dsv4.radiant_thresholds, sizeof(ds->radiant_thresholds));
+        memcpy(ds->radiant_scalers, dsv4.radiant_scalers, sizeof(ds->radiant_scalers));
+        memcpy(ds->radiant_prescalers, dsv4.radiant_prescalers, sizeof(ds->radiant_prescalers));
+        ds->radiant_scaler_period = dsv4.radiant_scaler_period; 
+        memcpy(ds->lt_trigger_thresholds, dsv4.lt_trigger_thresholds, sizeof(ds->lt_trigger_thresholds));
+        memcpy(ds->lt_servo_thresholds, dsv4.lt_servo_thresholds, sizeof(ds->lt_servo_thresholds));
+        memcpy(&ds->lt_scalers, &dsv4.lt_scalers, sizeof(dsv4.lt_scalers)); 
+        ds->radiant_voltages = dsv4.radiant_voltages; 
+        ds->cal = dsv4.cal; 
+        ds->station = dsv4.station; 
         break; 
       }
     case DAQSTATUS_VER:
