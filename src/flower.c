@@ -396,9 +396,17 @@ int flower_fill_daqstatus(flower_dev_t *dev, rno_g_daqstatus_t *ds)
 
     //printf("scaler 0x20: %x %x %x %x\n", dest_scaler[32].bytes[0], dest_scaler[32].bytes[1], dest_scaler[32].bytes[2], dest_scaler[32].bytes[3]); 
     //printf("scaler 0x21: %x %x %x %x\n", dest_scaler[33].bytes[0], dest_scaler[33].bytes[1], dest_scaler[33].bytes[2], dest_scaler[33].bytes[3]); 
-    uint64_t cyc_low =( be32toh(dest_scaler[32].word) & 0xffffff);  
-    uint64_t cyc_high =( be32toh(dest_scaler[33].word) & 0xffffff);  
-    ds->lt_scalers.cycle_counter = cyc_low  | (cyc_high << 24); 
+    if (max_reg > 32) 
+    {
+      uint64_t cyc_low =( be32toh(dest_scaler[32].word) & 0xffffff);  
+      uint64_t cyc_high =( be32toh(dest_scaler[33].word) & 0xffffff);  
+      ds->lt_scalers.cycle_counter = cyc_low  | (cyc_high << 24); 
+    }
+    else
+    {
+      ds->lt_scalers.cycle_counter = 0; 
+
+    }
 
 
 
