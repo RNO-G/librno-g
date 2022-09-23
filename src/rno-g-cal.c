@@ -78,7 +78,7 @@ rno_g_cal_dev_t * rno_g_cal_open(uint8_t bus, uint16_t gpio, char rev)
 
     fprintf(f,"%d\n", gpio); 
     fclose(f); 
-    usleep(50000); // long enough? 
+    usleep(150000); // long enough? 
   }
   snprintf(fname,sizeof(fname)-1, "/dev/i2c-%hhu", bus); 
 
