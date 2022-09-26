@@ -1819,6 +1819,10 @@ int radiant_set_attenuator(radiant_dev_t * bd, int channel, radiant_atten_t whic
   //figure out which quad 
   int quad = channel / 4; 
   int ch = channel % 4; 
+
+  //clamp to max atten 
+  if (value > 127) value = 127; 
+
   uint8_t addr = (which == RADIANT_ATTEN_TRIG) + 2* ch; 
   uint8_t bytes[4] = {value, addr,0,0}; // littlendian order
   //clear LE 
