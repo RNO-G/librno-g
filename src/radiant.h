@@ -252,6 +252,7 @@ typedef enum
   RADIANT_ATTEN_TRIG, 
   RADIANT_ATTEN_SIG
 } radiant_atten_t; 
+// set the attenuator value, from 0 to 127 corresponding to 0-31.75 dB attenuation 
 int radiant_set_attenuator(radiant_dev_t *bd, int channel, radiant_atten_t which, uint8_t value); 
 
 
