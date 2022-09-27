@@ -363,7 +363,7 @@ int rno_g_cal_select(rno_g_cal_dev_t * dev, rno_g_calpulser_out_t ch)
     if (dev->rev=='D')
     {
       val0 |= 0x02; 
-      val1 |= 0x20; 
+      val1 &= 0x20; 
     }
     else
     {
