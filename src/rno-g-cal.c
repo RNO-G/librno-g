@@ -367,9 +367,9 @@ int rno_g_cal_select(rno_g_cal_dev_t * dev, rno_g_calpulser_out_t ch)
     }
     else
     {
-      val0 |= 0x02; 
-      val1 &= 0x2f; 
-      val1 &= ~0x04; 
+      val0 &= ~0x02; 
+      val1 |= 0x80; 
+      val1 &= ~0x08; 
     }
   }
   else
