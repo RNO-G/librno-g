@@ -532,7 +532,7 @@ typedef struct radiant_raw_event_info
   struct radiant_fw_event_header fwhd; 
   struct timespec read_start;
   struct timespec read_end;
-}radiant_raw_event_info_t; 
+} radiant_raw_event_info_t; 
 
 
 /** This performs the actual reading part of reading a radiant event, but does not
@@ -543,20 +543,16 @@ typedef struct radiant_raw_event_info
  *
  *
  */
-int radiant_read_raw_event( radiant_dev_t * rad, radiant_raw_event_info_t *
-    raw_info, rno_g_waveform_t * wf);
+int radiant_read_raw_event( radiant_dev_t * rad, radiant_raw_event_info_t * raw_info, rno_g_waveform_t * wf);
 
 /** This performs the processing of a radiant event read with read_raw_event. Pass it the wf you got from radiant_read_raw_event as well as the raw_info.
  *
- * You do not need to call this if you used radiant_read_event. After calling this, hd and wf iwll be filled.
+ * You do not need to call this if you used radiant_read_event. After calling this, hd and wf will be filled with radiant goodness.
  *
- * If you change radiant parameters... well don't do that. 
+ * Note that changing the run number, readout mask, number of buffers or things like that in the middle is going to cause problems. So don't do that. 
  * */ 
-int radiant_process_raw_event(
-      radiant_dev_t * rad, 
-      const radiant_raw_event_info_t * raw_info,
-      rno_g_header_t * hd, 
-      rno_g_waveform_t * wf); 
+int radiant_process_raw_event(radiant_dev_t * rad, const radiant_raw_event_info_t * raw_info,
+      rno_g_header_t * hd, rno_g_waveform_t * wf); 
 
 #ifdef __cplusplus
 }
