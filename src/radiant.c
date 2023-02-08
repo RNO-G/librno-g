@@ -658,7 +658,7 @@ int radiant_read_raw_event(radiant_dev_t *bd, radiant_raw_event_info_t * raw_inf
 
 int radiant_process_raw_event(radiant_dev_t * bd, const radiant_raw_event_info_t *raw_info, rno_g_header_t * hd, rno_g_waveform_t *wf)
 {
-  int nsamples = raw_info->readout_nsamp; 
+  int nsamples = raw_info->nsamp; 
   hd->event_number = raw_info->fwhd.count;
   hd->pps_count = raw_info->fwhd.pps; 
   hd->sys_clk = raw_info->fwhd.sysclk; 
@@ -684,18 +684,18 @@ int radiant_process_raw_event(radiant_dev_t * bd, const radiant_raw_event_info_t
 
   wf->event_number = hd->event_number; 
   wf->run_number = bd->run; 
-  wf->station_number = bd->station; 
+  wf->station= bd->station; 
 
   wf->radiant_nsamples = nsamples;
 
   for (int ichan = 0; ichan < RNO_G_NUM_RADIANT_CHANNELS; ichan++) 
   {
 
-    if (info->readout_mask & (1 << ichan))
+    if (raw_info->readout_mask & (1 << ichan))
     {
 
       //if we are in 1024-sample mode, ony one start window per event, so set the second to a magic value. 
-      if (info->nbuffers_per_readout == 1) 
+      if (raw_info->nbuffers_per_readout == 1) 
       {
         hd->radiant_start_windows[ichan][1] = 0xff; 
       }
@@ -705,7 +705,7 @@ int radiant_process_raw_event(radiant_dev_t * bd, const radiant_raw_event_info_t
 
       //Loop over the readout buffers 
       //TODO: there may be some efficiency gains in doing the andall and sub16 operations on both buffers at the same time... but probably not huge and the code is simpler this way 
-      for (int ibuffer = 0; ibuffer < info->nbuffers_per_readout; ibuffer++) 
+      for (int ibuffer = 0; ibuffer < raw_info->nbuffers_per_readout; ibuffer++) 
       {
 
         //get buffer number (TODO: demagicify this) 
