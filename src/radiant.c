@@ -228,6 +228,7 @@ struct radiant_dev
   int uart_fd; 
   int interrupt_fd; 
   int run; 
+  int station; 
   int peek; // use peek form of read
 
   // buffers for cobs writing (one per device) 
@@ -362,6 +363,12 @@ void radiant_set_run_number(radiant_dev_t * bd, int run)
 {
   if (bd) bd->run = run; 
 }
+void radiant_set_station_number(radiant_dev_t * bd, int station) 
+{
+  if (bd) bd->station = station; 
+}
+
+
 
 void radiant_set_read_mode(radiant_dev_t *bd, int peek) 
 {
@@ -612,7 +619,6 @@ int radiant_read_event(radiant_dev_t * bd, rno_g_header_t * hd, rno_g_waveform_t
 int radiant_read_raw_event(radiant_dev_t *bd, radiant_raw_event_info_t * raw_info, rno_g_waveform_t *wf)
 {
   if (!bd) return -1 ; 
- 
 
   uint16_t Ns[2+RNO_G_NUM_RADIANT_CHANNELS]; 
   uint8_t* bufs[2+RNO_G_NUM_RADIANT_CHANNELS]; 
@@ -652,8 +658,7 @@ int radiant_read_raw_event(radiant_dev_t *bd, radiant_raw_event_info_t * raw_inf
 
 int radiant_process_raw_event(radiant_dev_t * bd, const radiant_raw_event_info_t *raw_info, rno_g_header_t * hd, rno_g_waveform_t *wf)
 {
-  int nsamples = bd->readout_nsamp; 
-  memset(hd,0,sizeof(*hd)); 
+  int nsamples = raw_info->readout_nsamp; 
   hd->event_number = raw_info->fwhd.count;
   hd->pps_count = raw_info->fwhd.pps; 
   hd->sys_clk = raw_info->fwhd.sysclk; 
@@ -661,6 +666,7 @@ int radiant_process_raw_event(radiant_dev_t * bd, const radiant_raw_event_info_t
   hd->readout_time_nsecs = raw_info->read_end.tv_nsec; 
   hd->readout_elapsed_nsecs = (raw_info->read_end.tv_nsec - raw_info->read_start.tv_nsec) + 1000000000 * (raw_info->read_end.tv_sec-raw_info->read_start.tv_sec); 
   hd->run_number = bd->run; 
+  hd->station_number = bd->station; 
   hd->sysclk_last_pps = raw_info->fwhd.sysclk_last_pps; 
   hd->sysclk_last_last_pps = raw_info->fwhd.sysclk_last_last_pps; 
   hd->radiant_nsamples = nsamples; 
@@ -678,17 +684,18 @@ int radiant_process_raw_event(radiant_dev_t * bd, const radiant_raw_event_info_t
 
   wf->event_number = hd->event_number; 
   wf->run_number = bd->run; 
+  wf->station_number = bd->station; 
 
   wf->radiant_nsamples = nsamples;
 
   for (int ichan = 0; ichan < RNO_G_NUM_RADIANT_CHANNELS; ichan++) 
   {
 
-    if (bd->readout_mask & (1 << ichan))
+    if (info->readout_mask & (1 << ichan))
     {
 
       //if we are in 1024-sample mode, ony one start window per event, so set the second to a magic value. 
-      if (bd->nbuffers_per_readout == 1) 
+      if (info->nbuffers_per_readout == 1) 
       {
         hd->radiant_start_windows[ichan][1] = 0xff; 
       }
@@ -698,7 +705,7 @@ int radiant_process_raw_event(radiant_dev_t * bd, const radiant_raw_event_info_t
 
       //Loop over the readout buffers 
       //TODO: there may be some efficiency gains in doing the andall and sub16 operations on both buffers at the same time... but probably not huge and the code is simpler this way 
-      for (int ibuffer = 0; ibuffer < bd->nbuffers_per_readout; ibuffer++) 
+      for (int ibuffer = 0; ibuffer < info->nbuffers_per_readout; ibuffer++) 
       {
 
         //get buffer number (TODO: demagicify this) 

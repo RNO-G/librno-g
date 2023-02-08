@@ -246,7 +246,24 @@ int main(int nargs, char ** args)
   }
 
   radiant_dev_t * rad = radiant_open("/dev/spi/0.0", "/dev/ttyRadiant", 46, -61);
+
   if (!rad) return 1; 
+
+  int station_number =-1; 
+
+  FILE * fstation = fopen("/STATION_ID") ;
+  if (fstation) 
+  {
+    fscanf(fstation,"%d", &station_number); 
+  }
+
+  if (station_number < 0) 
+  {
+    fprintf(stdout,"No station number loaded. Using 0"); 
+    station_number = 0; 
+  }
+
+  radiant_set_station_number(&rad,station_number); 
 
    //check if label already exists 
    if (label) 
@@ -291,9 +308,9 @@ int main(int nargs, char ** args)
 
   printf("Computing pedestals...\n");
   rno_g_pedestal_t ped; 
-  rno_g_header_t hd;
-  rno_g_waveform_t wf; 
-  rno_g_daqstatus_t ds; 
+  rno_g_header_t hd = {0};
+  rno_g_waveform_t wf = {0}; 
+  rno_g_daqstatus_t d = {0}s; 
   radiant_compute_pedestals(rad, 0xffffff, 512, &ped); 
 
   // csv for debugging purposes for now 

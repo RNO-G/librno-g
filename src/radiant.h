@@ -533,6 +533,9 @@ typedef struct radiant_raw_event_info
   struct radiant_fw_event_header fwhd; 
   struct timespec read_start;
   struct timespec read_end;
+  uint32_t readout_mask; 
+  uint16_t nsamp; 
+  uint16_t nbuffers_per_readout; 
 } radiant_raw_event_info_t; 
 
 
@@ -554,6 +557,9 @@ int radiant_read_raw_event( radiant_dev_t * rad, radiant_raw_event_info_t * raw_
  * */ 
 int radiant_process_raw_event(radiant_dev_t * rad, const radiant_raw_event_info_t * raw_info,
       rno_g_header_t * hd, rno_g_waveform_t * wf); 
+
+
+void radiant_set_station_number(radiant_dev_t * bd, int station); 
 
 #ifdef __cplusplus
 }
