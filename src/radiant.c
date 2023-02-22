@@ -277,6 +277,7 @@ struct radiant_dev
   uint32_t thresh[RNO_G_NUM_RADIANT_CHANNELS]; 
   uint32_t pedram[RNO_G_PEDESTAL_NSAMPLES]; 
   double read_timeout; 
+  int triggers_per_cycle; 
 
 }; 
 
@@ -1091,6 +1092,7 @@ radiant_dev_t * radiant_open(const char *spi_device, const char * uart_device, i
   dev->readout_nsamp = dev->nbuffers_per_readout * RADIANT_NSAMP_PER_BUF ; 
   dev->peds = 0; 
   dev->calram = CALRAM_MODE_NONE; 
+  dev->triggers_per_cycle = 128; 
 
   // We don't know what the vbias is since there is no readback implemented
   // so you have to set it if you want to know what it is :) , 
@@ -2295,12 +2297,12 @@ int radiant_compute_pedestals(radiant_dev_t *bd, uint32_t mask, uint16_t ntrigge
 
   radiant_labs_start(bd); 
 
-  uint16_t nleft = ntriggers; 
+  uint16_t nleft = ntriggers * 4; //* 4 to get each buffer 
   while (nleft > 0) 
   {
     //need 4 triggers / cycle to fill
-    int todo = nleft < 32 ? nleft : 32; 
-    radiant_internal_trigger(bd, todo*4, 1); 
+    int todo = nleft < bd->triggers_per_cycle ? nleft : bd->triggers_per_cycle; 
+    radiant_internal_trigger(bd, todo, 1); 
     nleft-=todo; 
   }
   radiant_labs_stop(bd); 
@@ -2900,4 +2902,9 @@ uint16_t radiant_get_sample_rate(const radiant_dev_t * bd)
   return 3200; 
 }
 
+void radiant_set_internal_triggers_per_cycle(radiant_dev_t * bd, uint16_t n) 
+{
 
+  n = n > 256 ? 256 : n; 
+  bd->triggers_per_cycle = n; 
+}
