@@ -2906,5 +2906,6 @@ void radiant_set_internal_triggers_per_cycle(radiant_dev_t * bd, uint16_t n)
 {
 
   n = n > 256 ? 256 : n; 
+  if (!n) n =128; //the default; 
   bd->triggers_per_cycle = n; 
 }
