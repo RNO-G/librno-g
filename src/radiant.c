@@ -1348,6 +1348,10 @@ static int read_until_zero(radiant_dev_t * bd, double timeout)
     clock_gettime(CLOCK_MONOTONIC,&start); 
   }
 
+  struct pollfd pfd = {.fd = bd->uart_fd, .events = POLLIN}; 
+
+  poll(&pfd, 1, timeout > 0 ?  ceil(timeout*1000) : -1); 
+
   while (1) 
   {
     //read one byte at a time 
@@ -1364,9 +1368,13 @@ static int read_until_zero(radiant_dev_t * bd, double timeout)
         {
           return -1-nread; 
         }
+        poll(&pfd, 1, ceil((timeout-elapsed)*1000)); 
+      }
+      else
+      {
+        poll(&pfd, 1, -1); 
       }
 
-      usleep(1000); //1 ms
 
       continue; 
     }
