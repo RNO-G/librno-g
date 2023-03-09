@@ -136,6 +136,8 @@ int radiant_trigger_busy(radiant_dev_t * bd, int * bsy, int * clear_pending);
 
 int radiant_cpu_clear(radiant_dev_t *bd); 
 
+void radiant_set_internal_triggers_per_cycle(radiant_dev_t * dev, uint16_t internal_triggers_per_cycle); 
+
 
 
 /***********************************************************
