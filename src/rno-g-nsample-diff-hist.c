@@ -77,7 +77,7 @@ int rno_g_nsample_diff_hist_write_json(FILE *f, const rno_g_nsample_diff_hist_t 
   return written; 
 }
 
-int rno_g_nsample_diff_hist_write_jsroot_webpage(FILE * f, int nhists, const rno_g_nsample_diff_hist_t **h)
+int rno_g_nsample_diff_hist_write_jsroot_webpage(FILE * f, int nhists, const rno_g_nsample_diff_hist_t **h, int individual_hists)
 {
   if (!f) return -1; 
 
@@ -90,37 +90,59 @@ int rno_g_nsample_diff_hist_write_jsroot_webpage(FILE * f, int nhists, const rno
   nb += fprintf(f,"     import { createHistogram, draw } from 'https://root.cern/js/7.0.0/modules/main.mjs';"); 
   nb += fprintf(f,"     var hists = [];\n"); 
   nb += fprintf(f,"     var chans = [];\n"); 
-  nb += fprintf(f,"     function drawHists() { for (var i = 0; i < hists.length; i++) { draw('ch_'+chans[i], hists[i],""); }}\n"); 
+  nb += fprintf(f,"     var nplots = Array(%d).fill(%d);\n", individual_hists ? nhists : RNO_G_NUM_RADIANT_CHANNELS, individual_hists ? 1 : 0); 
+  if (individual_hists) 
+    nb += fprintf(f,"     function drawHists() { for (var i = 0; i < hists.length; i++) { draw('c'+(i+1), hists[i],""); }}\n"); 
+  else 
+    nb += fprintf(f,"     function drawHists() { for (var i = 0; i < hists.length; i++) { draw('ch_'+chans[i], hists[i],"");}}\n"); 
   nb += fprintf(f,"     function makeHist(o) {  var h = createHistogram('TH1F',o.nbins); "
                   "       h.fName='s' + o.station+'ch'+o.channel+'delta'+o.delta_nsamples;\n"
-                  "       h.fTitle='Station ' + o.station+', Channel, '+o.channel;\n"
+                  "       h.fTitle='Station ' + o.station+', Channel, '+o.channel%s;\n"
                   "       h.fXaxis.fTitle = o.use_abs ?'|Sample Difference|' : 'Sample Difference';\n "
                   "       h.fYaxis.fTitle = 'Frequency';\n"
                   "       h.fXaxis.fXmin = o.xmin;\n"
                   "       h.fXaxis.fXmax = o.xmax;\n"
                   "       h.fEntries = o.nfilled;\n"
                   "       h.fTsumw = o.nfilled;\n"
-                  "       h.fLineColor = o.delta_nsamples;\n"
+                  "       h.fLineColor = nplots[o.channel];\n"
                   "       h.fTsumw2 = o.nfilled;\n"
                   "       h.fTsumwx = o.entries_sum;\n"
                   "       h.fTsumwx2 = o.entries_sum2;\n"
-                  "       for (var i = 0; i < o.nbins+2; i++) { h.fArray[i] = o.data[i]/o.nfilled;}  return h; }\n"
-    ); 
+    , individual_hists ? "+ '  #Delta N =' + o.delta_nsamples":""); 
+
+  if (!individual_hists) 
+     nb += fprintf(f,"       for (var i = 0; i < o.nbins+2; i++) { h.fArray[i] = o.data[i]/o.nfilled;}\n"); 
+  nb += fprintf(f, "       return h; }\n"); 
+
   for (int i = 0; i < nhists; i++) 
   {
+    nb += fprintf (f,"     chans.push(%u);\n", h[i]->setup.channel); 
+    if (!individual_hists) 
+      nb += fprintf (f,"    nplots[%d]++;\n", h[i]->setup.channel); 
     nb += fprintf (f,"     hists.push(makeHist(\n"); 
     nb += rno_g_nsample_diff_hist_write_json(f,h[i], 5); 
     nb += fprintf (f,"     ));\n"); 
-    nb += fprintf (f,"     chans.push(%u);\n", h[i]->setup.channel); 
-  }
+ }
 
   nb += fprintf(f,"  drawHists(); console.log(hists); \n"); 
   nb += fprintf(f,"  </script>\n"); 
   nb += fprintf(f,"</head>\n"); 
   nb += fprintf(f,"<body>\n"); 
-  for (int i = 0; i < 24; i++) 
+
+  if (individual_hists) 
   {
-    nb += fprintf(f," <div class='plot' id='ch_%d'></div>\n", i+1);
+    for (int i = 0; i < nhists; i++) 
+    {
+      nb += fprintf(f," <div class='plot' id='c%d'></div>\n", i+1);
+    }
+
+  }
+  else
+  {
+    for (int i = 0; i < RNO_G_NUM_RADIANT_CHANNELS; i++) 
+    {
+      nb += fprintf(f," <div class='plot' id='ch_%d'></div>\n", i+1);
+    }
   }
   nb += fprintf(f,"</body></html>\n"); 
   fclose(f); 

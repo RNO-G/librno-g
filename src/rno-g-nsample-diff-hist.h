@@ -37,7 +37,7 @@ int rno_g_nsample_diff_hist_fill(rno_g_nsample_diff_hist_t * hist, const rno_g_w
 int rno_g_nsample_diff_hist_write_json(FILE *f, const rno_g_nsample_diff_hist_t * h, int indent_level); 
 
 // writes histograms as an html page using jsroot  
-int rno_g_nsample_diff_hist_write_jsroot_webpage(FILE *f, int nhist, const rno_g_nsample_diff_hist_t ** h); 
+int rno_g_nsample_diff_hist_write_jsroot_webpage(FILE *f, int nhist, const rno_g_nsample_diff_hist_t ** h, int individual_plots); 
 
 
 #endif
