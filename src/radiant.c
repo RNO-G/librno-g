@@ -266,6 +266,8 @@ struct radiant_dev
   uint32_t pedram[RNO_G_PEDESTAL_NSAMPLES]; 
   double read_timeout; 
   int triggers_per_cycle; 
+  double sleep_per_cycle;
+  struct timespec sleep_per_cycle_ts; 
 
 }; 
 
@@ -2317,6 +2319,11 @@ int radiant_compute_pedestals(radiant_dev_t *bd, uint32_t mask, uint16_t ntrigge
     //need 4 triggers / cycle to fill
     int todo = nleft < bd->triggers_per_cycle ? nleft : bd->triggers_per_cycle; 
     radiant_internal_trigger(bd, todo, 1); 
+    if (bd->sleep_per_cycle) 
+    {
+      struct timespec slp = bd->sleep_per_cycle_ts; 
+      while (nanosleep(&slp,&slp)); 
+    }
     nleft-=todo; 
   }
   radiant_labs_stop(bd); 
@@ -2916,10 +2923,13 @@ uint16_t radiant_get_sample_rate(const radiant_dev_t * bd)
   return 3200; 
 }
 
-void radiant_set_internal_triggers_per_cycle(radiant_dev_t * bd, uint16_t n) 
+void radiant_set_internal_triggers_per_cycle(radiant_dev_t * bd, uint16_t n, double sleep) 
 {
 
   n = n > 256 ? 256 : n; 
   if (!n) n =128; //the default; 
   bd->triggers_per_cycle = n; 
+  if (sleep < 0) sleep = 0; 
+  bd->sleep_per_cycle = sleep; 
+  bd->sleep_per_cycle_ts = (struct timespec) {.tv_sec = ((int) sleep), .tv_nsec = round(1e9*(sleep-floor(sleep))) };
 }
