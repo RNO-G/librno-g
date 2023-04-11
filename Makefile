@@ -30,6 +30,11 @@ client:  $(BUILD_DIR)/librno-g.so
 
 daq: client $(BUILD_DIR)/libradiant.so  $(BUILD_DIR)/libflower.so $(BUILD_DIR)/librno-g-cal.so 
 
+useful-test-progs:  $(addprefix $(BUILD_DIR)/test/, flower-configure-trigger flower-dump flower-equalize flower-set-thresholds\
+	                  flower-status flower-trigger-enables flower-trigout-enables flower-wave radiant-check-trigger radiant-dump\
+										radiant-scan radiant-threshold-scan radiant-try-daqstatus radiant-try-event radiant-try-ped rno-g-cal-cmd\
+									 	rno-g-dump-ds rno-g-dump-hdr rno-g-dump-ped rno-g-dump-wf rno-g-wf-sample-diff-hists rno-g-wf-stats)
+
 client-py: client $(BUILD_DIR)/rno_g.so 
 daq-py: daq client-py $(BUILD_DIR)/radiant.so 
 
