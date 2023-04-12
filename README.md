@@ -12,7 +12,7 @@ DAQ libraries. This only make sense on the SBC and is very unlikely to work on
 any non-Linux system. 
 
 `make useful-test-progs` will compile a bunch of useful programs for testing
-data taking, which will appear under build/test . You can source env.sh to add
+data taking, which will appear under build/test . You can `source env.sh` to add
 the relevant directories to the `PATH`/`LD_LIBRARY_PATH`. For example,
 `radiant-try-event` can be used to take RADIANT data without the full DAQ for
 testing (or weird one-off configurations). 
