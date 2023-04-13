@@ -24,7 +24,7 @@ INCLUDES=src/rno-g.h src/rno-g-nsample-diff-hist.h
 DAQ_INCLUDES=src/radiant.h src/cobs.h src/adf4350.h src/flower.h src/rno-g-cal.h 
 PYBIND_INCLUDES=$(shell python3 -m pybind11 --includes) 
 
-.PHONY: client daq clean install install-daq client-py daq-py install-py install-daq-py cppcheck test
+.PHONY: client daq clean install install-daq client-py daq-py cppcheck test dump-scripts
 
 client:  $(BUILD_DIR)/librno-g.so  
 
@@ -76,8 +76,6 @@ install: client
 	install $(BUILD_DIR)/librno-g.so $(PREFIX)/lib/
 	install $(INCLUDES) $(PREFIX)/include/
 
-install-py: install
-
 install-daq: install $(BUILD_DIR)/libradiant.so $(BUILD_DIR)/libflower.so $(BUILD_DIR)/librno-g-cal.so  
 	install $(BUILD_DIR)/libradiant.so $(PREFIX)/lib/
 	install $(BUILD_DIR)/libflower.so $(PREFIX)/lib/
@@ -89,10 +87,6 @@ ifeq ($(ON_BBB),yes)
 	chown rno-g:rno-g /data/test 
 	ldconfig  # just put this here... doesn't seem to be needed on my laptop but mabye on BBB (Debian things?) 
 endif
-
-
-
-install-daq-py: install-daq 
 
 clean: 
 	@echo Nuking $(BUILD_DIR) from orbit
@@ -155,3 +149,9 @@ config.mk:
 	@echo "Creating a default config.mk"
 	@cat config.mk.default > $@
 
+dump-scripts: $(BUILD_DIR)/librno-g.so
+	@echo "Compile rno-g-dump*.c" scripts
+	@cc test/rno-g-dump-ds.c -o $(BUILD_DIR)/rno-g-dump-ds  $(CFLAGS) -Isrc/ -L$(BUILD_DIR)  -lrno-g  -lz -lm 
+	@cc test/rno-g-dump-hdr.c -o $(BUILD_DIR)/rno-g-dump-hdr  $(CFLAGS) -Isrc/ -L$(BUILD_DIR)  -lrno-g  -lz -lm 
+	@cc test/rno-g-dump-ped.c -o $(BUILD_DIR)/rno-g-dump-ped  $(CFLAGS) -Isrc/ -L$(BUILD_DIR)  -lrno-g  -lz -lm 
+	@cc test/rno-g-dump-wf.c -o $(BUILD_DIR)/rno-g-dump-wf  $(CFLAGS) -Isrc/ -L$(BUILD_DIR)  -lrno-g  -lz -lm 
