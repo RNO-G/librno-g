@@ -118,9 +118,11 @@ $(BUILD_DIR)/libflower.so: $(addprefix $(BUILD_DIR)/, $(FLWR_OBJS))
 	@cc -o $@ $(LDFLAGS) $^  $(LIBS) 
 
 
-$(BUILD_DIR)/rno-g.o: src/rno-g.c $(INCLUDES) | $(BUILD_DIR)
-	@echo Compiling $@
+# non-DAQ objects begin with rno-.... haas to be rno- instead of rno-g so that rno-g.c works :) 
+$(BUILD_DIR)/rno-%.o: src/rno-%.c $(INCLUDES) | $(BUILD_DIR)
+	@echo Compiling non-DAQ object $@
 	@cc -c -o $@ $(CFLAGS) $< 
+
 
 $(BUILD_DIR)/rno_g.so:  src/rno-g-pybind.cc  $(INCLUDES) $(BUILD_DIR)/librno-g.so | $(BUILD_DIR)
 	@echo Generating Python bindings for rno-g. This might take a while if you are on the BBB
