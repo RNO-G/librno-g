@@ -24,16 +24,17 @@ INCLUDES=src/rno-g.h src/rno-g-nsample-diff-hist.h
 DAQ_INCLUDES=src/radiant.h src/cobs.h src/adf4350.h src/flower.h src/rno-g-cal.h 
 PYBIND_INCLUDES=$(shell python3 -m pybind11 --includes) 
 
-.PHONY: client daq clean install install-daq client-py daq-py cppcheck test dump-scripts
+.PHONY: client daq clean install install-daq client-py daq-py cppcheck test daq-test-progs rno-g-utils
 
 client:  $(BUILD_DIR)/librno-g.so  
 
 daq: client $(BUILD_DIR)/libradiant.so  $(BUILD_DIR)/libflower.so $(BUILD_DIR)/librno-g-cal.so 
 
-useful-test-progs:  $(addprefix $(BUILD_DIR)/test/, flower-configure-trigger flower-dump flower-equalize flower-set-thresholds\
+daq-test-progs:  $(addprefix $(BUILD_DIR)/test/, flower-configure-trigger flower-dump flower-equalize flower-set-thresholds\
 	                  flower-status flower-trigger-enables flower-trigout-enables flower-wave radiant-check-trigger radiant-dump\
-										radiant-scan radiant-threshold-scan radiant-try-daqstatus radiant-try-event radiant-try-ped rno-g-cal-cmd\
-									 	rno-g-dump-ds rno-g-dump-hdr rno-g-dump-ped rno-g-dump-wf rno-g-wf-sample-diff-hists rno-g-wf-stats)
+										radiant-scan radiant-threshold-scan radiant-try-daqstatus radiant-try-event radiant-try-ped cal-cmd)
+
+rno-g-utils:  $(addprefix $(BUILD_DIR)/test/, rno-g-dump-ds rno-g-dump-hdr rno-g-dump-ped rno-g-dump-wf rno-g-wf-sample-diff-hists rno-g-wf-stats)
 
 client-py: client $(BUILD_DIR)/rno_g.so 
 daq-py: daq client-py $(BUILD_DIR)/radiant.so 
@@ -134,6 +135,10 @@ $(BUILD_DIR)/%.o: src/%.c $(DAQ_INCLUDES) | $(BUILD_DIR)
 	cc -c -o $@ $(CFLAGS) $< 
 
 
+$(BUILD_DIR)/test/rno-g-%: test/rno-g-%.c $(INCLUDES) $(BUILD_DIR)/librno-g.so | $(BUILD_DIR)
+	@echo Compiling $@
+	@cc  -o $@ $(CFLAGS) -Isrc/ -L$(BUILD_DIR) -lrno-g -lz -lm $< 
+
 $(BUILD_DIR)/test/%: test/%.c $(INCLUDES) $(DAQ_INCLUDES) $(BUILD_DIR)/librno-g.so $(BUILD_DIR)/libradiant.so $(BUILD_DIR)/libflower.so $(BUILD_DIR)/librno-g-cal.so | $(BUILD_DIR)
 	@echo Compiling $@
 	@cc  -o $@ $(CFLAGS) -Isrc/ -L$(BUILD_DIR) -lradiant -lrno-g -lflower -lrno-g-cal -lz -lm $< 
@@ -149,9 +154,3 @@ config.mk:
 	@echo "Creating a default config.mk"
 	@cat config.mk.default > $@
 
-dump-scripts: $(BUILD_DIR)/librno-g.so
-	@echo "Compile rno-g-dump*.c" scripts
-	@cc test/rno-g-dump-ds.c -o $(BUILD_DIR)/rno-g-dump-ds  $(CFLAGS) -Isrc/ -L$(BUILD_DIR)  -lrno-g  -lz -lm 
-	@cc test/rno-g-dump-hdr.c -o $(BUILD_DIR)/rno-g-dump-hdr  $(CFLAGS) -Isrc/ -L$(BUILD_DIR)  -lrno-g  -lz -lm 
-	@cc test/rno-g-dump-ped.c -o $(BUILD_DIR)/rno-g-dump-ped  $(CFLAGS) -Isrc/ -L$(BUILD_DIR)  -lrno-g  -lz -lm 
-	@cc test/rno-g-dump-wf.c -o $(BUILD_DIR)/rno-g-dump-wf  $(CFLAGS) -Isrc/ -L$(BUILD_DIR)  -lrno-g  -lz -lm 
