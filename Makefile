@@ -24,16 +24,17 @@ INCLUDES=src/rno-g.h src/rno-g-nsample-diff-hist.h
 DAQ_INCLUDES=src/radiant.h src/cobs.h src/adf4350.h src/flower.h src/rno-g-cal.h 
 PYBIND_INCLUDES=$(shell python3 -m pybind11 --includes) 
 
-.PHONY: client daq clean install install-daq client-py daq-py install-py install-daq-py cppcheck test
+.PHONY: client daq clean install install-daq client-py daq-py cppcheck test daq-test-progs rno-g-utils
 
 client:  $(BUILD_DIR)/librno-g.so  
 
 daq: client $(BUILD_DIR)/libradiant.so  $(BUILD_DIR)/libflower.so $(BUILD_DIR)/librno-g-cal.so 
 
-useful-test-progs:  $(addprefix $(BUILD_DIR)/test/, flower-configure-trigger flower-dump flower-equalize flower-set-thresholds\
+daq-test-progs:  $(addprefix $(BUILD_DIR)/test/, flower-configure-trigger flower-dump flower-equalize flower-set-thresholds\
 	                  flower-status flower-trigger-enables flower-trigout-enables flower-wave radiant-check-trigger radiant-dump\
-										radiant-scan radiant-threshold-scan radiant-try-daqstatus radiant-try-event radiant-try-ped rno-g-cal-cmd\
-									 	rno-g-dump-ds rno-g-dump-hdr rno-g-dump-ped rno-g-dump-wf rno-g-wf-sample-diff-hists rno-g-wf-stats)
+										radiant-scan radiant-threshold-scan radiant-try-daqstatus radiant-try-event radiant-try-ped cal-cmd)
+
+rno-g-utils:  $(addprefix $(BUILD_DIR)/test/, rno-g-dump-ds rno-g-dump-hdr rno-g-dump-ped rno-g-dump-wf rno-g-wf-sample-diff-hists rno-g-wf-stats)
 
 client-py: client $(BUILD_DIR)/rno_g.so 
 daq-py: daq client-py $(BUILD_DIR)/radiant.so 
@@ -76,8 +77,6 @@ install: client
 	install $(BUILD_DIR)/librno-g.so $(PREFIX)/lib/
 	install $(INCLUDES) $(PREFIX)/include/
 
-install-py: install
-
 install-daq: install $(BUILD_DIR)/libradiant.so $(BUILD_DIR)/libflower.so $(BUILD_DIR)/librno-g-cal.so  
 	install $(BUILD_DIR)/libradiant.so $(PREFIX)/lib/
 	install $(BUILD_DIR)/libflower.so $(PREFIX)/lib/
@@ -89,10 +88,6 @@ ifeq ($(ON_BBB),yes)
 	chown rno-g:rno-g /data/test 
 	ldconfig  # just put this here... doesn't seem to be needed on my laptop but mabye on BBB (Debian things?) 
 endif
-
-
-
-install-daq-py: install-daq 
 
 clean: 
 	@echo Nuking $(BUILD_DIR) from orbit
@@ -139,6 +134,10 @@ $(BUILD_DIR)/%.o: src/%.c $(DAQ_INCLUDES) | $(BUILD_DIR)
 	@echo Compiling $@
 	cc -c -o $@ $(CFLAGS) $< 
 
+
+$(BUILD_DIR)/test/rno-g-%: test/rno-g-%.c $(INCLUDES) $(BUILD_DIR)/librno-g.so | $(BUILD_DIR)
+	@echo Compiling $@
+	@cc  -o $@ $(CFLAGS) -Isrc/ -L$(BUILD_DIR) -lrno-g -lz -lm $< 
 
 $(BUILD_DIR)/test/%: test/%.c $(INCLUDES) $(DAQ_INCLUDES) $(BUILD_DIR)/librno-g.so $(BUILD_DIR)/libradiant.so $(BUILD_DIR)/libflower.so $(BUILD_DIR)/librno-g-cal.so | $(BUILD_DIR)
 	@echo Compiling $@
