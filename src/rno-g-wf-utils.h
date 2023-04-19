@@ -1,5 +1,5 @@
-#ifndef _RNO_G_NSAMPLE_DIFF_HIST_H
-#define _RNO_G_NSAMPLE_DIFF_HIST_H
+#ifndef _RNO_G_WF_UTILS_H
+#define _RNO_G_WF_UTILS_H
 #include "rno-g.h" 
 #include <string.h>
 

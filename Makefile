@@ -20,7 +20,7 @@ endif
 
 LDFLAGS=-shared 
 LIBS=-lz -pthread
-INCLUDES=src/rno-g.h src/rno-g-nsample-diff-hist.h
+INCLUDES=src/rno-g.h src/rno-g-wf-utils.h
 DAQ_INCLUDES=src/radiant.h src/cobs.h src/adf4350.h src/flower.h src/rno-g-cal.h 
 PYBIND_INCLUDES=$(shell python3 -m pybind11 --includes) 
 
@@ -97,7 +97,7 @@ $(BUILD_DIR):
 	@ mkdir -p $(BUILD_DIR)
 	@ mkdir -p $(BUILD_DIR)/test
 
-CLIENT_OBJS=rno-g.o rno-g-version.o rno-g-nsample-diff-hist.o
+CLIENT_OBJS=rno-g.o rno-g-version.o rno-g-wf-utils.o
 $(BUILD_DIR)/librno-g.so: $(addprefix $(BUILD_DIR)/, $(CLIENT_OBJS))
 	@echo Linking $@
 	@cc -o $@ $(LDFLAGS) $^  $(LIBS) 
