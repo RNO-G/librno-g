@@ -1,5 +1,6 @@
 #include "rno-g-nsample-diff-hist.h" 
 #include <stdio.h> 
+#include <math.h> 
 #include <stdlib.h> 
 
 
@@ -9,37 +10,56 @@ static const char * sample_diffs = "1,64,128";
 int nbins = 257; 
 int binsize = 1; 
 int use_abs = 0; 
+int individual = 0; 
 
 
 
 
 static void usage() 
 {
-  fprintf(stderr,"rno-g-wf-sample-diff-hists [-o,--output OFILE=stdout] [-c,--channels MASK=0x%x] [-d,--diffs DIFFS=%s] [-n,--nbins NBINS=1025] [-b,--binsize  BINWIDTH=1] [-a,--abs USE_ABSOLUTE_VALUE] infile [infile2 ...]\n", chmask, sample_diffs); 
+  fprintf(stderr,"rno-g-wf-sample-diff-hists [-o,--output OFILE=stdout] [-c,--channels MASK=0x%x] [-d,--diffs DIFFS=%s] [-n,--nbins NBINS=1025] [-b,--binsize  BINWIDTH=1] [-a,--abs USE_ABSOLUTE_VALUE] [-i,--individual INDIVIDUAL_PLOTS] infile [infile2 ...]\n", chmask, sample_diffs); 
 }
 
 
 static rno_g_nsample_diff_hist_t ** hists; 
+static rno_g_nsample_diff_hist_t ** hists_by_chan[RNO_G_NUM_RADIANT_CHANNELS]; 
 static int nhists = 0; 
 static int nhists_alloc = 0; 
+static int nhists_by_chan[RNO_G_NUM_RADIANT_CHANNELS]; 
+static int nhists_by_chan_alloc[RNO_G_NUM_RADIANT_CHANNELS];
 
 void add_hist(rno_g_nsample_diff_hist_t * h) 
 {
 
   if (!nhists_alloc) 
   {
-    hists = malloc(10 * sizeof(h)); 
-    nhists_alloc = 10; 
+    nhists_alloc = 72; 
+    hists = malloc(nhists_alloc * sizeof(h)); 
   }
 
   if (nhists >= nhists_alloc) 
   {
-    nhists_alloc *=1.5; 
+    nhists_alloc *=2;
     hists = realloc(hists, nhists_alloc*sizeof(h)); 
   }
 
   hists[nhists++]= h;
 
+  int chan = h->setup.channel; 
+
+  if (!nhists_by_chan_alloc[chan])
+  {
+    nhists_by_chan_alloc[chan] = 3; 
+    hists_by_chan[chan] = malloc(nhists_by_chan_alloc[chan] * sizeof(h)); 
+  }
+
+  if (nhists_by_chan[chan] > nhists_by_chan_alloc[chan])
+  {
+    nhists_by_chan_alloc[chan] *=2; 
+    hists_by_chan[chan] = realloc(hists_by_chan[chan],nhists_by_chan_alloc[chan] * sizeof(h)); 
+  }
+
+  hists_by_chan[chan][nhists_by_chan[chan]++] = h; 
 }
 
 static int  nfiles = 0; 
@@ -50,8 +70,8 @@ void add_file(const char * f)
 {
   if (!nfiles_alloc) 
   {
-    files = malloc (10*sizeof(f)); 
     nfiles_alloc = 10; 
+    files = malloc (nfiles_alloc*sizeof(f)); 
   }
 
   if (nfiles >= nfiles_alloc) 
@@ -114,6 +134,11 @@ int main(int nargs, char ** args)
     {
       use_abs =1; 
     }
+    else if (!strcmp(args[i],"-i") || !strcmp(args[i],"--individual"))
+    {
+      individual =1; 
+    }
+ 
     else if (!strcmp(args[i],"-c") || !strcmp(args[i],"--channels"))
     {
       if (i == nargs-1)
@@ -149,10 +174,8 @@ int main(int nargs, char ** args)
     }
   }
 
-  if (!fout) fout = stdout; 
   
   //load the first file 
-
   if (! nfiles) 
   {
     usage(); 
@@ -184,9 +207,9 @@ int main(int nargs, char ** args)
   while (token) 
   {
     int diff = atoi(token); 
-    if (diff > 0 && diff < 2048 )
+    if (diff > 0 && diff < RNO_G_MAX_RADIANT_NSAMPLES )
     {
-      for (int ichan = 0; ichan < 24; ichan++) 
+      for (int ichan = 0; ichan < RNO_G_NUM_RADIANT_CHANNELS; ichan++) 
       {
         if ( chmask & ( 1 << ichan))
         {
@@ -230,7 +253,22 @@ int main(int nargs, char ** args)
     }
   }
 
-  rno_g_nsample_diff_hist_write_jsroot_webpage(fout, nhists, (const rno_g_nsample_diff_hist_t **) hists); 
+  if (fout) rno_g_nsample_diff_hist_write_jsroot_webpage(fout, nhists, (const rno_g_nsample_diff_hist_t **) hists, individual); 
+
+  for (int ichan = 0; ichan < RNO_G_NUM_RADIANT_CHANNELS; ichan++) 
+  {
+    if (!(chmask & (1 << ichan))) continue; 
+
+    printf("CHANNEL %d%s:\n", ichan, use_abs ? " (abs)" : "" ); 
+    for (int ihist = 0; ihist < nhists_by_chan[ichan]; ihist++) 
+    {
+      const rno_g_nsample_diff_hist_t * h = hists_by_chan[ichan][ihist]; 
+      float mean = h->entries_sum/h->nfilled; 
+      printf("  delta_nsamples=%d, entries=%d,  mean=%f, rms=%f\n", h->setup.delta_nsamples, h->nfilled, mean, sqrt(h->entries_sum2/h->nfilled -mean*mean));  
+    }
+
+  }
+
   return 0; 
 }
 
