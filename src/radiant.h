@@ -15,6 +15,12 @@ extern "C" {
 
 #include "rno-g.h" 
 
+
+#define RADIANT_NBUF 4
+#define RADIANT_WINDOW_SIZE 128 
+#define RADIANT_NSAMP_PER_BUF 1024
+#define RADIANT_NWIND_PER_BUF 8
+
 /*---------------------------------------------------------------------
 *
 * High-level RADIANT functions first 

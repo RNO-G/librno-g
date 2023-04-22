@@ -228,11 +228,6 @@ date_version
 } date_version_t; 
 
 
-//TODO decide if these need to be exposed or not
-#define RADIANT_NBUF 4
-#define RADIANT_WINDOW_SIZE 128 
-#define RADIANT_NSAMP_PER_BUF 1024
-#define RADIANT_NWIND_PER_BUF 8
 
 /** The radiant device structure. To be optimized for padding */ 
 struct radiant_dev
