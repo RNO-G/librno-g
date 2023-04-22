@@ -1,4 +1,5 @@
 #include "rno-g-wf-utils.h" 
+#include "radiant.h" 
 #include <stdlib.h>
 #include <math.h>
 
@@ -52,21 +53,21 @@ int rno_g_nsample_diff_hist_write_json(FILE *f, const rno_g_nsample_diff_hist_t 
 {
   int written = 0;
   written+=fprintf(f,"%*s{\n", indent_level," "); 
-  written+=fprintf(f,"%*sstation : %hhu,\n", indent_level+2," ", h->setup.station); 
-  written+=fprintf(f,"%*schannel : %hhu,\n", indent_level+2," ", h->setup.channel); 
-  written+=fprintf(f,"%*sdelta_nsamples : %hu,\n", indent_level+2," ", h->setup.delta_nsamples); 
-  written+=fprintf(f,"%*snbins : %hu,\n", indent_level+2," ", h->setup.nbins); 
-  written+=fprintf(f,"%*sbinsize : %hu,\n", indent_level+2," ", h->setup.binsize); 
-  written+=fprintf(f,"%*suse_abs : %s,\n", indent_level+2," ", h->setup.use_abs ? "true" : "false"); 
-  written+=fprintf(f,"%*sxmin : %d,\n", indent_level+2," ", h->setup.use_abs ? 0 : -h->setup.nbins/2*h->setup.binsize);
-  written+=fprintf(f,"%*sxmax : %d,\n", indent_level+2," ", h->setup.use_abs ? h->setup.nbins*h->setup.binsize : -h->setup.nbins/2*h->setup.binsize + h->setup.nbins*h->setup.binsize);
-  written+=fprintf(f,"%*snfilled : %u,\n", indent_level+2," ", h->nfilled );
-  written+=fprintf(f,"%*sentries_sum : %f,\n", indent_level+2," ", h->entries_sum );
-  written+=fprintf(f,"%*sentries_sum2 : %f,\n", indent_level+2," ", h->entries_sum2 );
+  written+=fprintf(f,"%*s\"station\" : %hhu,\n", indent_level+2," ", h->setup.station); 
+  written+=fprintf(f,"%*s\"channel\" : %hhu,\n", indent_level+2," ", h->setup.channel); 
+  written+=fprintf(f,"%*s\"delta_nsamples\" : %hu,\n", indent_level+2," ", h->setup.delta_nsamples); 
+  written+=fprintf(f,"%*s\"nbins\" : %hu,\n", indent_level+2," ", h->setup.nbins); 
+  written+=fprintf(f,"%*s\"binsize\" : %hu,\n", indent_level+2," ", h->setup.binsize); 
+  written+=fprintf(f,"%*s\"use_abs\" : %s,\n", indent_level+2," ", h->setup.use_abs ? "true" : "false"); 
+  written+=fprintf(f,"%*s\"xmin\" : %d,\n", indent_level+2," ", h->setup.use_abs ? 0 : -h->setup.nbins/2*h->setup.binsize);
+  written+=fprintf(f,"%*s\"xmax\" : %d,\n", indent_level+2," ", h->setup.use_abs ? h->setup.nbins*h->setup.binsize : -h->setup.nbins/2*h->setup.binsize + h->setup.nbins*h->setup.binsize);
+  written+=fprintf(f,"%*s\"nfilled\" : %u,\n", indent_level+2," ", h->nfilled );
+  written+=fprintf(f,"%*s\"entries_sum\" : %f,\n", indent_level+2," ", h->entries_sum );
+  written+=fprintf(f,"%*s\"entries_sum2\" : %f,\n", indent_level+2," ", h->entries_sum2 );
   float mean = h->entries_sum / h->nfilled; 
-  written+=fprintf(f,"%*smean : %f,\n", indent_level+2," ", mean); 
-  written+=fprintf(f,"%*srms : %f,\n", indent_level+2," ", sqrt(h->entries_sum2/h->nfilled - mean*mean));
-  written+=fprintf(f,"%*sdata : [ ", indent_level+2, " "); 
+  written+=fprintf(f,"%*s\"mean\" : %f,\n", indent_level+2," ", mean); 
+  written+=fprintf(f,"%*s\"rms\" : %f,\n", indent_level+2," ", sqrt(h->entries_sum2/h->nfilled - mean*mean));
+  written+=fprintf(f,"%*s\"data\" : [ ", indent_level+2, " "); 
   for (unsigned u = 0u; u < h->setup.nbins+2u; u++) 
   {
     if (u > 0) written+=fprintf(f,","); 
@@ -148,3 +149,105 @@ int rno_g_nsample_diff_hist_write_jsroot_webpage(FILE * f, int nhists, const rno
   fclose(f); 
   return nb; 
 }
+
+
+void rno_g_zerocross_stats_init(rno_g_zerocross_stats_t *zc, uint8_t st, uint8_t ch) 
+{
+  memset(zc, 0, sizeof(*zc)); 
+  zc->station = st; 
+  zc->channel = ch; 
+}
+
+
+void rno_g_zerocross_stats_process(rno_g_zerocross_stats_t * zc, const rno_g_header_t * hd, const rno_g_waveform_t *wf) 
+{
+  // check that station is correct? 
+  if (wf->station != zc->station || hd->station_number != zc->station) 
+    fprintf(stderr,"Warning: station mismatch. zc: %hhd, hd: %hhd, wf: %hhd\n", zc->station, hd->station_number,  wf->station); 
+
+  if (wf->event_number != hd->event_number || wf->run_number != hd->run_number) 
+    fprintf(stderr,"Warning: hd/wf mismatch. hd: r%u/e%u,  wf: r%u/e%u\n", hd->run_number, hd->event_number, wf->run_number, wf->event_number); 
+
+  //assume we have the newer radiant firmware... 
+  unsigned start_sample = hd->radiant_start_windows[zc->channel][0] * RADIANT_WINDOW_SIZE; 
+  unsigned offset = start_sample > 2048 ? 2048 : 0; 
+  start_sample %=2048; 
+
+  zc->nwf++; 
+  double last_zero = -1; 
+  int ch = zc->channel; 
+  for (int i = 0; i < 2047; i++) 
+  {
+    //a zero crossing 
+    if ( (wf->radiant_waveforms[ch][i+1] <= 0) != (wf->radiant_waveforms[ch][i] <= 0))
+    {
+      //associate it with this ssample 
+      zc->crossing_counter[ offset + (start_sample + i ) % 2048]++; 
+      zc->nzero++; 
+
+      //linearly inteprolate to zero position
+      double m = wf->radiant_waveforms[ch][i+1] - wf->radiant_waveforms[ch][i]; 
+      double b = wf->radiant_waveforms[ch][i]; 
+      // 0 = m *x + b -> x = -b/m; 
+      double zero =  -b/m + i; 
+
+      if (last_zero >= 0) 
+      {
+        double dzero = zero-last_zero; 
+        zc->period_sum += dzero; 
+        zc->period_sum2 += dzero*dzero; 
+      }
+
+      last_zero = zero; 
+    }
+  }
+}
+
+int rno_g_zerocross_stats_period_mean_rms(const rno_g_zerocross_stats_t *zc, double * mean, double *rms) 
+{
+  if (zc->nzero - zc->nwf <= 0) 
+    return 1; 
+
+  double mean_period = zc->period_sum / (zc->nzero-zc->nwf); 
+  if (mean) *mean = mean_period; 
+  if (rms) 
+  {
+    *rms = sqrt(zc->period_sum2 / (zc->nzero-zc->nwf)- mean_period*mean_period); 
+  }
+  return 0; 
+}
+
+
+int rno_g_zerocross_stats_dump(FILE *f, const rno_g_zerocross_stats_t *zc, int indent_level) 
+{
+
+  int written = 0; 
+  written+=fprintf(f,"%*s{\n", indent_level," "); 
+  written+=fprintf(f,"%*s\"station\" : %hhu,\n", indent_level+2," ", zc->station); 
+  written+=fprintf(f,"%*s\"channel\" : %hhu,\n", indent_level+2," ", zc->channel); 
+  written+=fprintf(f,"%*s\"nwf\" : %u,\n", indent_level+2," ", zc->nwf); 
+  written+=fprintf(f,"%*s\"nzero\" : %u,\n", indent_level+2," ", zc->nzero); 
+  written+=fprintf(f,"%*s\"period_sum\" : %f,\n", indent_level+2," ", zc->period_sum); 
+  written+=fprintf(f,"%*s\"period_sum2\" : %f,\n", indent_level+2," ", zc->period_sum2); 
+
+  double mean_period = 0;
+  double period_rms = 0;
+  rno_g_zerocross_stats_period_mean_rms(zc,&mean_period,&period_rms); 
+  written+=fprintf(f,"%*s\"mean_period\" : %f,\n", indent_level+2," ", mean_period); 
+  written+=fprintf(f,"%*s\"stdev_period\" : %f,\n", indent_level+2," ", period_rms); 
+
+  written+=fprintf(f,"%*s\"crossing_counter\" : [", indent_level+2," "); 
+
+  for (int i = 0; i < 4096; i++) 
+    written += fprintf(f,"%s%hu", i==0?"": ",", zc->crossing_counter[i]); 
+
+  written += fputs("]\n",f); 
+  written+=fprintf(f,"%*s}\n", indent_level," "); 
+
+  return written; 
+
+}
+
+
+
+
