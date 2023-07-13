@@ -925,7 +925,7 @@ radiant_dev_t * radiant_open(const char *spi_device, const char * uart_device, i
   dev->read_timeout = 1; 
 
   // verify that we identify correctly
-  char check_bm[4] = { 'f','a','i','l' }; 
+  char check_bm[4] = { 'l','i','a','f' }; 
   int nb = radiant_get_mem(dev, DEST_MANAGER, BM_REG_IDENT, 4, (uint8_t*) check_bm); 
 
   if (nb != 4 || memcmp(check_bm, "MBDR",4)) //little endian output
@@ -935,12 +935,12 @@ radiant_dev_t * radiant_open(const char *spi_device, const char * uart_device, i
     return 0; 
   }
   
-  char check_radiant[4] = { 'f','a','i','l' }; 
+  char check_radiant[4] = { 'l','i','a','f' }; 
   nb = radiant_get_mem(dev, DEST_FPGA, RAD_REG_IDENT, 4, (uint8_t*) check_radiant); 
 
   if (nb!=4 || memcmp(check_radiant,"TNDR",4))
   {
-    fprintf(stderr, "RADIANT DID NOT IDENTIFY PROPERLY. READ %d BYTES, HAVE GOT \"%c%c%c%c\"\n", nb, check_radiant[3], check_radiant[2], check_radiant[1], check_radiant[0]); 
+    fprintf(stderr, "RADIANT DID NOT IDENTIFY PROPERLY. READ %d BYTES, HAVE \"%c%c%c%c\"\n", nb, check_radiant[3], check_radiant[2], check_radiant[1], check_radiant[0]); 
     radiant_close(dev); 
     return 0; 
   }
