@@ -37,7 +37,10 @@ mkdir -p "${OUT}"
 mkdir -p "${OUT}/wfs"
 mkdir -p "${OUT}/peds"
 
-rsync --compress -a -P ${USER}@${HOST}:/data/test/${LABEL}/\{wfs.dat,header.dat,daqstatus.dat,peds.dat\} "$OUT"
+rsync --compress -a -P ${USER}@${HOST}:/data/test/${LABEL}/wfs.dat "$OUT"
+rsync --compress -a -P ${USER}@${HOST}:/data/test/${LABEL}/header.dat "$OUT"
+rsync --compress -a -P ${USER}@${HOST}:/data/test/${LABEL}/daqstatus.dat "$OUT"
+rsync --compress -a -P ${USER}@${HOST}:/data/test/${LABEL}/peds.dat "$OUT"
 
 make -s build/test/rno-g-dump-hdr build/test/rno-g-dump-ped build/test/rno-g-dump-wf build/test/rno-g-dump-ds build/test/rno-g-wf-stats
 
@@ -70,7 +73,7 @@ function go(i)
 EOF
 
 LD_LIBRARY_PATH+=:`pwd`/build build/test/rno-g-wf-stats "${OUT}/wfs.dat" > "${OUT}/wfstats.txt"
-LD_LIBRARY_PATH+=:`pwd`/build:/usr/local/lib root -b -q test/quick_spectra.C\(\"${OUT}/wfs.dat\",16777215,\"${OUT}/spectra.png\"\) 
+LD_LIBRARY_PATH+=:`pwd`/build:/usr/local/lib root -b -q test/quick_spectra.C\(\"${OUT}/wfs.dat\",16777215,\"${OUT}/spectra.png\",0,-1,1,1,-10,60\) 
 LD_LIBRARY_PATH+=:`pwd`/build:/usr/local/lib root -b -q test/quick_plot.C\(\"${OUT}/wfs.dat\",0,1,${MAXEV},\"${OUT}/wfs\"\) 
 LD_LIBRARY_PATH+=:`pwd`/build root -b -q test/quick_peds.C\(\"${OUT}/peds.dat\",\"${OUT}/peds\"\) 
 LD_LIBRARY_PATH+=:`pwd`/build build/test/rno-g-dump-hdr "${OUT}/header.dat" > "${OUT}/headers.txt"

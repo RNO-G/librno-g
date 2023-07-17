@@ -1,4 +1,6 @@
 #test environment script, not for production
-export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:`pwd`/build
-export PATH=$PATH:`pwd`/build/test
-export PYTHONPATH=$PYTHON_PATH:`pwd`/build
+DIR_PATH="$(dirname "${BASH_SOURCE[0]}")"
+
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:${DIR_PATH}/build
+export PATH=$PATH:${DIR_PATH}/build/test
+export PYTHONPATH=$PYTHONPATH:${DIR_PATH}/build

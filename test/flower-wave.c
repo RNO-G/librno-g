@@ -18,7 +18,7 @@ int main (int nargs, char ** args)
   uint8_t * data_ptr[RNO_G_NUM_LT_CHANNELS] = {&data[0][0],&data[1][0],&data[2][0],&data[3][0] }; 
 
   flower_buffer_clear(flwr); 
-  flower_force_trigger(flwr); 
+  if (force) flower_force_trigger(flwr); 
   int avail = 0; 
   while (!avail) flower_buffer_check(flwr,&avail); 
   flower_read_waveforms(flwr, 512, data_ptr); 

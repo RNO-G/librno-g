@@ -1,3 +1,4 @@
+#define _GNU_SOURCE
 #include "rno-g.h" 
 #include <stdio.h> 
 #include <stddef.h> 
@@ -332,7 +333,7 @@ int rno_g_init_handle(rno_g_file_handle_t * h, const char * name, const char * m
   }
 
   h->type = RNO_G_RAW; 
-  h->handle.raw = fopen(name,mode); 
+  h->handle.raw = fopen64(name,mode); 
   if (!h->handle.raw) 
   {
      fprintf(stderr,"Unable to open %s with mode %s\n", name, mode); 
