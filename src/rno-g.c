@@ -13,7 +13,7 @@
  */
 
 #define HEADER_VER 1
-#define WF_VER 3 
+#define WF_VER 4 
 #define PED_VER 3 
 #define DAQSTATUS_VER 5 
 
@@ -221,7 +221,10 @@ int rno_g_waveform_write(rno_g_file_handle_t h, const rno_g_waveform_t *wf)
     wr += do_write(h, wf->lt_nsamples, wf->lt_waveforms[ichan],&sum); 
   }
 
-  wr += do_write(h, 1, &wf->station, &sum); 
+  wr += do_write(h, 1, &wf->station, &sum);
+  wr += do_write(h, 1, &wf->rf0_delay, &sum); 
+  wr += do_write(h, 1, &wf->rf1_delay, &sum); 
+  wr += do_write(h, 1, &wf->readout_delay_masks, &sum); 
 
   do_write(h, sizeof(sum),&sum,0); 
 
@@ -238,6 +241,20 @@ typedef struct rno_g_waveform_v1
   uint8_t lt_waveforms[RNO_G_NUM_LT_CHANNELS][RNO_G_MAX_LT_NSAMPLES]; // 8-bit digitizer 
   uint8_t station; 
 } rno_g_waveform_v1_t; 
+
+typedef struct rno_g_waveform_v4
+{
+  uint32_t event_number; //!< For matching
+  uint32_t run_number;   //!< For matching
+  uint16_t radiant_nsamples; //!< Number of samples per channel for RADIANT
+  uint16_t lt_nsamples; //!< Number of samples per channel for lowthresh
+  int16_t radiant_waveforms[RNO_G_NUM_RADIANT_CHANNELS][RNO_G_MAX_RADIANT_NSAMPLES]; //unrolled. 
+  uint8_t lt_waveforms[RNO_G_NUM_LT_CHANNELS][RNO_G_MAX_LT_NSAMPLES]; // 8-bit digitizer 
+  uint8_t station; 
+  uint8_t rf0_delay; //main clock readout delay # for rf0
+  uint8_t rf1_delay; //main clock readout delay # for rf1
+  uint8_t readout_delay_masks; //readout delay group mask for rf1 msb and rf0 lsb (3210)
+} rno_g_waveform_v4_t; 
 
 
 int rno_g_waveform_read(rno_g_file_handle_t h, rno_g_waveform_t *wf)
@@ -261,9 +278,58 @@ int rno_g_waveform_read(rno_g_file_handle_t h, rno_g_waveform_t *wf)
   // here we handle converting to the newest kind of waveform
   switch (hd.version) 
   {
-    case 1: 
-    case 2: 
-    case WF_VER:
+    case 1: //these shouldnt exists?
+    case 2: //these shouldnt exists?
+    case 3:
+      {
+        rd = do_read(h,N_BEFORE_DATA,wf,&sum); 
+        for (ichan = 0; ichan < RNO_G_NUM_RADIANT_CHANNELS; ichan++)
+        {
+          rd+= do_read(h,2*wf->radiant_nsamples, wf->radiant_waveforms[ichan], &sum);
+          if ( hd.version < 3) 
+          {
+            //fix unwrapping bug
+            uint16_t tmp[128]; 
+            memcpy(tmp, wf->radiant_waveforms[ichan], 128*2); 
+            memmove(wf->radiant_waveforms[ichan], wf->radiant_waveforms[ichan]+128, (1024-128)*2); 
+            memcpy(wf->radiant_waveforms[ichan]+1024-128,tmp,128*2); 
+            memcpy(tmp, wf->radiant_waveforms[ichan]+1024, 128*2); 
+            memmove(wf->radiant_waveforms[ichan]+1024, wf->radiant_waveforms[ichan]+128+1024, (1024-128)*2); 
+            memcpy(wf->radiant_waveforms[ichan]+2048-128,tmp,128*2); 
+          }
+        }
+         for (ichan = 0; ichan < RNO_G_NUM_LT_CHANNELS; ichan++)
+        {
+          rd+= do_read(h,wf->lt_nsamples, wf->lt_waveforms[ichan], &sum);
+        }
+
+        if (hd.version > 1) 
+        {
+          rd+= do_read(h,sizeof(wf->station), &wf->station,&sum); 
+        }
+        else
+        {
+          wf->station =0; 
+        }
+
+        if(hd.version<4)
+        {
+          wf->rf0_delay=0;
+          wf->rf1_delay=0;
+          wf->readout_delay_mask=0;
+        }
+        
+        rdsum = do_read(h, sizeof(wanted_sum),&wanted_sum,0); 
+
+
+        if (!rdsum || sum!=wanted_sum) 
+        {
+          fprintf(stderr,"Checksum error. Got %x, wanted %x\n", sum,wanted_sum); 
+          return -1; 
+        }
+        return rd+rdsum; 
+      }
+      case WF_VER: //version4
       {
         rd = do_read(h,N_BEFORE_DATA,wf,&sum); 
         for (ichan = 0; ichan < RNO_G_NUM_RADIANT_CHANNELS; ichan++)
@@ -295,6 +361,20 @@ int rno_g_waveform_read(rno_g_file_handle_t h, rno_g_waveform_t *wf)
           wf->station =0; 
         }
         
+        if(hd.version>3)
+        {
+          rd+= do_read(h,sizeof(wf->rf0_delay), &wf->rf0_delay,&sum); 
+          rd+= do_read(h,sizeof(wf->rf1_delay), &wf->rf1_delay,&sum); 
+          rd+= do_read(h,sizeof(wf->readout_delay_masks), &wf->readout_delay_masks,&sum); 
+        }
+        else
+        {
+          wf->rf0_delay=0;
+          wf->rf1_delay=0;
+          wf->readout_delay_mask=0;
+        }
+
+
         rdsum = do_read(h, sizeof(wanted_sum),&wanted_sum,0); 
 
 

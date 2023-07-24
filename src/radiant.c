@@ -133,6 +133,11 @@ typedef enum
   RAD_REG_LAB_CTRL_TRIGGER            = 0x10054, 
   RAD_REG_LAB_CTRL_READOUT            = 0x10058, 
   RAD_REG_LAB_CTRL_READOUTEMPTY       = 0x10062, 
+  RAD_REG_LAB_CTRL_RF0_DELAY          = 0x10080,
+  RAD_REG_LAB_CTRL_RF0_DELAY_MASK     = 0x10084,
+  RAD_REG_LAB_CTRL_RF1_DELAY          = 0x10088,
+  RAD_REG_LAB_CTRL_RF1_DELAY_MASK     = 0x1008c,
+
 
   //LABRAM space 
   RAD_REG_LAB_RAM_BASE                = 0x20000, 
@@ -685,6 +690,13 @@ int radiant_read_event(radiant_dev_t * bd, rno_g_header_t * hd, rno_g_waveform_t
 
   wf->radiant_nsamples = nsamples;
 
+  //NEED to figure out how to read delay settings and masks into wf type
+  //directly reading from radiant might be slow here.  idk
+  //the rest of the script is finished then
+  radiant_get_delays(bd,*wf->rf0_delay,*wf->rf1_delay,*wf->readout_delay_mask);
+
+
+
   for (int ichan = 0; ichan < RNO_G_NUM_RADIANT_CHANNELS; ichan++) 
   {
 
@@ -734,7 +746,7 @@ int radiant_read_event(radiant_dev_t * bd, rno_g_header_t * hd, rno_g_waveform_t
           sub16 (RADIANT_NSAMP_PER_BUF,  wf->radiant_waveforms[ichan] + ibuffer * RADIANT_NSAMP_PER_BUF, (int16_t*) bd->peds->pedestals[ichan] + RADIANT_NSAMP_PER_BUF * buffer_number); 
         }
 
-//        unwrap each buffer individually, if we need to 
+        //unwrap each buffer individually, if we need to 
         if (nrotate &&  ( bd->rad_dateversion_int < 300 || bd->nbuffers_per_readout == 1) ) 
         {
           roll16((uint16_t*)wf->radiant_waveforms[ichan] + ibuffer * RADIANT_NSAMP_PER_BUF, nrotate, RADIANT_NSAMP_PER_BUF); 
@@ -747,10 +759,31 @@ int radiant_read_event(radiant_dev_t * bd, rno_g_header_t * hd, rno_g_waveform_t
         roll16((uint16_t*)wf->radiant_waveforms[ichan], nboth_rotate, 2*RADIANT_NSAMP_PER_BUF); 
       }
 
+ 
     }
     else
     {
       memset(wf->radiant_waveforms[ichan],0, sizeof(wf->radiant_waveforms[ichan])); 
+    }
+    
+    
+    //unroll waveforms based on settings. this might need to go into the if else, but idk
+    //check if rf 0 delay active and check if rf 0
+    //wortks for waveform version >3
+    if (wf->rf0_delay!=0 && hd->trigger_type & RNO_G_TRIGGER_RF_RADIANT0)
+    {
+      if (ichan<=11 && wf->rf0_delay_mask & 0b0001) roll16((uint16_t*)wf->radiant_waveforms[ichan] , 128*wf->rf0_delay, 2*RADIANT_NSAMP_PER_BUF); 
+      if (ichan>11 && ichan<=13 && wf->rf0_delay_mask & 0b0010) roll16((uint16_t*)wf->radiant_waveforms[ichan] , 128*wf->rf0_delay, 2*RADIANT_NSAMP_PER_BUF); 
+      if (ichan>13 && ichan<=20 && wf->rf0_delay_mask & 0b0100) roll16((uint16_t*)wf->radiant_waveforms[ichan] , 128*wf->rf0_delay, 2*RADIANT_NSAMP_PER_BUF); 
+      if (ichan>=21 && ichan<=23 && wf->rf0_delay_mask & 0b1000) roll16((uint16_t*)wf->radiant_waveforms[ichan] , 128*wf->rf0_delay, 2*RADIANT_NSAMP_PER_BUF); 
+    }
+    //check if rf 1 delay active and check if rf 1
+    if (wf->rf1_delay!=0 && hd->trigger_type & RNO_G_TRIGGER_RF_RADIANT1)
+    {
+      if (ichan<=11 && wf->rf1_delay_mask & 0b0001) roll16((uint16_t*)wf->radiant_waveforms[ichan] , wf->rf1_delay, 2*RADIANT_NSAMP_PER_BUF); 
+      if (ichan>11 && ichan<=13 && wf->rf1_delay_mask & 0b0010) roll16((uint16_t*)wf->radiant_waveforms[ichan] , 128*wf->rf1_delay, 2*RADIANT_NSAMP_PER_BUF); 
+      if (ichan>13 && ichan<=20 && wf->rf1_delay_mask & 0b0100) roll16((uint16_t*)wf->radiant_waveforms[ichan] , 128*wf->rf1_delay, 2*RADIANT_NSAMP_PER_BUF); 
+      if (ichan>=21 && ichan<=23 && wf->rf1_delay_mask & 0b1000) roll16((uint16_t*)wf->radiant_waveforms[ichan] , 128*wf->rf1_delay, 2*RADIANT_NSAMP_PER_BUF); 
     }
   }
 
@@ -2853,6 +2886,31 @@ int radiant_get_scalers(radiant_dev_t * bd, int sc0, int sc1, uint16_t * scalers
   return 2*nscalers != radiant_get_mem(bd, DEST_FPGA, RAD_REG_SCALER_SCAL_BASE + sc0*2, nscalers*2, (uint8_t*) scalers); 
 }
 
+int radiant_get_delays(radiant_dev_t * bd, uint8_t * rf0_delay, uint8_t * rf1_delay, uint8_t readout_delay_mask)//order fo these will change
+{
+  uint32_t delays[4];
+  radiant_get_mem(bd, DEST_FPGA, RAD_REG_LAB_CTRL_RF0_DELAY, 16,(uint8_t*)&delays);//lets just pull them all in
+  
+  rf0_delay=delays[0]&0xff;
+  readout_delay_mask=delays[1]&0xf;//send this to the lsb bits
+  rf1_delay=delays[2]&0xff;
+  readout_delay_mask|=(delays[3]&0xf)<<4;//send this to the msb bits
+
+  //printf("rf0_delay_setting %i, rf0_delay_mask %i, rf1_delay_setting %i, rf1_delay_mask %i",rf0_delay,rf0_delay_mask,rf1_delay,rf1_delay_Setting);
+}
+
+int radiant_set_delays(radiant_dev_t * bd, uint8_t rf0_delay, uint8_t rf1_delay, uint8_t readout_delay_mask)
+{
+  uint8_t rf0_delay_mask=readout_delay_mask&0xf;
+  uint8_t rf1_delay_mask=readout_delay_mask&0xf0;
+
+  //now it should look something like this 
+  radiant_set_mem(bd, DEST_FPGA,RAD_REG_LAB_CTRL_RF0_DELAY,1,(uint8_t*)&rf0_delay);
+  radiant_set_mem(bd, DEST_FPGA,RAD_REG_LAB_CTRL_RF0_DELAY_MASK,1,(uint8_t*)&rf0_delay_mask);
+  radiant_set_mem(bd, DEST_FPGA,RAD_REG_LAB_CTRL_RF1_DELAY,1,(uint8_t*)&rf1_delay);
+  radiant_set_mem(bd, DEST_FPGA,RAD_REG_LAB_CTRL_RF1_DELAY_MASK,1,(uint8_t*)&rf1_delay_mask);
+
+}
 
 int radiant_read_daqstatus(radiant_dev_t * bd, rno_g_daqstatus_t * ds) 
 {

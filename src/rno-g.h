@@ -153,6 +153,11 @@ typedef struct rno_g_header
 
   uint8_t station_number; //!< The station number. 
 
+  char rf0_delay_mask;
+  char rf1_delay_mask;
+  uint8_t rf0_delay;
+  uint8_t rf1_delay;
+  
   /** Trigger type. See rno_g_trigger_type_t  Or-able */ 
   uint8_t trigger_type; 
 
@@ -183,6 +188,9 @@ typedef struct rno_g_waveform
   int16_t radiant_waveforms[RNO_G_NUM_RADIANT_CHANNELS][RNO_G_MAX_RADIANT_NSAMPLES]; //unrolled. 
   uint8_t lt_waveforms[RNO_G_NUM_LT_CHANNELS][RNO_G_MAX_LT_NSAMPLES]; // 8-bit digitizer 
   uint8_t station; 
+  uint8_t rf0_delay; //main clock readout delay # for rf0
+  uint8_t rf1_delay; //main clock readout delay # for rf1
+  uint8_t readout_delay_masks; //readout delay group mask for rf1 msb and rf0 lsb (3210)
 } rno_g_waveform_t; 
 
 //write in ascii format (e.g. for stdout) 
