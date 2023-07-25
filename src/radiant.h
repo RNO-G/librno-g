@@ -418,9 +418,8 @@ int radiant_set_prescaler(radiant_dev_t * bd, int scaler, uint8_t prescale_minus
 
 int radiant_get_scalers(radiant_dev_t * bd, int start, int end, uint16_t * scalers); 
 
-int radiant_get_delays(radiant_dev_t * bd, uint8_t * rf0_delay, char * rf0_delay_mask, uint8_t * rf1_delay,char*rf1_delay_mask)
-int radiant_set_delays(radiant_dev_t * bd, uint8_t rf0_delay, uint8_t rf1_delay, char rf0_delay_mask, char rf1_delay_mask)
-
+int radiant_get_delays(radiant_dev_t * bd, uint8_t * rf0_delay, uint8_t * rf1_delay, uint8_t * readout_delay_mask);//order fo these will change
+int radiant_set_delays(radiant_dev_t * bd, uint8_t rf0_delay, uint8_t rf1_delay, uint8_t readout_delay_mask);
 
 
 

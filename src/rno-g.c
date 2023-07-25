@@ -316,7 +316,7 @@ int rno_g_waveform_read(rno_g_file_handle_t h, rno_g_waveform_t *wf)
         {
           wf->rf0_delay=0;
           wf->rf1_delay=0;
-          wf->readout_delay_mask=0;
+          wf->readout_delay_masks=0;
         }
         
         rdsum = do_read(h, sizeof(wanted_sum),&wanted_sum,0); 
@@ -371,7 +371,7 @@ int rno_g_waveform_read(rno_g_file_handle_t h, rno_g_waveform_t *wf)
         {
           wf->rf0_delay=0;
           wf->rf1_delay=0;
-          wf->readout_delay_mask=0;
+          wf->readout_delay_masks=0;
         }
 
 
