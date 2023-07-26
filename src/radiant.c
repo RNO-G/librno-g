@@ -1224,7 +1224,7 @@ int radiant_dump(radiant_dev_t *dev, FILE * stream, int flags)
 
   uint8_t rf0_delay,rf1_delay,readout_delay_masks;
   radiant_get_delays(dev,&rf0_delay,&rf1_delay,&readout_delay_masks);
-  fprintf(stream, "    LAB4D_READOUT_DELAYS rf_delay(0,1),rf_delay_mask(0,1): %x %x %x %x \n", rf0_delay,rf1_delay,readout_delay_masks&0x0f,readout_delay_masks&0xf0); 
+  fprintf(stream, "    LAB4D_READOUT_DELAYS rf0_delay_rf1_delay,rf0_mask,rf1_mask: %x %x %x %x \n", rf0_delay,rf1_delay,readout_delay_masks&0x0f,(readout_delay_masks&0xf0)>>4); 
   
 
   radiant_dma_config_t dma_cfg; 
@@ -2895,10 +2895,19 @@ int radiant_get_delays(radiant_dev_t * bd, uint8_t * rf0_delay, uint8_t * rf1_de
   
   uint32_t delays[4];
   radiant_get_mem(bd, DEST_FPGA, RAD_REG_LAB_CTRL_RF0_DELAY, 4*4,(uint8_t*)&delays);//lets just pull them all in
+  
+  /*
+  printf("from regs\n");
+  printf("%x\n",delays[0]);
+  printf("%x\n",delays[1]);
+  printf("%x\n",delays[2]);
+  printf("%x\n",delays[3]);
+  */
+
   *rf0_delay=(delays[0]&0xff);
   *readout_delay_mask=(delays[1]&0xf);//send this to the lsb bits
   *rf1_delay=(delays[2]&0xff);
-  *readout_delay_mask |= (delays[3]&0xf0);//send this to the msb bits
+  *readout_delay_mask |= (delays[3]&0xf)<<4;//send this to the msb bits
   
   //printf("rf0_delay_setting %i, rf0_delay_mask %i, rf1_delay_setting %i, rf1_delay_mask %i",rf0_delay,rf0_delay_mask,rf1_delay,rf1_delay_Setting);
   return 0;
@@ -2906,14 +2915,22 @@ int radiant_get_delays(radiant_dev_t * bd, uint8_t * rf0_delay, uint8_t * rf1_de
 
 int radiant_set_delays(radiant_dev_t * bd, uint8_t rf0_delay, uint8_t rf1_delay, uint8_t readout_delay_mask)
 {
-  uint8_t rf0_delay_mask=readout_delay_mask&0xf;
-  uint8_t rf1_delay_mask=readout_delay_mask&0xf0;
+
+  uint8_t rf0_delay_mask=readout_delay_mask&0x0f;
+  uint8_t rf1_delay_mask=(readout_delay_mask&0xf0)>>4;
+
+  /*
+  printf("whole readout mask %x\n",readout_delay_mask);
+  printf("rf0 mask %i\n",rf0_delay_mask);
+  printf("rf1 mask %i\n",rf1_delay_mask);
+  */
 
   //now it should look something like this 
   radiant_set_mem(bd, DEST_FPGA,RAD_REG_LAB_CTRL_RF0_DELAY,1,(uint8_t*)&rf0_delay);
   radiant_set_mem(bd, DEST_FPGA,RAD_REG_LAB_CTRL_RF0_DELAY_MASK,1,(uint8_t*)&rf0_delay_mask);
   radiant_set_mem(bd, DEST_FPGA,RAD_REG_LAB_CTRL_RF1_DELAY,1,(uint8_t*)&rf1_delay);
   radiant_set_mem(bd, DEST_FPGA,RAD_REG_LAB_CTRL_RF1_DELAY_MASK,1,(uint8_t*)&rf1_delay_mask);
+
   return 0;
 }
 

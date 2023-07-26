@@ -85,6 +85,10 @@ int usage()
   printf("  -L label the data, will be written to /data/test/LABEL and will exit with failure if /data/test/LABEL already exists\n"); 
   printf("  -w watchdog: The longest to wait to get a trigger before quitting, in seconds (0, default, to disable)\n"); 
   printf("  -d Maximum duration (in seconds) to run for (0, default for no limit)\n"); 
+  printf("  -R which radiant trigger to configure (default RF0 = 0b0001)\n");
+  printf("  -d0 rf0 delay settting (default 4)\n");
+  printf("  -d1 rf1 delay settting (default 4)\n");
+  printf("  -dm readout delay mask (default 0x22)\n");
   printf("  -h this message\n"); 
   exit(1); 
 
@@ -137,6 +141,10 @@ int main(int nargs, char ** args)
   int internal_pps = 0; 
   int watchdog = 0; 
   int duration = 0; 
+  char which_radiant_trigger=0b0001;
+  uint8_t delay0=4;
+  uint8_t delay1=4;
+  uint8_t readout_delay_mask=0x22;
 
   for (int i = 1; i < nargs; i++) 
   {
@@ -235,6 +243,22 @@ int main(int nargs, char ** args)
       {
         duration = atoi(args[++i]); 
       }
+      else if (!strcmp(args[i],"-R"))
+      {
+        which_radiant_trigger = atoi(args[++i]); 
+      }
+      else if (!strcmp(args[i],"-rd0"))
+      {
+        delay0 = atoi(args[++i]); 
+      }
+      else if (!strcmp(args[i],"-rd1"))
+      {
+        delay1 = atoi(args[++i]); 
+      }
+      else if (!strcmp(args[i],"-rdm"))
+      {
+        readout_delay_mask = atoi(args[++i]); 
+      }
  
       else usage(); 
     }
@@ -265,6 +289,20 @@ int main(int nargs, char ** args)
    }
 
 
+  //printf("Set readout delays\n");
+
+  /*
+  radiant_get_delays(rad,&delay0,&delay1,&readout_delay_mask);
+  printf("first getting delay0 set to %i, delay 1 set to %i, and mask %i\n",delay0,delay1,readout_delay_mask);
+  printf("choosing to set delay0 set to %i, delay 1 set to %i, and mask %i\n",6,4,0x21);
+  radiant_set_delays(rad,0x06,0x04,0x21);
+
+  radiant_get_delays(rad,&delay0,&delay1,&readout_delay_mask);
+  printf("new settings: delay0 set to %i, delay 1 set to %i, and mask %i\n",delay0,delay1,readout_delay_mask);
+  
+  */
+
+ 
 
   if (do_sync) radiant_sync(rad); 
   if (bias) 
@@ -323,7 +361,6 @@ int main(int nargs, char ** args)
     printf("Using force triggers\n"); 
   }
 
-  printf("Using RF trigger settings:  MASK: 0x%x, THRESH: %f V, WINDOW: %f ns, MINCOINC: %d\n", trigmask, trigthresh, trigwindow, mincoincident); 
 
   //let's set the thresholds now (for all channels) 
   
@@ -340,14 +377,55 @@ int main(int nargs, char ** args)
 
   //and make sure our mask is enabled globally 
   radiant_set_global_trigger_mask(rad,trigmask); 
+  //trig_mask |= trig_mask0, trig_mask |=trig_mask1; x3
+
+  
+  if(force)which_radiant_trigger=0;
+  if(which_radiant_trigger==0)
+  {
+    printf("Disabling both radiant triggers\n");
+
+    //set none.. not necessary since 0 mask means nothing happens
+    radiant_configure_rf_trigger(rad,RADIANT_TRIG_A, 0, 0, 0); 
+    radiant_configure_rf_trigger(rad,RADIANT_TRIG_B, 0, 0, 0); 
+
+  }
+  else if(which_radiant_trigger&0b0010)
+  {
+    printf("Using RF1 trigger settings:  MASK: 0x%x, THRESH: %f V, WINDOW: %f ns, MINCOINC: %d\n", trigmask, trigthresh, trigwindow, mincoincident); 
+    printf("Disabling Radiant trigger 0\n");
+  
+    //we'll use TRIG A
+    radiant_configure_rf_trigger(rad,RADIANT_TRIG_A, 0, 0, 0); 
+    //make sure TRIG B isn't doing anything
+    radiant_configure_rf_trigger(rad,RADIANT_TRIG_B, trigmask, mincoincident, trigwindow); 
+  }
+  //add one for enable both rf triggers. might need more command line args
+  else 
+  {
+    printf("Using RF0 trigger settings:  MASK: 0x%x, THRESH: %f V, WINDOW: %f ns, MINCOINC: %d\n", trigmask, trigthresh, trigwindow, mincoincident); 
+    printf("Disabling Radiant trigger 1\n");
+    //default to A/0 rf trig
+    //we'll use TRIG A
+    radiant_configure_rf_trigger(rad,RADIANT_TRIG_A, trigmask, mincoincident, trigwindow); 
+    //make sure TRIG B isn't doing anything
+    radiant_configure_rf_trigger(rad,RADIANT_TRIG_B, 0, 0, 0); 
+  }
 
 
-      //we'll use TRIG A
-  radiant_configure_rf_trigger(rad,RADIANT_TRIG_A, trigmask, mincoincident, trigwindow); 
+  //set the readout delays. for now just default to something before this script gets messy
+  printf("Setting readout delays: rf0_delay %x, rf1_delay %x ,rf0_mask %x, rf1_mask %x\n", delay0,delay1,readout_delay_mask&0x0f,(readout_delay_mask&0xf0)>>4); 
 
-      //make sure TRIG B isn't doing anything
-  radiant_configure_rf_trigger(rad,RADIANT_TRIG_B, 0, 0, 0); 
-
+  //uint8_t delay0=0;
+  //uint8_t delay1=0;
+  //uint8_t readout_delay_mask=0;
+  radiant_get_delays(rad,&delay0,&delay1,&readout_delay_mask);
+  //printf("delay0 set to %i, delay 1 set to %i, and mask %i",delay0,delay1,readout_delay_mask);
+  radiant_set_delays(rad,0x01,0x01,0x22);
+  //radiant_get_delays(rad,&delay0,&delay1,&readout_delay_mask);
+  //printf("new settings: delay0 set to %i, delay 1 set to %i, and mask %i",delay0,delay1,readout_delay_mask);
+  
+  
 
 
   if (clearmode)
