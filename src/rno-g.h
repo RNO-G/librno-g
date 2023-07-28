@@ -18,6 +18,7 @@ extern "C"
 #endif
 
 
+
 //For int ttypes
 #include <stdint.h> 
 
@@ -153,11 +154,6 @@ typedef struct rno_g_header
 
   uint8_t station_number; //!< The station number. 
 
-  char rf0_delay_mask;
-  char rf1_delay_mask;
-  uint8_t rf0_delay;
-  uint8_t rf1_delay;
-  
   /** Trigger type. See rno_g_trigger_type_t  Or-able */ 
   uint8_t trigger_type; 
 
@@ -179,6 +175,15 @@ int rno_g_header_dump(FILE*f, const rno_g_header_t * header);
 int rno_g_header_write(rno_g_file_handle_t handle, const rno_g_header_t * header);
 int rno_g_header_read(rno_g_file_handle_t handle, rno_g_header_t * header);
 
+typedef struct radiant_readout_delay_struct
+{
+  uint8_t rf0_delay;
+  uint8_t rf1_delay;
+  uint32_t rf0_delay_mask;
+  uint32_t rf1_delay_mask; //keep as channels in case the groups change
+
+} radiant_readout_delay_t;
+
 typedef struct rno_g_waveform
 {
   uint32_t event_number; //!< For matching
@@ -188,9 +193,9 @@ typedef struct rno_g_waveform
   int16_t radiant_waveforms[RNO_G_NUM_RADIANT_CHANNELS][RNO_G_MAX_RADIANT_NSAMPLES]; //unrolled. 
   uint8_t lt_waveforms[RNO_G_NUM_LT_CHANNELS][RNO_G_MAX_LT_NSAMPLES]; // 8-bit digitizer 
   uint8_t station; 
-  uint8_t rf0_delay; //main clock readout delay # for rf0
-  uint8_t rf1_delay; //main clock readout delay # for rf1
-  uint8_t readout_delay_masks; //readout delay group mask for rf1 msb and rf0 lsb (3210)
+  
+  radiant_readout_delay_t radiant_readout_delays;
+  uint16_t radiant_sampling_rate;
 } rno_g_waveform_t; 
 
 //write in ascii format (e.g. for stdout) 

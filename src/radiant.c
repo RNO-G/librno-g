@@ -252,7 +252,7 @@ struct radiant_dev
   uint8_t reg_buf [258]; 
   uint8_t reg_buf_encoded [260]; 
 
-  //the board manager date veesion
+  //the board manager date version
   date_version_t bm_dateversion; 
   date_version_t rad_dateversion; 
   uint32_t rad_dateversion_int; 
@@ -689,11 +689,13 @@ int radiant_read_event(radiant_dev_t * bd, rno_g_header_t * hd, rno_g_waveform_t
   wf->run_number = bd->run; 
 
   wf->radiant_nsamples = nsamples;
-
+  
+  
   //NEED to figure out how to read delay settings and masks into wf type
   //directly reading from radiant might be slow here.  idk
   //the rest of the script is finished then
-  radiant_get_delays(bd,&wf->rf0_delay,&wf->rf1_delay,&wf->readout_delay_masks);
+  radiant_get_delays(bd,&wf->radiant_readout_delays);
+  wf->radiant_sampling_rate=radiant_get_sample_rate(bd);
 
 
 
@@ -770,20 +772,22 @@ int radiant_read_event(radiant_dev_t * bd, rno_g_header_t * hd, rno_g_waveform_t
     //unroll waveforms based on settings. this might need to go into the if else, but idk
     //check if rf 0 delay active and check if rf 0
     //wortks for waveform version >3
-    if (wf->rf0_delay!=0 && hd->trigger_type & RNO_G_TRIGGER_RF_RADIANT0)
+    if (wf->radiant_readout_delays.rf0_delay!=0 && hd->trigger_type & RNO_G_TRIGGER_RF_RADIANT0)
     {
-      if (ichan<=11 && wf->readout_delay_masks & 0b0001) roll16((uint16_t*)wf->radiant_waveforms[ichan] , 128*wf->rf0_delay, 2*RADIANT_NSAMP_PER_BUF); 
-      if (ichan>11 && ichan<=13 && wf->readout_delay_masks & 0b0010) roll16((uint16_t*)wf->radiant_waveforms[ichan] , 128*wf->rf0_delay, 2*RADIANT_NSAMP_PER_BUF); 
-      if (ichan>13 && ichan<=20 && wf->readout_delay_masks & 0b0100) roll16((uint16_t*)wf->radiant_waveforms[ichan] , 128*wf->rf0_delay, 2*RADIANT_NSAMP_PER_BUF); 
-      if (ichan>=21 && ichan<=23 && wf->readout_delay_masks & 0b1000) roll16((uint16_t*)wf->radiant_waveforms[ichan] , 128*wf->rf0_delay, 2*RADIANT_NSAMP_PER_BUF); 
+      if ((1<<ichan)&wf->radiant_readout_delays.rf0_delay_mask) roll16((uint16_t*)wf->radiant_waveforms[ichan] , 128*wf->radiant_readout_delays.rf0_delay, 2*RADIANT_NSAMP_PER_BUF); 
+      //if (ichan<=11 && wf->readout_delay_masks & 0b0001) roll16((uint16_t*)wf->radiant_waveforms[ichan] , 128*wf->rf0_delay, 2*RADIANT_NSAMP_PER_BUF); 
+      //if (ichan>11 && ichan<=13 && wf->readout_delay_masks & 0b0010) roll16((uint16_t*)wf->radiant_waveforms[ichan] , 128*wf->rf0_delay, 2*RADIANT_NSAMP_PER_BUF); 
+      //if (ichan>13 && ichan<=20 && wf->readout_delay_masks & 0b0100) roll16((uint16_t*)wf->radiant_waveforms[ichan] , 128*wf->rf0_delay, 2*RADIANT_NSAMP_PER_BUF); 
+      //if (ichan>=21 && ichan<=23 && wf->readout_delay_masks & 0b1000) roll16((uint16_t*)wf->radiant_waveforms[ichan] , 128*wf->rf0_delay, 2*RADIANT_NSAMP_PER_BUF); 
     }
     //check if rf 1 delay active and check if rf 1
-    if (wf->rf1_delay!=0 && hd->trigger_type & RNO_G_TRIGGER_RF_RADIANT1)
+    if (wf->radiant_readout_delays.rf1_delay!=0 && hd->trigger_type & RNO_G_TRIGGER_RF_RADIANT1)
     {
-      if (ichan<=11 && wf->readout_delay_masks>>4 & 0b0001) roll16((uint16_t*)wf->radiant_waveforms[ichan] , wf->rf1_delay, 2*RADIANT_NSAMP_PER_BUF); 
-      if (ichan>11 && ichan<=13 && wf->readout_delay_masks>>4 & 0b0010) roll16((uint16_t*)wf->radiant_waveforms[ichan] , 128*wf->rf1_delay, 2*RADIANT_NSAMP_PER_BUF); 
-      if (ichan>13 && ichan<=20 && wf->readout_delay_masks>>4 & 0b0100) roll16((uint16_t*)wf->radiant_waveforms[ichan] , 128*wf->rf1_delay, 2*RADIANT_NSAMP_PER_BUF); 
-      if (ichan>=21 && ichan<=23 && wf->readout_delay_masks>>4 & 0b1000) roll16((uint16_t*)wf->radiant_waveforms[ichan] , 128*wf->rf1_delay, 2*RADIANT_NSAMP_PER_BUF); 
+      if ((1<<ichan)&wf->radiant_readout_delays.rf1_delay_mask) roll16((uint16_t*)wf->radiant_waveforms[ichan] , 128*wf->radiant_readout_delays.rf1_delay, 2*RADIANT_NSAMP_PER_BUF); 
+      //if (ichan<=11 && wf->readout_delay_masks>>4 & 0b0001) roll16((uint16_t*)wf->radiant_waveforms[ichan] , wf->rf1_delay, 2*RADIANT_NSAMP_PER_BUF); 
+      //if (ichan>11 && ichan<=13 && wf->readout_delay_masks>>4 & 0b0010) roll16((uint16_t*)wf->radiant_waveforms[ichan] , 128*wf->rf1_delay, 2*RADIANT_NSAMP_PER_BUF); 
+      //if (ichan>13 && ichan<=20 && wf->readout_delay_masks>>4 & 0b0100) roll16((uint16_t*)wf->radiant_waveforms[ichan] , 128*wf->rf1_delay, 2*RADIANT_NSAMP_PER_BUF); 
+      //if (ichan>=21 && ichan<=23 && wf->readout_delay_masks>>4 & 0b1000) roll16((uint16_t*)wf->radiant_waveforms[ichan] , 128*wf->rf1_delay, 2*RADIANT_NSAMP_PER_BUF); 
     }
   }
 
@@ -1222,9 +1226,9 @@ int radiant_dump(radiant_dev_t *dev, FILE * stream, int flags)
   radiant_get_mem(dev, DEST_FPGA, RAD_REG_LAB_CTRL_CONTROL,4,cont); 
   fprintf(stream, "    LAB4D_CONTROLLER_CONTROL: %x %x %x %x \n", cont[3], cont[2], cont[1], cont[0]); 
 
-  uint8_t rf0_delay,rf1_delay,readout_delay_masks;
-  radiant_get_delays(dev,&rf0_delay,&rf1_delay,&readout_delay_masks);
-  fprintf(stream, "    LAB4D_READOUT_DELAYS rf0_delay_rf1_delay,rf0_mask,rf1_mask: %x %x %x %x \n", rf0_delay,rf1_delay,readout_delay_masks&0x0f,(readout_delay_masks&0xf0)>>4); 
+  uint8_t rf0_delay,rf1_delay,rf0_mask,rf1_mask;
+  radiant_get_delay_settings(dev,&rf0_delay,&rf1_delay,&rf0_mask,&rf1_mask);
+  fprintf(stream, "    LAB4D_READOUT_DELAYS: rf0_delay %x, rf1_delay %x ,rf0_mask %x, rf1_mask %x\n", rf0_delay,rf1_delay,rf0_mask,rf1_mask); 
   
 
   radiant_dma_config_t dma_cfg; 
@@ -2890,13 +2894,40 @@ int radiant_get_scalers(radiant_dev_t * bd, int sc0, int sc1, uint16_t * scalers
   return 2*nscalers != radiant_get_mem(bd, DEST_FPGA, RAD_REG_SCALER_SCAL_BASE + sc0*2, nscalers*2, (uint8_t*) scalers); 
 }
 
-int radiant_get_delays(radiant_dev_t * bd, uint8_t * rf0_delay, uint8_t * rf1_delay, uint8_t * readout_delay_mask)//order fo these will change
+//slightly higher level that is used for the waveform_t
+int radiant_get_delays(radiant_dev_t * bd,radiant_readout_delay_t * rd)
 {
   
+  uint8_t rf0_group_mask;
+  uint8_t rf1_group_mask;
+
+  uint32_t group_mask[4]={0x1ff,0xe00,0x1ff000,0xe00000};
+  //group 0 = 0x1ff = channels 0-11
+  //group 1 = 0xe00 = channels 12-14
+  //group 2 = 0x1ff000 = channels 15-20
+  //group 3 = 0xe00000 = channels 21-23
+
+  //directly set the delay setting to the struct and get a temp group mask
+  radiant_get_delay_settings(bd,&rd->rf0_delay,&rd->rf1_delay,&rf0_group_mask,&rf1_group_mask);
+
+  //translate group mask to channel mask
+  uint8_t i =0;
+  for(i=0;i<4;i++)
+  {
+    if(rf0_group_mask&(1<<i)) rd->rf0_delay_mask|=group_mask[i];
+    if(rf1_group_mask&(1<<i)) rd->rf1_delay_mask|=group_mask[i];
+  }
+
+  return 0;
+}
+
+//closer to hardware level of how delays and masks are appiled
+int radiant_get_delay_settings(radiant_dev_t * bd, uint8_t * rf0_delay, uint8_t * rf1_delay, uint8_t * rf0_delay_mask,uint8_t * rf1_delay_mask)
+{
   uint32_t delays[4];
   radiant_get_mem(bd, DEST_FPGA, RAD_REG_LAB_CTRL_RF0_DELAY, 4*4,(uint8_t*)&delays);//lets just pull them all in
   
-  /*
+  /* debugging purposes
   printf("from regs\n");
   printf("%x\n",delays[0]);
   printf("%x\n",delays[1]);
@@ -2905,27 +2936,23 @@ int radiant_get_delays(radiant_dev_t * bd, uint8_t * rf0_delay, uint8_t * rf1_de
   */
 
   *rf0_delay=(delays[0]&0xff);
-  *readout_delay_mask=(delays[1]&0xf);//send this to the lsb bits
+  *rf0_delay_mask=(delays[1]&0xf);
   *rf1_delay=(delays[2]&0xff);
-  *readout_delay_mask |= (delays[3]&0xf)<<4;//send this to the msb bits
-  
-  //printf("rf0_delay_setting %i, rf0_delay_mask %i, rf1_delay_setting %i, rf1_delay_mask %i",rf0_delay,rf0_delay_mask,rf1_delay,rf1_delay_Setting);
+  *rf1_delay_mask |= (delays[3]&0xf);
+
   return 0;
 }
 
-int radiant_set_delays(radiant_dev_t * bd, uint8_t rf0_delay, uint8_t rf1_delay, uint8_t readout_delay_mask)
+//this is lower level. the readout_delay_t doesn't interact here. though maybe it would be more consistant with the type
+int radiant_set_delay_settings(radiant_dev_t * bd, uint8_t rf0_delay, uint8_t rf1_delay, uint8_t rf0_delay_mask,uint8_t rf1_delay_mask)
 {
+  //just a quick check in case it tries writing delays when the feature (and the memory location) isn't enable
+  if(bd->rad_dateversion_int<=230)
+  {
+  printf("wrong fpga firmware version!!!\n");
+  return -1;
+  }
 
-  uint8_t rf0_delay_mask=readout_delay_mask&0x0f;
-  uint8_t rf1_delay_mask=(readout_delay_mask&0xf0)>>4;
-
-  /*
-  printf("whole readout mask %x\n",readout_delay_mask);
-  printf("rf0 mask %i\n",rf0_delay_mask);
-  printf("rf1 mask %i\n",rf1_delay_mask);
-  */
-
-  //now it should look something like this 
   radiant_set_mem(bd, DEST_FPGA,RAD_REG_LAB_CTRL_RF0_DELAY,1,(uint8_t*)&rf0_delay);
   radiant_set_mem(bd, DEST_FPGA,RAD_REG_LAB_CTRL_RF0_DELAY_MASK,1,(uint8_t*)&rf0_delay_mask);
   radiant_set_mem(bd, DEST_FPGA,RAD_REG_LAB_CTRL_RF1_DELAY,1,(uint8_t*)&rf1_delay);
@@ -2994,7 +3021,7 @@ int radiant_get_fw_version( const radiant_dev_t* bd, const radiant_dest_t which,
 uint16_t radiant_get_sample_rate(const radiant_dev_t * bd) 
 {
   if (!bd) return -1; 
-  return 3200; 
+  return 2400; //as of aug 2023 we lowered the sampling rate from 3200 to 2400MHz
 }
 
 void radiant_set_internal_triggers_per_cycle(radiant_dev_t * bd, uint16_t n, double sleep) 
