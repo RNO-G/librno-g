@@ -690,14 +690,8 @@ int radiant_read_event(radiant_dev_t * bd, rno_g_header_t * hd, rno_g_waveform_t
 
   wf->radiant_nsamples = nsamples;
   
-  
-  //NEED to figure out how to read delay settings and masks into wf type
-  //directly reading from radiant might be slow here.  idk
-  //the rest of the script is finished then
   radiant_get_delays(bd,&wf->radiant_readout_delays);
   wf->radiant_sampling_rate=radiant_get_sample_rate(bd);
-
-
 
   for (int ichan = 0; ichan < RNO_G_NUM_RADIANT_CHANNELS; ichan++) 
   {
