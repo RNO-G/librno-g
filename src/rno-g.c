@@ -222,7 +222,6 @@ int rno_g_waveform_write(rno_g_file_handle_t h, const rno_g_waveform_t *wf)
   }
 
   wr += do_write(h, 1, &wf->station, &sum);
-
   wr += do_write(h, sizeof(wf->radiant_readout_delays), &wf->radiant_readout_delays, &sum); 
   wr += do_write(h, 2, &wf->radiant_sampling_rate, &sum);
 
@@ -252,7 +251,6 @@ typedef struct rno_g_waveform_v4
   int16_t radiant_waveforms[RNO_G_NUM_RADIANT_CHANNELS][RNO_G_MAX_RADIANT_NSAMPLES]; //unrolled. 
   uint8_t lt_waveforms[RNO_G_NUM_LT_CHANNELS][RNO_G_MAX_LT_NSAMPLES]; // 8-bit digitizer 
   uint8_t station;
-
   radiant_readout_delay_t radiant_readout_delays;
   uint16_t sampling_rate;
 } rno_g_waveform_v4_t; 
@@ -263,10 +261,7 @@ int rno_g_waveform_read(rno_g_file_handle_t h, rno_g_waveform_t *wf)
   io_header_t hd; 
   int rd = do_read(h, sizeof(hd), &hd,0); 
   if (!rd) return 0; 
-  printf("waveform version is %i\n",hd.version);
-  fprintf(stderr,"waveform version %d\n", hd.version); 
-
-
+  
   if (hd.magic != WAVEFORM_MAGIC)
   {
     //this is not a waveform! 
@@ -284,7 +279,7 @@ int rno_g_waveform_read(rno_g_file_handle_t h, rno_g_waveform_t *wf)
   {
     case 1:
     case 2:
-    case 3: //these need to be rewritten in a way the switch is sensible
+    case 3: //these might need to be rewritten to make the cases useful - though it means repeated blocks of code
       {
         rd = do_read(h,N_BEFORE_DATA,wf,&sum); 
         for (ichan = 0; ichan < RNO_G_NUM_RADIANT_CHANNELS; ichan++)
@@ -323,7 +318,6 @@ int rno_g_waveform_read(rno_g_file_handle_t h, rno_g_waveform_t *wf)
           wf->radiant_readout_delays.rf1_delay=0;
           wf->radiant_readout_delays.rf0_delay_mask=0;
           wf->radiant_readout_delays.rf0_delay_mask=0;
-          
           wf->radiant_sampling_rate=3200; //the change happened to new versions
         }
         
@@ -373,9 +367,7 @@ int rno_g_waveform_read(rno_g_file_handle_t h, rno_g_waveform_t *wf)
         {
 
           rd+= do_read(h,sizeof(wf->radiant_readout_delays), &wf->radiant_readout_delays,&sum); 
-          rd+= do_read(h,sizeof(wf->radiant_sampling_rate), &wf->radiant_sampling_rate,&sum); 
-          printf("delays %x %x",wf->radiant_readout_delays.rf0_delay,wf->radiant_readout_delays.rf1_delay);
-          printf("sampling rate %x",wf->radiant_sampling_rate);
+          rd+= do_read(h,sizeof(wf->radiant_sampling_rate), &wf->radiant_sampling_rate,&sum);
 
         }
         else
@@ -385,7 +377,6 @@ int rno_g_waveform_read(rno_g_file_handle_t h, rno_g_waveform_t *wf)
           wf->radiant_readout_delays.rf1_delay=0;
           wf->radiant_readout_delays.rf0_delay_mask=0;
           wf->radiant_readout_delays.rf0_delay_mask=0;
-
           wf->radiant_sampling_rate=3200;
           //printf("old version");
         }
@@ -459,6 +450,7 @@ int rno_g_waveform_dump(FILE * f, const rno_g_waveform_t * waveform)
 {
   //TODO 
   int ret=0;
+
   for (int i = 0; i < RNO_G_NUM_RADIANT_CHANNELS; i++) 
   {
     for (int j = 0; j < waveform->radiant_nsamples; j++) 

@@ -2897,9 +2897,13 @@ int radiant_get_scalers(radiant_dev_t * bd, int sc0, int sc1, uint16_t * scalers
 //slightly higher level that is used for the waveform_t
 int radiant_get_delays(radiant_dev_t * bd,radiant_readout_delay_t * rd)
 {
-  
-  uint8_t rf0_group_mask;
-  uint8_t rf1_group_mask;
+  if(bd->rad_dateversion_int<=230)
+  {
+    printf("wrong fpga version - delays (and fpga memory) not implemented!!!\n");
+    return -1;
+  }
+  uint8_t rf0_group_mask=0;
+  uint8_t rf1_group_mask=0;
 
   uint32_t group_mask[4]={0x1ff,0xe00,0x1ff000,0xe00000};
   //group 0 = 0x1ff = channels 0-11
@@ -2912,6 +2916,7 @@ int radiant_get_delays(radiant_dev_t * bd,radiant_readout_delay_t * rd)
 
   //translate group mask to channel mask
   uint8_t i =0;
+
   for(i=0;i<4;i++)
   {
     if(rf0_group_mask&(1<<i)) rd->rf0_delay_mask|=group_mask[i];
@@ -2924,22 +2929,18 @@ int radiant_get_delays(radiant_dev_t * bd,radiant_readout_delay_t * rd)
 //closer to hardware level of how delays and masks are appiled
 int radiant_get_delay_settings(radiant_dev_t * bd, uint8_t * rf0_delay, uint8_t * rf1_delay, uint8_t * rf0_delay_mask,uint8_t * rf1_delay_mask)
 {
+  if(bd->rad_dateversion_int<=230)
+  {
+    printf("wrong fpga version - delays(and fpga memory) not implemented!!!\n");
+    return -1;
+  }
   uint32_t delays[4];
   radiant_get_mem(bd, DEST_FPGA, RAD_REG_LAB_CTRL_RF0_DELAY, 4*4,(uint8_t*)&delays);//lets just pull them all in
-  
-  /* debugging purposes
-  printf("from regs\n");
-  printf("%x\n",delays[0]);
-  printf("%x\n",delays[1]);
-  printf("%x\n",delays[2]);
-  printf("%x\n",delays[3]);
-  */
 
-  *rf0_delay=(delays[0]&0xff);
+  *rf0_delay=(delays[0]&0x7f);
   *rf0_delay_mask=(delays[1]&0xf);
   *rf1_delay=(delays[2]&0xff);
-  *rf1_delay_mask |= (delays[3]&0xf);
-
+  *rf1_delay_mask = (delays[3]&0x7f);
   return 0;
 }
 
@@ -2949,8 +2950,8 @@ int radiant_set_delay_settings(radiant_dev_t * bd, uint8_t rf0_delay, uint8_t rf
   //just a quick check in case it tries writing delays when the feature (and the memory location) isn't enable
   if(bd->rad_dateversion_int<=230)
   {
-  printf("wrong fpga firmware version!!!\n");
-  return -1;
+    printf("wrong fpga firmware version!!!\n");
+    return -1;
   }
 
   radiant_set_mem(bd, DEST_FPGA,RAD_REG_LAB_CTRL_RF0_DELAY,1,(uint8_t*)&rf0_delay);

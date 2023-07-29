@@ -145,6 +145,8 @@ int main(int nargs, char ** args)
   uint8_t delay0=4;
   uint8_t delay1=4;
   uint8_t readout_delay_mask=0x22;
+  uint8_t rf0_delay_mask=1;
+  uint8_t rf1_delay_mask=2;
 
   for (int i = 1; i < nargs; i++) 
   {
@@ -288,22 +290,6 @@ int main(int nargs, char ** args)
      }
    }
 
-
-  //printf("Set readout delays\n");
-
-  /*
-  radiant_get_delays(rad,&delay0,&delay1,&readout_delay_mask);
-  printf("first getting delay0 set to %i, delay 1 set to %i, and mask %i\n",delay0,delay1,readout_delay_mask);
-  printf("choosing to set delay0 set to %i, delay 1 set to %i, and mask %i\n",6,4,0x21);
-  radiant_set_delays(rad,0x06,0x04,0x21);
-
-  radiant_get_delays(rad,&delay0,&delay1,&readout_delay_mask);
-  printf("new settings: delay0 set to %i, delay 1 set to %i, and mask %i\n",delay0,delay1,readout_delay_mask);
-  
-  */
-
- 
-
   if (do_sync) radiant_sync(rad); 
   if (bias) 
   {
@@ -414,14 +400,17 @@ int main(int nargs, char ** args)
 
 
   //set the readout delays. for now just default to something before this script gets messy
-  printf("Setting readout delays: rf0_delay %x, rf1_delay %x ,rf0_mask %x, rf1_mask %x\n", delay0,delay1,readout_delay_mask&0x0f,(readout_delay_mask&0xf0)>>4); 
+  printf("delay0 set to %i, delay 1 set to %i, mask 0 set to %i, and mask 1 set to %i",delay0,delay1,rf0_delay_mask,rf1_delay_mask);
 
   //uint8_t delay0=0;
   //uint8_t delay1=0;
   //uint8_t readout_delay_mask=0;
-  radiant_get_delays(rad,&delay0,&delay1,&readout_delay_mask);
-  //printf("delay0 set to %i, delay 1 set to %i, and mask %i",delay0,delay1,readout_delay_mask);
-  radiant_set_delays(rad,0x01,0x01,0x22);
+  //radiant_get_delays(rad,&delay0,&delay1,&readout_delay_mask);
+  radiant_set_delay_settings(rad,delay0,delay1,rf0_delay_mask,rf1_delay_mask);
+  radiant_get_delay_settings(rad,&delay0,&delay1,&rf0_delay_mask,&rf1_delay_mask);
+
+  printf("delay0 set to %i, delay 1 set to %i, mask 0 set to %i, and mask 1 set to %i",delay0,delay1,rf0_delay_mask,rf1_delay_mask);
+
   //radiant_get_delays(rad,&delay0,&delay1,&readout_delay_mask);
   //printf("new settings: delay0 set to %i, delay 1 set to %i, and mask %i",delay0,delay1,readout_delay_mask);
   
