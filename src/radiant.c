@@ -621,8 +621,8 @@ int radiant_read_event(radiant_dev_t * bd, rno_g_header_t * hd, rno_g_waveform_t
   struct fw_event_header fwhd; 
  
 
-  uint16_t Ns[2+RNO_G_NUM_RADIANT_CHANNELS]; 
-  uint8_t* bufs[2+RNO_G_NUM_RADIANT_CHANNELS]; 
+  uint16_t Ns[2+RNO_G_NUM_RADIANT_CHANNELS] = { 0}; 
+  uint8_t* bufs[2+RNO_G_NUM_RADIANT_CHANNELS] = {0}; 
 
   Ns[0] = sizeof(fwhd); 
   bufs[0] = (uint8_t*) &fwhd; 
@@ -2377,6 +2377,7 @@ int radiant_compute_pedestals(radiant_dev_t *bd, uint32_t mask, uint16_t ntrigge
   ped->vbias[0] = bd->vbias[0];
   ped->vbias[1] = bd->vbias[1];
   ped->nevents = ntriggers; 
+  ped->mask = mask; 
   ped->when = time(0); 
 
   // take out of calram mode? 
