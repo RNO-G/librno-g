@@ -18,7 +18,9 @@
 #include <string>
 #include <fftw3.h>
 #include "block_offsets.h"
-#include "../src/rno-g.h"
+//#include "../src/rno-g.h"
+#include "/home/rno-g/librno-g/src/rno-g.h"
+
 #include <chrono>
 
 
@@ -119,11 +121,11 @@ vector<int> getTrace (int traceSource, int channel_id)
     }  
     case 2:
     {
-      filename = "/home/RNO-G/data/station11/run700/raw_txt/event_1/ch_" + std::to_string(channel)+".dat"; // check
+      filename = "/home/rno-g/block_offsets/data/station11/run700/raw_txt/event_1/ch_" + std::to_string(channel)+".dat"; // check
       break;
     }  
     case 3:{
-      filename = "/home/RNO-G/block_offsets/comparison/ch20_art_offsets/ch_with_offsets/" + std::to_string(channel)+".dat"; //check
+      filename = "/home/rno-g/block_offsets/data/comparison/ch20_art_offsets/ch_with_offsets/" + std::to_string(channel)+".dat"; //check
     } 
     //case 4: - radiant 
     

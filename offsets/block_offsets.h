@@ -7,7 +7,8 @@ A. Novikov <novikov@udel.edu>
 
 
 
-#include "../src/rno-g.h"
+//#include "../src/rno-g.h"
+#include "/home/rno-g/librno-g/src/rno-g.h"
 
 #define RNO_G_RADIANT_BLOCK_SIZE 128
 #define RNO_G_NUM_RADIANT_BLOCKS 16 

@@ -32,9 +32,9 @@ int main()
     radiant
   }
   
-  traceSource = testLaptopAllChannels;
+  traceSource = testBBBAllChannels;
 
-  bool printout = true;
+  bool printout = false;
   bool artificial_offsets = false;
   vector<int> offsets;
 
