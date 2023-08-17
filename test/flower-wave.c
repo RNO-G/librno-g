@@ -42,7 +42,7 @@ int main (int nargs, char ** args)
     printf("%s\n\t\t{\n\t\t\t\"force\": : %s,\n", iev > 0 ? "," : "", force ? "true" : "false"); 
     for (int i = 0 ; i < RNO_G_NUM_LT_CHANNELS; i++) 
     {
-      printf("\t\t{\n\t\t\t\"ch%d\": [",i); 
+      printf("\n\t\t\t\"ch%d\": [",i); 
       for (int j = 0; j < LEN; j++) 
       {
         printf("%d",((int)data_ptr[i][j])-128); 
