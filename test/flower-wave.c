@@ -58,7 +58,7 @@ int main (int nargs, char ** args)
     }
     printf("\t\t}"); 
   }
-  printf("\t]\n}"); 
+  printf("\n\t]\n}"); 
 
   flower_close(flwr); 
 
