@@ -42,7 +42,7 @@ int main (int nargs, char ** args)
     flower_read_waveforms(flwr, LEN, data_ptr); 
 
 
-    printf("%s\n\t\t{\n\t\t\t\"force\": : %s,\n", iev > 0 ? "," : "", force ? "true" : "false"); 
+    printf("%s\n\t\t{\n\t\t\t\"force\": %s,\n", iev > 0 ? "," : "", force ? "true" : "false"); 
     printf("\t\t\t\"when\": %09d.%09d,\n", (int) now.tv_sec, (int) now.tv_nsec); 
     for (int i = 0 ; i < RNO_G_NUM_LT_CHANNELS; i++) 
     {
