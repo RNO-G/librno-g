@@ -31,7 +31,7 @@ int main (int nargs, char ** args)
 
   gethostname(hostname,sizeof(hostname)); 
 
-   printf("{\n\t \"hostname\" : \"%s\",\n\t\"events\" : [", hostname); 
+   printf("{\n\t\"hostname\" : \"%s\",\n\t\"events\" : [", hostname); 
   for (int iev = 0; iev < N; iev++) 
   {
     flower_buffer_clear(flwr); 
@@ -43,7 +43,7 @@ int main (int nargs, char ** args)
 
 
     printf("%s\n\t\t{\n\t\t\t\"force\": : %s,\n", iev > 0 ? "," : "", force ? "true" : "false"); 
-    printf("\t\t\t\"when\": %09d.%09d\n", (int) now.tv_sec, (int) now.tv_nsec); 
+    printf("\t\t\t\"when\": %09d.%09d,\n", (int) now.tv_sec, (int) now.tv_nsec); 
     for (int i = 0 ; i < RNO_G_NUM_LT_CHANNELS; i++) 
     {
       printf("\t\t\t\"ch%d\": [",i); 
