@@ -29,7 +29,7 @@ int main (int nargs, char ** args)
 
   gethostname(hostname,sizeof(hostname)); 
 
-   printf("{\n\t \"hostname\" : \"%s\"\n;\n\t\"events\" : [", hostname); 
+   printf("{\n\t \"hostname\" : \"%s\",\n\t\"events\" : [", hostname); 
   for (int iev = 0; iev < N; iev++) 
   {
     flower_buffer_clear(flwr); 
@@ -39,7 +39,7 @@ int main (int nargs, char ** args)
     flower_read_waveforms(flwr, LEN, data_ptr); 
 
 
-    printf("%s\n\t\t{\n\t\t\t\"force\": : %s;\n", iev > 0 ? "," : "", force ? "true" : "false"); 
+    printf("%s\n\t\t{\n\t\t\t\"force\": : %s,\n", iev > 0 ? "," : "", force ? "true" : "false"); 
     for (int i = 0 ; i < RNO_G_NUM_LT_CHANNELS; i++) 
     {
       printf("\t\t{\n\t\t\t\"ch%d\": [",i); 
@@ -50,11 +50,11 @@ int main (int nargs, char ** args)
           printf(","); 
          
       }
-      printf("];\n"); 
+      printf("]%s\n", i < RNO_G_NUM_LT_CHANNELS-1 ? "," : ""); 
     }
     printf("\n\t\t}"); 
   }
-  printf("\t];\n}"); 
+  printf("\t]\n}"); 
 
   flower_close(flwr); 
 
