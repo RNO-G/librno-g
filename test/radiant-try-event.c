@@ -142,11 +142,9 @@ int main(int nargs, char ** args)
   int watchdog = 0; 
   int duration = 0; 
   char which_radiant_trigger=0b0001;
-  uint8_t delay0=4;
-  uint8_t delay1=4;
-  uint8_t readout_delay_mask=0x22;
-  uint8_t rf0_delay_mask=1;
-  uint8_t rf1_delay_mask=2;
+  uint8_t readout_delay=4;
+  uint8_t readout_delay_mask=2;
+
 
   for (int i = 1; i < nargs; i++) 
   {
@@ -249,13 +247,9 @@ int main(int nargs, char ** args)
       {
         which_radiant_trigger = atoi(args[++i]); 
       }
-      else if (!strcmp(args[i],"-rd0"))
+      else if (!strcmp(args[i],"-rd"))
       {
-        delay0 = atoi(args[++i]); 
-      }
-      else if (!strcmp(args[i],"-rd1"))
-      {
-        delay1 = atoi(args[++i]); 
+        readout_delay = atoi(args[++i]); 
       }
       else if (!strcmp(args[i],"-rdm"))
       {
@@ -386,7 +380,6 @@ int main(int nargs, char ** args)
     //make sure TRIG B isn't doing anything
     radiant_configure_rf_trigger(rad,RADIANT_TRIG_B, trigmask, mincoincident, trigwindow); 
   }
-  //add one for enable both rf triggers. might need more command line args
   else 
   {
     printf("Using RF0 trigger settings:  MASK: 0x%x, THRESH: %f V, WINDOW: %f ns, MINCOINC: %d\n", trigmask, trigthresh, trigwindow, mincoincident); 
@@ -397,25 +390,9 @@ int main(int nargs, char ** args)
     //make sure TRIG B isn't doing anything
     radiant_configure_rf_trigger(rad,RADIANT_TRIG_B, 0, 0, 0); 
   }
+  //add one for enable both rf triggers. might need more command line args
 
-
-  //set the readout delays. for now just default to something before this script gets messy
-  printf("delay0 set to %i, delay 1 set to %i, mask 0 set to %i, and mask 1 set to %i",delay0,delay1,rf0_delay_mask,rf1_delay_mask);
-
-  //uint8_t delay0=0;
-  //uint8_t delay1=0;
-  //uint8_t readout_delay_mask=0;
-  //radiant_get_delays(rad,&delay0,&delay1,&readout_delay_mask);
-  radiant_set_delay_settings(rad,delay0,delay1,rf0_delay_mask,rf1_delay_mask);
-  radiant_get_delay_settings(rad,&delay0,&delay1,&rf0_delay_mask,&rf1_delay_mask);
-
-  printf("delay0 set to %i, delay 1 set to %i, mask 0 set to %i, and mask 1 set to %i",delay0,delay1,rf0_delay_mask,rf1_delay_mask);
-
-  //radiant_get_delays(rad,&delay0,&delay1,&readout_delay_mask);
-  //printf("new settings: delay0 set to %i, delay 1 set to %i, and mask %i",delay0,delay1,readout_delay_mask);
-  
-  
-
+  radiant_set_delay_settings(rad,readout_delay,readout_delay,readout_delay_mask,readout_delay_mask); //setting both to have the same delay and mask
 
   if (clearmode)
   {
