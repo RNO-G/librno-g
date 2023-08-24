@@ -221,9 +221,15 @@ int rno_g_waveform_write(rno_g_file_handle_t h, const rno_g_waveform_t *wf)
     wr += do_write(h, wf->lt_nsamples, wf->lt_waveforms[ichan],&sum); 
   }
 
-  wr += do_write(h, 1, &wf->station, &sum);
-  wr += do_write(h, sizeof(wf->digitizer_readout_delay), &wf->digitizer_readout_delay, &sum); 
   wr += do_write(h, 2, &wf->radiant_sampling_rate, &sum);
+
+  for (int ichan = 0; ichan < RNO_G_NUM_RADIANT_CHANNELS; ichan++)
+  {
+    wr += do_write(h, 1, &wf->digitizer_readout_delay[ichan], &sum); 
+  }
+
+  wr += do_write(h, 1, &wf->station, &sum);
+
 
   do_write(h, sizeof(sum),&sum,0); 
 
@@ -250,9 +256,10 @@ typedef struct rno_g_waveform_v4
   uint16_t lt_nsamples; //!< Number of samples per channel for lowthresh
   int16_t radiant_waveforms[RNO_G_NUM_RADIANT_CHANNELS][RNO_G_MAX_RADIANT_NSAMPLES]; //unrolled. 
   uint8_t lt_waveforms[RNO_G_NUM_LT_CHANNELS][RNO_G_MAX_LT_NSAMPLES]; // 8-bit digitizer 
-  uint16_t sampling_rate;
-  uint8_t station;
+  uint16_t sampling_rate;  
   uint8_t digitizer_readout_delay[24];
+  uint8_t station;
+
   //radiant_readout_delay_t radiant_readout_delays;
 
 } rno_g_waveform_v4_t; 
@@ -364,10 +371,12 @@ int rno_g_waveform_read(rno_g_file_handle_t h, rno_g_waveform_t *wf)
         if(hd.version>3)
         {
           rd+= do_read(h,sizeof(wf->radiant_sampling_rate), &wf->radiant_sampling_rate,&sum);
+          printf("sampling rate %x\n",wf->radiant_sampling_rate);
 
           for(ichan=0;ichan<24;ichan++)
           {
             rd+= do_read(h,sizeof(wf->digitizer_readout_delay[0]), &wf->digitizer_readout_delay[ichan],&sum); 
+            printf("digitizer delay %x\n",wf->digitizer_readout_delay[ichan]);
             
           }
 
@@ -389,6 +398,7 @@ int rno_g_waveform_read(rno_g_file_handle_t h, rno_g_waveform_t *wf)
         if (hd.version > 1) 
         {
           rd+= do_read(h,sizeof(wf->station), &wf->station,&sum); 
+          printf("station %x\n",wf->station);
         }
         else
         {

@@ -195,7 +195,7 @@ typedef struct rno_g_waveform
   int16_t radiant_waveforms[RNO_G_NUM_RADIANT_CHANNELS][RNO_G_MAX_RADIANT_NSAMPLES]; //unrolled. 
   uint8_t lt_waveforms[RNO_G_NUM_LT_CHANNELS][RNO_G_MAX_LT_NSAMPLES]; // 8-bit digitizer 
   uint16_t radiant_sampling_rate;
-  uint8_t digitizer_readout_delay[24];
+  uint8_t digitizer_readout_delay[RNO_G_NUM_RADIANT_CHANNELS];
   uint8_t station; 
   //radiant_readout_delay_t radiant_readout_delays;
   
