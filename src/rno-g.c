@@ -222,7 +222,7 @@ int rno_g_waveform_write(rno_g_file_handle_t h, const rno_g_waveform_t *wf)
   }
 
   wr += do_write(h, 1, &wf->station, &sum);
-  wr += do_write(h, sizeof(wf->radiant_readout_delays), &wf->radiant_readout_delays, &sum); 
+  wr += do_write(h, sizeof(wf->digitizer_readout_delay), &wf->digitizer_readout_delay, &sum); 
   wr += do_write(h, 2, &wf->radiant_sampling_rate, &sum);
 
   do_write(h, sizeof(sum),&sum,0); 
@@ -230,8 +230,8 @@ int rno_g_waveform_write(rno_g_file_handle_t h, const rno_g_waveform_t *wf)
   return wr;
 }
 
-//V1 and V2 have the same structure - but correspond to bug fixes/firmware updates
-typedef struct rno_g_waveform_v3
+//V1, V2, and V3 all have the same structure - but correspond to bug fixes/firmware updates
+typedef struct rno_g_waveform_v1
 {
   uint32_t event_number; //!< For matching
   uint32_t run_number;   //!< For matching
@@ -240,7 +240,7 @@ typedef struct rno_g_waveform_v3
   int16_t radiant_waveforms[RNO_G_NUM_RADIANT_CHANNELS][RNO_G_MAX_RADIANT_NSAMPLES]; //unrolled. 
   uint8_t lt_waveforms[RNO_G_NUM_LT_CHANNELS][RNO_G_MAX_LT_NSAMPLES]; // 8-bit digitizer 
   uint8_t station; 
-} rno_g_waveform_v3_t; 
+} rno_g_waveform_v1_t; 
 
 typedef struct rno_g_waveform_v4
 {
@@ -250,9 +250,11 @@ typedef struct rno_g_waveform_v4
   uint16_t lt_nsamples; //!< Number of samples per channel for lowthresh
   int16_t radiant_waveforms[RNO_G_NUM_RADIANT_CHANNELS][RNO_G_MAX_RADIANT_NSAMPLES]; //unrolled. 
   uint8_t lt_waveforms[RNO_G_NUM_LT_CHANNELS][RNO_G_MAX_LT_NSAMPLES]; // 8-bit digitizer 
-  uint8_t station;
-  radiant_readout_delay_t radiant_readout_delays;
   uint16_t sampling_rate;
+  uint8_t station;
+  uint8_t digitizer_readout_delay[24];
+  //radiant_readout_delay_t radiant_readout_delays;
+
 } rno_g_waveform_v4_t; 
 
 
@@ -314,10 +316,14 @@ int rno_g_waveform_read(rno_g_file_handle_t h, rno_g_waveform_t *wf)
         if(hd.version<4)
         {
           
-          wf->radiant_readout_delays.rf0_delay=0;
-          wf->radiant_readout_delays.rf1_delay=0;
-          wf->radiant_readout_delays.rf0_delay_mask=0;
-          wf->radiant_readout_delays.rf0_delay_mask=0;
+          for(ichan=0;ichan<24;ichan++)
+          {
+            wf->digitizer_readout_delay[ichan]=0;
+          }
+          //wf->radiant_readout_delays.rf0_delay=0;
+          //wf->radiant_readout_delays.rf1_delay=0;
+          //wf->radiant_readout_delays.rf0_delay_mask=0;
+          //wf->radiant_readout_delays.rf0_delay_mask=0;
           wf->radiant_sampling_rate=3200; //the change happened to new versions
         }
         
@@ -354,6 +360,32 @@ int rno_g_waveform_read(rno_g_file_handle_t h, rno_g_waveform_t *wf)
           rd+= do_read(h,wf->lt_nsamples, wf->lt_waveforms[ichan], &sum);
         }
 
+
+        if(hd.version>3)
+        {
+          rd+= do_read(h,sizeof(wf->radiant_sampling_rate), &wf->radiant_sampling_rate,&sum);
+
+          for(ichan=0;ichan<24;ichan++)
+          {
+            rd+= do_read(h,sizeof(wf->digitizer_readout_delay[0]), &wf->digitizer_readout_delay[ichan],&sum); 
+            
+          }
+
+        }
+        else
+        {
+          for(ichan=0;ichan<24;ichan++)
+          {
+            wf->digitizer_readout_delay[ichan]=0;
+          }
+          //wf->radiant_readout_delays.rf0_delay=0;
+          //wf->radiant_readout_delays.rf1_delay=0;
+          //wf->radiant_readout_delays.rf0_delay_mask=0;
+          //wf->radiant_readout_delays.rf0_delay_mask=0;
+          wf->radiant_sampling_rate=3200;
+          //printf("old version");
+        }
+        
         if (hd.version > 1) 
         {
           rd+= do_read(h,sizeof(wf->station), &wf->station,&sum); 
@@ -363,27 +395,7 @@ int rno_g_waveform_read(rno_g_file_handle_t h, rno_g_waveform_t *wf)
           wf->station =0; 
         }
         
-        if(hd.version>3)
-        {
-
-          rd+= do_read(h,sizeof(wf->radiant_readout_delays), &wf->radiant_readout_delays,&sum); 
-          rd+= do_read(h,sizeof(wf->radiant_sampling_rate), &wf->radiant_sampling_rate,&sum);
-
-        }
-        else
-        {
-
-          wf->radiant_readout_delays.rf0_delay=0;
-          wf->radiant_readout_delays.rf1_delay=0;
-          wf->radiant_readout_delays.rf0_delay_mask=0;
-          wf->radiant_readout_delays.rf0_delay_mask=0;
-          wf->radiant_sampling_rate=3200;
-          //printf("old version");
-        }
-
-
         rdsum = do_read(h, sizeof(wanted_sum),&wanted_sum,0); 
-
 
         if (!rdsum || sum!=wanted_sum) 
         {
