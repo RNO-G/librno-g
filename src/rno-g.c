@@ -371,13 +371,10 @@ int rno_g_waveform_read(rno_g_file_handle_t h, rno_g_waveform_t *wf)
         if(hd.version>3)
         {
           rd+= do_read(h,sizeof(wf->radiant_sampling_rate), &wf->radiant_sampling_rate,&sum);
-          printf("sampling rate %x\n",wf->radiant_sampling_rate);
 
           for(ichan=0;ichan<24;ichan++)
           {
             rd+= do_read(h,sizeof(wf->digitizer_readout_delay[0]), &wf->digitizer_readout_delay[ichan],&sum); 
-            printf("digitizer delay %x\n",wf->digitizer_readout_delay[ichan]);
-            
           }
 
         }
@@ -387,18 +384,13 @@ int rno_g_waveform_read(rno_g_file_handle_t h, rno_g_waveform_t *wf)
           {
             wf->digitizer_readout_delay[ichan]=0;
           }
-          //wf->radiant_readout_delays.rf0_delay=0;
-          //wf->radiant_readout_delays.rf1_delay=0;
-          //wf->radiant_readout_delays.rf0_delay_mask=0;
-          //wf->radiant_readout_delays.rf0_delay_mask=0;
+
           wf->radiant_sampling_rate=3200;
-          //printf("old version");
         }
         
         if (hd.version > 1) 
         {
           rd+= do_read(h,sizeof(wf->station), &wf->station,&sum); 
-          printf("station %x\n",wf->station);
         }
         else
         {
