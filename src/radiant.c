@@ -57,6 +57,8 @@ typedef enum
   BM_REG_ANARIGHT                   = 0x20, 
   BM_REG_SPIOUT_LSB                 = 0x24, 
   BM_REG_SPIOUT_MSB                 = 0x28, 
+  BM_REG_UID_BASE                   = 0x30, 
+  BM_REG_UID_INCR                   = 0x04, 
   BM_REG_GPIO_BASE                  = 0x40, 
   BM_REG_GPIO_INCR                  = 0x04,  //NOT AN ADDRESS
   BM_REG_GPIO0                      = 0x40, 
@@ -67,6 +69,7 @@ typedef enum
   BM_REG_GPIO5                      = 0x54, 
   BM_REG_SIGGPIO                    = 0x58, 
   BM_REG_SIGPIO_IDX                 = 0x06,  //NOT AN ADRRESS
+  BM_REG_BDREV                      = 0x5c, 
   BM_REG_TDBIAS_BASE                = 0x80, 
   BM_REG_TDBIAS_INCR                = 0x04,  //NOT AN ADDRESS
   BM_REG_TDBIAS0                    = 0x80, 
@@ -94,7 +97,9 @@ typedef enum
   BM_REG_TDBIAS22                   = 0xd8, 
   BM_REG_TDBIAS26                   = 0xdc, 
   BM_REG_VPEDLEFT                   = 0xe0, 
-  BM_REG_VPEDRIGHT                  = 0xe4 
+  BM_REG_VPEDRIGHT                  = 0xe4, 
+  BM_REG_TIME_LOW                   = 0xe8,
+  BM_REG_TIME_HIGH                  = 0xec
 }e_bm_reg; 
 
 
@@ -280,6 +285,7 @@ struct radiant_dev
   int triggers_per_cycle; 
   double sleep_per_cycle;
   struct timespec sleep_per_cycle_ts; 
+  uint32_t radiant_rev; 
 
 }; 
 
@@ -965,6 +971,15 @@ radiant_dev_t * radiant_open(const char *spi_device, const char * uart_device, i
 
   dev->rad_dateversion_int=10000*dev->rad_dateversion.major + 100 * dev->rad_dateversion.minor + dev->rad_dateversion.rev; 
 
+  // read in the radiant revision, if available 
+  nb = radiant_get_mem(dev,DEST_MANAGER, BM_REG_BDREV, 4, (uint8_t*) &dev->radiant_rev); 
+  if (nb !=4 || !memcmp(BM_BAD_READ, &dev->radiant_rev,4))
+  {
+    fprintf(stderr, "Could not read radiant_rev from RADIANT\n"); 
+    radiant_close(dev); 
+    return 0; 
+  }
+
   //read in the radiant CPLD_CTRL, check the programmed bits 
   nb = radiant_get_mem(dev, DEST_FPGA, RAD_REG_CPLD_CTRL, 4, (uint8_t*) &dev->cpldctrl); 
   {
@@ -1147,6 +1162,14 @@ int radiant_dump(radiant_dev_t *dev, FILE * stream, int flags)
   fprintf(stream,"    RAD_DATE_VERSION: %u.%u.%u (%u/%u/%u) = %d \n", dev->rad_dateversion.major, dev->rad_dateversion.minor, dev->rad_dateversion.rev, 
                       dev->rad_dateversion.year, dev->rad_dateversion.month, dev->rad_dateversion.day , dev->rad_dateversion_int); 
 
+  if (dev->radiant_rev)
+  {
+    fprintf(stream,"    RAD_BOARD_REV: %u\n",dev->radiant_rev);
+  }
+  else
+  {
+    fprintf(stream,"    RAD_BOARD_REV: unknown (likely 2?)\n");
+  }
 
   if (flags & RADIANT_DUMP_UPDATE_GPIOS || dev->paranoid_about_gpios) 
   {
@@ -2916,6 +2939,12 @@ uint16_t radiant_get_sample_rate(const radiant_dev_t * bd)
 {
   if (!bd) return -1; 
   return 3200; 
+}
+
+uint32_t radiant_get_board_revision(const radiant_dev_t * bd) 
+{
+  if (!bd) return -1; 
+  return bd->radiant_rev; 
 }
 
 void radiant_set_internal_triggers_per_cycle(radiant_dev_t * bd, uint16_t n, double sleep) 
