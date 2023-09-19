@@ -85,6 +85,7 @@ int usage()
   printf("  -L label the data, will be written to /data/test/LABEL and will exit with failure if /data/test/LABEL already exists\n"); 
   printf("  -w watchdog: The longest to wait to get a trigger before quitting, in seconds (0, default, to disable)\n"); 
   printf("  -d Maximum duration (in seconds) to run for (0, default for no limit)\n"); 
+  printf("  -R event read mask (default 0xffffff)"); 
   printf("  -h this message\n"); 
   exit(1); 
 
@@ -107,7 +108,7 @@ int maybe_dump_daqstatus(radiant_dev_t * rad, rno_g_file_handle_t h,  rno_g_daqs
   {
     radiant_read_daqstatus(rad, ds); 
     rno_g_daqstatus_write(h, ds); 
-    rno_g_daqstatus_dump(stdout,ds);
+    rno_g_daqstatus_dump_radiant(stdout,ds);
     last_daqstatus = now; 
     return 1;
   }
@@ -128,6 +129,7 @@ int main(int nargs, char ** args)
   int force = 0; 
   int clearmode = 0; 
   uint32_t trigmask = 0x37b000; 
+  uint32_t readout_mask = 0xffffff; 
   float trigwindow = 20; 
   float trigthresh = 0; 
   uint8_t mincoincident = 3; 
@@ -202,6 +204,11 @@ int main(int nargs, char ** args)
       else if (!strcmp(args[i],"-M"))
       {
          trigmask = strtol(args[++i], 0, 0);
+      }
+      else if (!strcmp(args[i],"-R"))
+      {
+         readout_mask = strtol(args[++i], 0, 0);
+         printf("Readout mask is 0x%06x\n", readout_mask); 
       }
       else if (!strcmp(args[i],"-W"))
       {
@@ -290,11 +297,11 @@ int main(int nargs, char ** args)
   if (sig_is_enabled) radiant_enable_cal(rad,0); 
 
   printf("Computing pedestals...\n");
-  rno_g_pedestal_t ped; 
-  rno_g_header_t hd;
-  rno_g_waveform_t wf; 
-  rno_g_daqstatus_t ds; 
-  radiant_compute_pedestals(rad, 0xffffff, 512, &ped); 
+  rno_g_pedestal_t ped = { 0}; 
+  rno_g_header_t hd = { 0};
+  rno_g_waveform_t wf = { 0} ; 
+  rno_g_daqstatus_t ds = { 0 } ; 
+  radiant_compute_pedestals(rad, readout_mask, 512, &ped); 
 
   // csv for debugging purposes for now 
   FILE * fpedscsv = fopen("peds.csv","w"); 
@@ -314,7 +321,7 @@ int main(int nargs, char ** args)
   //this seems to clear the extra triggers too? 
   radiant_reset_fifo_counters(rad); 
   radiant_set_nbuffers_per_readout(rad, nbuffers); 
-  radiant_dma_setup_event(rad, 0xffffff); 
+  radiant_dma_setup_event(rad,readout_mask); 
   int enables = RADIANT_TRIGOUT_EN| RADIANT_TRIGOUT_SOFT | RADIANT_TRIG_EN; 
 
   printf("\nStarting %s readout using %d buffer%s!\n", gzipped ? "gzipped" : "uncompresed", nbuffers, nbuffers == 2 ? "s" : ""); 
@@ -398,6 +405,7 @@ int main(int nargs, char ** args)
   radiant_trigger_enable(rad,enables,0);
   clock_gettime(CLOCK_MONOTONIC,&start);
 
+  int pending_force_trigger = 0; 
   int i = 0;
   while (1) 
   {
@@ -415,6 +423,7 @@ int main(int nargs, char ** args)
     double start_wait = get_now(); ; 
     int failed_watchdog = 0;
     int failed_duration= 0; 
+
     while(!instrumented_poll(rad, clearmode ? 0 :  poll_amount*1000, verbose) && !quit )
     {
       if (maybe_dump_daqstatus(rad,dsh,&ds))
@@ -437,9 +446,10 @@ int main(int nargs, char ** args)
       if (force || watchdog > 0 || duration > 0) 
       {
         double now = get_now(); 
-        if (force && now > last_force + force_interval) 
+        if (!pending_force_trigger && force && now > last_force + force_interval) 
         {
           printf("Sending force trigger\n"); 
+          pending_force_trigger = 1; 
           radiant_soft_trigger(rad); 
           last_force = now; 
         }
@@ -476,6 +486,7 @@ int main(int nargs, char ** args)
 
     radiant_read_event(rad, &hd, &wf); 
 
+    if (hd.trigger_type & RNO_G_TRIGGER_SOFT) pending_force_trigger = 0; 
     rno_g_header_dump(stdout, &hd);
     rno_g_header_write(hh, &hd); 
     rno_g_waveform_write(eh, &wf); 
