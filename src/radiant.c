@@ -628,8 +628,8 @@ int radiant_read_event(radiant_dev_t * bd, rno_g_header_t * hd, rno_g_waveform_t
   struct fw_event_header fwhd; 
  
 
-  uint16_t Ns[2+RNO_G_NUM_RADIANT_CHANNELS]; 
-  uint8_t* bufs[2+RNO_G_NUM_RADIANT_CHANNELS]; 
+  uint16_t Ns[2+RNO_G_NUM_RADIANT_CHANNELS] = { 0}; 
+  uint8_t* bufs[2+RNO_G_NUM_RADIANT_CHANNELS] = {0}; 
 
   Ns[0] = sizeof(fwhd); 
   bufs[0] = (uint8_t*) &fwhd; 
@@ -955,22 +955,22 @@ radiant_dev_t * radiant_open(const char *spi_device, const char * uart_device, i
   dev->read_timeout = 1; 
 
   // verify that we identify correctly
-  char check_bm[4]; 
+  char check_bm[4] = { 'l','i','a','f' }; 
   int nb = radiant_get_mem(dev, DEST_MANAGER, BM_REG_IDENT, 4, (uint8_t*) check_bm); 
 
   if (nb != 4 || memcmp(check_bm, "MBDR",4)) //little endian output
   {
-    fprintf(stderr, "RADIANT BOARD MANAGER DID NOT IDENTIFY PROPERLY. GOT \"%c%c%c%c\"\n", check_bm[3], check_bm[2], check_bm[1], check_bm[0]); 
+    fprintf(stderr, "RADIANT BOARD MANAGER DID NOT IDENTIFY PROPERLY. READ %d BYTES,  HAVE \"%c%c%c%c\"\n", nb, check_bm[3], check_bm[2], check_bm[1], check_bm[0]); 
     radiant_close(dev); 
     return 0; 
   }
   
-  char check_radiant[4]; 
+  char check_radiant[4] = { 'l','i','a','f' }; 
   nb = radiant_get_mem(dev, DEST_FPGA, RAD_REG_IDENT, 4, (uint8_t*) check_radiant); 
 
   if (nb!=4 || memcmp(check_radiant,"TNDR",4))
   {
-    fprintf(stderr, "RADIANT DID NOT IDENTIFY PROPERLY. GOT \"%c%c%c%c\"\n", check_radiant[3], check_radiant[2], check_radiant[1], check_radiant[0]); 
+    fprintf(stderr, "RADIANT DID NOT IDENTIFY PROPERLY. READ %d BYTES, HAVE \"%c%c%c%c\"\n", nb, check_radiant[3], check_radiant[2], check_radiant[1], check_radiant[0]); 
     radiant_close(dev); 
     return 0; 
   }
@@ -2443,6 +2443,7 @@ int radiant_compute_pedestals(radiant_dev_t *bd, uint32_t mask, uint16_t ntrigge
   ped->vbias[0] = bd->vbias[0];
   ped->vbias[1] = bd->vbias[1];
   ped->nevents = ntriggers; 
+  ped->mask = mask; 
   ped->when = time(0); 
 
   // take out of calram mode? 

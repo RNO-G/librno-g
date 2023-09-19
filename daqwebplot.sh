@@ -37,7 +37,10 @@ mkdir -p "${OUT}"
 mkdir -p "${OUT}/wfs"
 mkdir -p "${OUT}/peds"
 
-rsync --compress -a -P ${USER}@${HOST}:/data/test/${LABEL}/\{wfs.dat,header.dat,daqstatus.dat,peds.dat\} "$OUT"
+rsync --compress -a -P ${USER}@${HOST}:/data/test/${LABEL}/wfs.dat "$OUT"
+rsync --compress -a -P ${USER}@${HOST}:/data/test/${LABEL}/header.dat "$OUT"
+rsync --compress -a -P ${USER}@${HOST}:/data/test/${LABEL}/daqstatus.dat "$OUT"
+rsync --compress -a -P ${USER}@${HOST}:/data/test/${LABEL}/peds.dat "$OUT"
 
 make -s build/test/rno-g-dump-hdr build/test/rno-g-dump-ped build/test/rno-g-dump-wf build/test/rno-g-dump-ds build/test/rno-g-wf-stats
 
