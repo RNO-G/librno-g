@@ -256,6 +256,7 @@ struct radiant_dev
   //the board manager date version
   date_version_t bm_dateversion; 
   date_version_t rad_dateversion; 
+  uint32_t bm_dateversion_int;
   uint32_t rad_dateversion_int; 
   uint32_t cpldctrl; 
 
@@ -765,23 +766,27 @@ int radiant_read_event(radiant_dev_t * bd, rno_g_header_t * hd, rno_g_waveform_t
     //unroll waveforms based on settings. this might need to go into the if else, but idk
     //check if rf 0 delay active and check if rf 0
     //wortks for waveform version >3
-    if (bd->readout_delays.rf0_delay!=0 && hd->trigger_type & RNO_G_TRIGGER_RF_RADIANT0)
+    if (bd->rad_dateversion_int>=400)
     {
-      if ((1<<ichan)&bd->readout_delays.rf0_delay_mask) 
+      if (bd->readout_delays.rf0_delay!=0 && hd->trigger_type & RNO_G_TRIGGER_RF_RADIANT0)
       {
-        roll16((uint16_t*)wf->radiant_waveforms[ichan] , 128*bd->readout_delays.rf0_delay, 2*RADIANT_NSAMP_PER_BUF); 
-        wf->digitizer_readout_delay[ichan]=bd->readout_delays.rf0_delay;
+        if ((1<<ichan)&bd->readout_delays.rf0_delay_mask) 
+        {
+          roll16((uint16_t*)wf->radiant_waveforms[ichan] , 128*bd->readout_delays.rf0_delay, 2*RADIANT_NSAMP_PER_BUF); 
+          wf->digitizer_readout_delay[ichan]=bd->readout_delays.rf0_delay;
+        }
+      }
+      //check if rf 1 delay active and check if rf 1
+      if (bd->readout_delays.rf1_delay!=0 && hd->trigger_type & RNO_G_TRIGGER_RF_RADIANT1)
+      {
+        if ((1<<ichan)&bd->readout_delays.rf1_delay_mask) 
+        {
+          roll16((uint16_t*)wf->radiant_waveforms[ichan] , 128*bd->readout_delays.rf1_delay, 2*RADIANT_NSAMP_PER_BUF); 
+          wf->digitizer_readout_delay[ichan]=bd->readout_delays.rf1_delay;
+        }
       }
     }
-    //check if rf 1 delay active and check if rf 1
-    if (bd->readout_delays.rf1_delay!=0 && hd->trigger_type & RNO_G_TRIGGER_RF_RADIANT1)
-    {
-      if ((1<<ichan)&bd->readout_delays.rf1_delay_mask) 
-      {
-        roll16((uint16_t*)wf->radiant_waveforms[ichan] , 128*bd->readout_delays.rf1_delay, 2*RADIANT_NSAMP_PER_BUF); 
-        wf->digitizer_readout_delay[ichan]=bd->readout_delays.rf1_delay;
-      }
-    }
+   
   }
 
   return ret; 
@@ -994,7 +999,7 @@ radiant_dev_t * radiant_open(const char *spi_device, const char * uart_device, i
   }
 
   dev->rad_dateversion_int=10000*dev->rad_dateversion.major + 100 * dev->rad_dateversion.minor + dev->rad_dateversion.rev; 
-
+  dev->bm_dateversion_int=10000*dev->bm_dateversion.major + 100 * dev->bm_dateversion.minor + dev->bm_dateversion.rev; 
   //read in the radiant CPLD_CTRL, check the programmed bits 
   nb = radiant_get_mem(dev, DEST_FPGA, RAD_REG_CPLD_CTRL, 4, (uint8_t*) &dev->cpldctrl); 
   {
@@ -1137,7 +1142,7 @@ radiant_dev_t * radiant_open(const char *spi_device, const char * uart_device, i
     dev->thresh[i] = RADIANT_THRESHOLD_UNKNOWN; 
   } 
 
-  if(dev->rad_dateversion_int>230)
+  if(dev->rad_dateversion_int>=400)
   {
     //read in the default values which can technically be changed through fpga firmware
     uint32_t delays[4];
@@ -1151,9 +1156,7 @@ radiant_dev_t * radiant_open(const char *spi_device, const char * uart_device, i
       if(delays[3]&(1<<i)) dev->readout_delays.rf1_delay_mask|=group_to_channel_masks[i];//rd->rf1_delay_mask|=group_mask[i];
     }
     dev->readout_delays.rf0_delay=(delays[0]&0x7f);
-    //dev->readout_delays.rf0_delay_mask=(delays[1]&0xf);
     dev->readout_delays.rf1_delay=(delays[2]&0x7f);
-    //dev->readout_delays.rf1_delay_mask = (delays[3]&0xf);
 
   }
   else
@@ -1161,7 +1164,7 @@ radiant_dev_t * radiant_open(const char *spi_device, const char * uart_device, i
     memset(&dev->readout_delays,0,10); //this might be causing issue but it shouldn't
   }
 
-  if(dev->bm_dateversion.major>=0 || dev->bm_dateversion.minor>=2 || dev->bm_dateversion.rev>=16)
+  if(dev->bm_dateversion_int>=216)
   {
     radiant_get_mem(dev, DEST_MANAGER, BM_REG_SAMPLING_RATE, 4, (uint8_t *) &dev->radiant_sampling_rate);
   }
@@ -2979,7 +2982,7 @@ int radiant_get_delay_settings(radiant_dev_t * bd, uint8_t * rf0_delay, uint8_t 
 int radiant_set_delay_settings(radiant_dev_t * bd, uint8_t rf0_delay, uint8_t rf1_delay, uint8_t rf0_group_mask,uint8_t rf1_group_mask)
 {
   //just a quick check in case it tries writing delays when the feature (and the memory location) isn't enable
-  if(bd->rad_dateversion_int<=230)
+  if(bd->rad_dateversion_int<400)
   {
     //printf("wrong fpga firmware version!!!\n");
     return -1;
@@ -3084,7 +3087,8 @@ int radiant_get_fw_version( const radiant_dev_t* bd, const radiant_dest_t which,
 uint16_t radiant_get_sample_rate(const radiant_dev_t * bd) 
 {
   if (!bd) return -1; 
-  if(bd->bm_dateversion.major>=0 || bd->bm_dateversion.minor>=2 || bd->bm_dateversion.rev>=16)
+
+  if(dev->bm_dateversion_int>=216)
   {
     return bd->radiant_sampling_rate; //cached value BM to int 
   }
