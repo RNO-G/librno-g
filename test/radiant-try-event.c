@@ -85,10 +85,9 @@ int usage()
   printf("  -L label the data, will be written to /data/test/LABEL and will exit with failure if /data/test/LABEL already exists\n"); 
   printf("  -w watchdog: The longest to wait to get a trigger before quitting, in seconds (0, default, to disable)\n"); 
   printf("  -d Maximum duration (in seconds) to run for (0, default for no limit)\n"); 
-  printf("  -R which radiant trigger to configure (default RF0 = 0b0001)\n");
-  printf("  -d0 rf0 delay settting (default 4)\n");
-  printf("  -d1 rf1 delay settting (default 4)\n");
-  printf("  -dm readout delay mask (default 0x22)\n");
+  printf("  -R which radiant trigger to configure (RF0 = 0b0001, RF1 = 0b0010)\n");
+  printf("  -rd rf readout settting (default 0)\n");
+  printf("  -rdm readout delay mask (default 0x4 - surface channels)\n");
   printf("  -m event read mask (default 0xffffff)"); 
   printf("  -h this message\n"); 
   exit(1); 
@@ -144,8 +143,8 @@ int main(int nargs, char ** args)
   int watchdog = 0; 
   int duration = 0; 
   char which_radiant_trigger=0b0001;
-  uint8_t readout_delay=4;
-  uint8_t readout_delay_mask=2;
+  uint8_t readout_delay=0;
+  uint8_t readout_delay_mask=4;
 
 
   for (int i = 1; i < nargs; i++) 
@@ -367,7 +366,6 @@ int main(int nargs, char ** args)
   //trig_mask |= trig_mask0, trig_mask |=trig_mask1; x3
 
   
-  if(force)which_radiant_trigger=0;
   if(which_radiant_trigger==0)
   {
     printf("Disabling both radiant triggers\n");
@@ -377,7 +375,7 @@ int main(int nargs, char ** args)
     radiant_configure_rf_trigger(rad,RADIANT_TRIG_B, 0, 0, 0); 
 
   }
-  else if(which_radiant_trigger&0b0010)
+  else if(which_radiant_trigger==0b0010)
   {
     printf("Using RF1 trigger settings:  MASK: 0x%x, THRESH: %f V, WINDOW: %f ns, MINCOINC: %d\n", trigmask, trigthresh, trigwindow, mincoincident); 
     printf("Disabling Radiant trigger 0\n");
@@ -387,7 +385,7 @@ int main(int nargs, char ** args)
     //make sure TRIG B isn't doing anything
     radiant_configure_rf_trigger(rad,RADIANT_TRIG_B, trigmask, mincoincident, trigwindow); 
   }
-  else 
+  else if(which_radiant_trigger==0b0001)
   {
     printf("Using RF0 trigger settings:  MASK: 0x%x, THRESH: %f V, WINDOW: %f ns, MINCOINC: %d\n", trigmask, trigthresh, trigwindow, mincoincident); 
     printf("Disabling Radiant trigger 1\n");
@@ -396,6 +394,10 @@ int main(int nargs, char ** args)
     radiant_configure_rf_trigger(rad,RADIANT_TRIG_A, trigmask, mincoincident, trigwindow); 
     //make sure TRIG B isn't doing anything
     radiant_configure_rf_trigger(rad,RADIANT_TRIG_B, 0, 0, 0); 
+  }
+  else
+  {
+    print("You want to use both rf triggers but this hasn't been coded yet - sorry :)")
   }
   //add one for enable both rf triggers. might need more command line args
 
