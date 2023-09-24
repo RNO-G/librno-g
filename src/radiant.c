@@ -3089,7 +3089,7 @@ uint16_t radiant_get_sample_rate(const radiant_dev_t * bd)
 {
   if (!bd) return -1; 
 
-  if(dev->bm_dateversion_int>=216)
+  if(bd->bm_dateversion_int>=216)
   {
     return bd->radiant_sampling_rate; //cached value BM to int 
   }
