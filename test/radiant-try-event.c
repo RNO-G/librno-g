@@ -397,7 +397,7 @@ int main(int nargs, char ** args)
   }
   else
   {
-    print("You want to use both rf triggers but this hasn't been coded yet - sorry :)")
+    printf("You want to use both rf triggers but this hasn't been coded yet - sorry :)\n"); 
   }
   //add one for enable both rf triggers. might need more command line args
 
