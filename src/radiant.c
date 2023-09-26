@@ -1144,6 +1144,9 @@ radiant_dev_t * radiant_open(const char *spi_device, const char * uart_device, i
 
   if(dev->rad_dateversion_int>=400)
   {
+    //initialize to zero
+    memset(&dev->readout_delays,0,10);
+
     //read in the default values which can technically be changed through fpga firmware
     uint32_t delays[4];
     radiant_get_mem(dev, DEST_FPGA, RAD_REG_LAB_CTRL_RF0_DELAY, 4*4,(uint8_t*)&delays);//lets just pull them all in
@@ -1161,7 +1164,7 @@ radiant_dev_t * radiant_open(const char *spi_device, const char * uart_device, i
   }
   else
   {
-    memset(&dev->readout_delays,0,10); //this might be causing issue but it shouldn't
+    memset(&dev->readout_delays,0,10);
   }
 
   if(dev->bm_dateversion_int>=216)
@@ -3007,7 +3010,7 @@ int radiant_set_delay_settings(radiant_dev_t * bd, uint8_t rf0_delay, uint8_t rf
     return -2;
   }
 
-  uint32_t group_to_channel_masks[4]={0x1ff,0xe00,0x1ff000,0xe00000};
+  uint32_t group_to_channel_masks[4]={0x0001ff,0x000e00,0x1ff000,0xe00000};
   //group 0 = 0x1ff = channels 0-11
   //group 1 = 0xe00 = channels 12-14
   //group 2 = 0x1ff000 = channels 15-20
@@ -3016,6 +3019,10 @@ int radiant_set_delay_settings(radiant_dev_t * bd, uint8_t rf0_delay, uint8_t rf
   //set delay values in radiant device
   bd->readout_delays.rf0_delay=rf0_delay;
   bd->readout_delays.rf1_delay=rf1_delay;
+
+  //clear the 
+  bd->readout_delays.rf0_delay_mask=0;
+  bd->readout_delays.rf1_delay_mask=0;
 
   //translate group mask to channel mask and set in radiant device
   uint8_t i =0;
