@@ -10,12 +10,17 @@ CXXFLAGS+=-fPIC -Og -Wall -Wextra -g
 
 #CFLAGS+=-DRADIANT_SET_DBG
 
-ON_BBB=no
-# are we on the BBB? 
+ON_BBB?=no
+
+# are we (probably) on the BBB? 
 ifeq ($(shell uname -m),armv7l) 
+ON_BBB=yes
+endif
+
+ifeq ($(ON_BBB),yes)
+$(info We are on the DAQ) 
 CFLAGS+=-mfpu=neon
 CFLAGS+=-DON_BBB 
-ON_BBB=yes
 endif
 
 LDFLAGS=-shared 
