@@ -145,6 +145,14 @@ int main(int nargs, char ** args)
   char which_radiant_trigger=0b0001;
   uint8_t readout_delay=0;
   uint8_t readout_delay_mask=4;
+  rno_g_real_time_t real_time_data;
+
+  if(real_time_load_fft(&filter)!=0) {printf("failed to allocate fft space\n"); return -1;}
+    
+  real_time_load_template(&filter);
+  real_time_calc_template_fft(&filter);
+  real_time_set_thresh(&filter);
+  real_time_set_transform(&filter);
 
 
   for (int i = 1; i < nargs; i++) 
@@ -530,12 +538,14 @@ int main(int nargs, char ** args)
 
     if (quit) break; 
 
-    radiant_read_event(rad, &hd, &wf); 
+    radiant_read_event_test(rad, &hd, &wf,&real_time_data); 
 
     if (hd.trigger_type & RNO_G_TRIGGER_SOFT) pending_force_trigger = 0; 
     rno_g_header_dump(stdout, &hd);
     rno_g_header_write(hh, &hd); 
-    rno_g_waveform_write(eh, &wf); 
+    rno_g_waveform_write(eh, &wf);   
+
+
     i++; 
   }
 

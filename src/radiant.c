@@ -998,6 +998,7 @@ int radiant_read_event_test(radiant_dev_t * bd, rno_g_header_t * hd, rno_g_wavef
     real_time_calc_phased_integral(real_time);
     //real_time_calc_priority(&filter);
     real_time_calc_desc(real_time);
+    printf("lin desc: %f\n",real_time->lin_desc);
 
     if(WRITE_REAL_TIME)
     {
