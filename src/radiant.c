@@ -1,5 +1,7 @@
 #include "radiant.h" 
 #include "cobs.h" 
+#include "test_filter.h"
+
 #include <time.h> 
 #include <linux/spi/spidev.h> 
 #include <sys/types.h> 
@@ -786,11 +788,227 @@ int radiant_read_event(radiant_dev_t * bd, rno_g_header_t * hd, rno_g_waveform_t
         }
       }
     }
+
+    //here do some real time analysis. It can either be here when the data is pulled from the radiant
+    // or it can be done when the event gets written. though if we wanted to filter what gets written
+    //I think it needs to happen here. since writing headers/waveforms/statuses gets done seperately. 
+    //and we need to know if an event needs to get written before all of those happen. idk ideas.
    
   }
 
   return ret; 
 }
+
+
+
+int radiant_read_event_test(radiant_dev_t * bd, rno_g_header_t * hd, rno_g_waveform_t *wf, real_time_t *real_time) 
+{
+
+
+  if (!bd) return -1 ; 
+  struct fw_event_header fwhd; 
+ 
+
+  uint16_t Ns[2+RNO_G_NUM_RADIANT_CHANNELS] = { 0}; 
+  uint8_t* bufs[2+RNO_G_NUM_RADIANT_CHANNELS] = {0}; 
+
+  Ns[0] = sizeof(fwhd); 
+  bufs[0] = (uint8_t*) &fwhd; 
+
+  int nsamples = bd->readout_nsamp; 
+  int iactual = 0;
+  for (int i = 0; i < RNO_G_NUM_RADIANT_CHANNELS; i++) 
+  {
+    if (bd->readout_mask & (1 << i))
+    {
+      Ns[1+iactual] = 2*nsamples; 
+      bufs[1+iactual] = (uint8_t*) wf->radiant_waveforms[i]; 
+      iactual++; 
+    }
+  }
+
+  int nactual = iactual; 
+
+  struct timespec start; 
+  struct timespec end; 
+
+  clock_gettime(CLOCK_REALTIME, &start); 
+  int ret = radiant_read(bd, 1+nactual, Ns,bufs); 
+  clock_gettime(CLOCK_REALTIME, &end); 
+
+  
+  //check magic 
+  if (fwhd.magic!= EVENT_MAGIC )
+  {
+    fprintf(stderr,"Bad magic :%x\n", fwhd.magic);
+    return -1; 
+  }
+
+
+  memset(hd,0,sizeof(*hd)); 
+  hd->event_number = fwhd.count;
+  hd->pps_count = fwhd.pps; 
+  hd->sys_clk = fwhd.sysclk; 
+  hd->readout_time_secs = start.tv_sec; 
+  hd->readout_time_nsecs = start.tv_nsec; 
+  hd->readout_elapsed_nsecs = (end.tv_nsec - start.tv_nsec) + 1000000000 * (end.tv_sec-start.tv_sec); 
+  hd->run_number = bd->run; 
+  hd->sysclk_last_pps = fwhd.sysclk_last_pps; 
+  hd->sysclk_last_last_pps = fwhd.sysclk_last_last_pps; 
+  hd->radiant_nsamples = nsamples; 
+
+  hd->raw_evstatus = fwhd.status_flags; 
+  hd->raw_tinfo = fwhd.trig_info; 
+  hd->trigger_type = 0 ;
+
+  if (hd->raw_tinfo & RADIANT_TRIGGER_INT0 ) hd->trigger_type |= RNO_G_TRIGGER_RF_RADIANT0;
+  if (hd->raw_tinfo & RADIANT_TRIGGER_INT1 ) hd->trigger_type |= RNO_G_TRIGGER_RF_RADIANT1;
+  if (hd->raw_tinfo & RADIANT_TRIGGER_EXT ) hd->trigger_type  |= RNO_G_TRIGGER_RF_LT_SIMPLE;
+  if (hd->raw_tinfo & RADIANT_TRIGGER_SOFT ) hd->trigger_type |= RNO_G_TRIGGER_SOFT;
+  if (hd->raw_tinfo & RADIANT_TRIGGER_PPS ) hd->trigger_type  |= RNO_G_TRIGGER_PPS;
+  if (hd->raw_tinfo & RADIANT_TRIGGER_INTERNAL_COPY ) hd->trigger_type  |= RNO_G_TRIGGER_RF_RADIANTX;
+
+  wf->event_number = hd->event_number; 
+  wf->run_number = bd->run; 
+  wf->radiant_nsamples = nsamples;
+  wf->radiant_sampling_rate=radiant_get_sample_rate(bd);
+
+  for (int ichan = 0; ichan < RNO_G_NUM_RADIANT_CHANNELS; ichan++) 
+  {
+    wf->digitizer_readout_delay[ichan]=0; //initialize to 0 so no funky things happen
+
+    if (bd->readout_mask & (1 << ichan))
+    {
+
+      //if we are in 1024-sample mode, ony one start window per event, so set the second to a magic value. 
+      if (bd->nbuffers_per_readout == 1) 
+      {
+        hd->radiant_start_windows[ichan][1] = 0xff; 
+      }
+
+      //for post v0.3.0
+      int nboth_rotate = 0;
+
+      //Loop over the readout buffers 
+      //TODO: there may be some efficiency gains in doing the andall and sub16 operations on both buffers at the same time... but probably not huge and the code is simpler this way 
+      for (int ibuffer = 0; ibuffer < bd->nbuffers_per_readout; ibuffer++) 
+      {
+
+        //get buffer number (TODO: demagicify this) 
+        int buffer_number = (wf->radiant_waveforms[ichan][ibuffer * RADIANT_NSAMP_PER_BUF] & 0xc000) >> 14; 
+
+        //now let's find the STOP window 
+        int nrotate = 0;
+
+        for (int w = 0; w < RADIANT_NWIND_PER_BUF; w++) 
+        {
+          uint16_t val = wf->radiant_waveforms[ichan][RADIANT_WINDOW_SIZE*w+ibuffer * RADIANT_NSAMP_PER_BUF];
+
+          //TODO: demagicify this 
+          if (val & 0x2000)//this is the STOP window. Means the START window is snext
+          {
+            hd->radiant_start_windows[ichan][ibuffer] =  buffer_number * RADIANT_NWIND_PER_BUF  + ((w+1) % (RADIANT_NWIND_PER_BUF)); 
+            nrotate = (w+1) * RADIANT_WINDOW_SIZE; 
+            if (bd->rad_dateversion_int >= 300  && ibuffer == 0 && bd->nbuffers_per_readout == 2) nboth_rotate = nrotate; 
+            break; 
+          }
+        }
+
+        //TODO: in some cases (buffer 0, not start or stop window) we can avoid doing this on all samples 
+        andall16_0x0fff((uint16_t*)wf->radiant_waveforms[ichan]+ibuffer * RADIANT_NSAMP_PER_BUF,RADIANT_NSAMP_PER_BUF); 
+
+        // Now subtract the pedestals
+        if (bd->peds)
+        {
+          sub16 (RADIANT_NSAMP_PER_BUF,  wf->radiant_waveforms[ichan] + ibuffer * RADIANT_NSAMP_PER_BUF, (int16_t*) bd->peds->pedestals[ichan] + RADIANT_NSAMP_PER_BUF * buffer_number); 
+        }
+
+        //unwrap each buffer individually, if we need to 
+        if (nrotate &&  ( bd->rad_dateversion_int < 300 || bd->nbuffers_per_readout == 1) ) 
+        {
+          roll16((uint16_t*)wf->radiant_waveforms[ichan] + ibuffer * RADIANT_NSAMP_PER_BUF, nrotate, RADIANT_NSAMP_PER_BUF); 
+        }
+      }
+
+      //If the two buffers are out of order, rearrange them
+      if (bd->nbuffers_per_readout == 2 && bd->rad_dateversion_int >= 300 && nboth_rotate)
+      {
+        roll16((uint16_t*)wf->radiant_waveforms[ichan], nboth_rotate, 2*RADIANT_NSAMP_PER_BUF); 
+      }
+
+ 
+    }
+    else
+    {
+      memset(wf->radiant_waveforms[ichan],0, sizeof(wf->radiant_waveforms[ichan])); 
+    }
+    
+    //unroll waveforms based on settings. this might need to go into the if else, but idk
+    //check if rf 0 delay active and check if rf 0
+    //wortks for waveform version >3
+    if (bd->rad_dateversion_int>=400)
+    {
+      if (bd->readout_delays.rf0_delay!=0 && hd->trigger_type & RNO_G_TRIGGER_RF_RADIANT0)
+      {
+        if ((1<<ichan)&bd->readout_delays.rf0_delay_mask) 
+        {
+          roll16((uint16_t*)wf->radiant_waveforms[ichan] , 128*bd->readout_delays.rf0_delay, 2*RADIANT_NSAMP_PER_BUF); 
+          wf->digitizer_readout_delay[ichan]=bd->readout_delays.rf0_delay;
+        }
+      }
+      //check if rf 1 delay active and check if rf 1
+      if (bd->readout_delays.rf1_delay!=0 && hd->trigger_type & RNO_G_TRIGGER_RF_RADIANT1)
+      {
+        if ((1<<ichan)&bd->readout_delays.rf1_delay_mask) 
+        {
+          roll16((uint16_t*)wf->radiant_waveforms[ichan] , 128*bd->readout_delays.rf1_delay, 2*RADIANT_NSAMP_PER_BUF); 
+          wf->digitizer_readout_delay[ichan]=bd->readout_delays.rf1_delay;
+        }
+      }
+    }
+  }
+    //here do some real time analysis. It can either be here when the data is pulled from the radiant
+    // or it can be done when the event gets written. though if we wanted to filter what gets written
+    //I think it needs to happen here. since writing headers/waveforms/statuses gets done seperately. 
+    //and we need to know if an event needs to get written before all of those happen. idk ideas.
+   
+  //this can probably be done with a reference
+  for(int send_wave=0;send_wave<2048;send_wave++)
+  {
+    real_time->event_waveform[0][send_wave]=wf->radiant_waveforms[0][send_wave];
+    real_time->event_waveform[1][send_wave]=wf->radiant_waveforms[1][send_wave];
+    real_time->event_waveform[2][send_wave]=wf->radiant_waveforms[2][send_wave];
+    real_time->event_waveform[3][send_wave]=wf->radiant_waveforms[3][send_wave];
+  }
+
+  //real_time->event_waveform[0]=&wf->radiant_waveforms[0];
+  //real_time->event_waveform[1]=&wf->radiant_waveforms[1];
+  //real_time->event_waveform[2]=&wf->radiant_waveforms[2];
+  //real_time->event_waveform[3]=&wf->radiant_waveforms[3];
+  
+  if(DO_REAL_TIME)
+  {
+    real_time_calc_rms(real_time); 
+    real_time_calc_snr(real_time); 
+    real_time_calc_event_fft(real_time);
+    real_time_calc_impulsivity(real_time);
+    real_time_calc_template_match(real_time);
+    real_time_calc_phase_delays(real_time);
+    real_time_calc_phased_integral(real_time);
+    //real_time_calc_priority(&filter);
+    real_time_calc_desc(real_time);
+
+    if(WRITE_REAL_TIME)
+    {
+      //new file type called real time something
+      //that will store computed values
+    }
+  }
+  
+
+  return ret; 
+}
+
 
 
 static int read_bm_gpios(radiant_dev_t * dev) 

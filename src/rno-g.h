@@ -17,7 +17,8 @@ extern "C"
 { 
 #endif
 
-
+//for fft types
+#include <fftw3.h>
 
 //For int ttypes
 #include <stdint.h> 
@@ -37,6 +38,44 @@ extern "C"
 #define RNO_G_MAX_LT_NSAMPLES 512
 #define RNO_G_NUM_LT_CHANNELS 4 
 
+
+typedef struct real_time
+{
+    int16_t n_samples;
+    int16_t event_waveform[4][2048];
+    float squared_waveforms[4][2048];
+    float hilbert_env[4][2048];
+    int16_t template_waveform[2048];
+    float phased_sum[2048];
+    int16_t phased_delays[4];
+
+    fftwf_complex * in_fft;
+    fftwf_complex * fft_buffer1;
+    fftwf_complex * fft_buffer2;
+    fftwf_complex * out_fft;
+    fftwf_complex * event_fft[4];
+    fftwf_complex * template_fft;
+    fftwf_plan forward;
+    fftwf_plan backward;
+
+    float rms[4];
+    float snr[4];
+    float delays[4];
+    float impulsivity[4];
+    float phased_integral;
+    float template_corr[4];
+
+    float snr_thresh;
+    float impulsivity_thresh;
+    float phased_thresh;
+    float template_thresh;
+    int16_t shift_thresh;
+
+    float xbars[9];
+    float scaling[9];
+    float lin_desc;
+
+} real_time_t;
 
 
 /** Forward declarations of file backends, because some may be conditionally compiled in the future */ 
@@ -200,6 +239,9 @@ typedef struct rno_g_waveform
   //radiant_readout_delay_t radiant_readout_delays;
   
 } rno_g_waveform_t; 
+
+
+
 
 //write in ascii format (e.g. for stdout) 
 int rno_g_waveform_dump(FILE *f, const rno_g_waveform_t * waveform);

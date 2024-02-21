@@ -43,6 +43,11 @@ typedef struct radiant_dev radiant_dev_t;
 radiant_dev_t * radiant_open (const char * spi_device, const char * uart_device, int trigger_gpio, int spi_enable_gpio); 
 
 
+//
+int radiant_read_event_test(radiant_dev_t * bd, rno_g_header_t * hd, rno_g_waveform_t *wf, real_time_t *real_time);
+
+
+
 /* Sets a callback on the trigger gpio interrupt. Note 
  * that this implies spawning a separate thread, so you want to be careful in your callback here. 
  * Set callback to NULL to unset.  For a blocking interface, use radiant_poll_trigger_ready (which is incompatible with a callback since they will poll on the same fdset) 

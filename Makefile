@@ -4,7 +4,7 @@ PREFIX?=$(RNO_G_INSTALL_DIR)
 
 include config.mk
 
-CFLAGS=-fPIC -Og -Wall -Wextra -g -std=gnu11 -I./src -DRADIANT_SPI_SPEED=$(RADIANT_SPI_SPEED_MHZ)
+CFLAGS=-fPIC -Og -Wall -Wextra -g -std=gnu11 -I./src -DRADIANT_SPI_SPEED=$(RADIANT_SPI_SPEED_MHZ) -DDO_REAL_TIME=$(DO_REAL_TIME) -DWRITE_REAL_TIME=$(WRITE_REAL_TIME)
 CFLAGS+=$(EXTRA_CFLAGS) 
 CXXFLAGS+=-fPIC -Og -Wall -Wextra -g
 
@@ -19,9 +19,9 @@ ON_BBB=yes
 endif
 
 LDFLAGS=-shared 
-LIBS=-lz -pthread
+LIBS=-lz -pthread -lm -lfftw3 -lfftw3f
 INCLUDES=src/rno-g.h src/rno-g-nsample-diff-hist.h
-DAQ_INCLUDES=src/radiant.h src/cobs.h src/adf4350.h src/flower.h src/rno-g-cal.h 
+DAQ_INCLUDES=src/radiant.h src/cobs.h src/adf4350.h src/flower.h src/rno-g-cal.h src/test_filter.h
 PYBIND_INCLUDES=$(shell python3 -m pybind11 --includes) 
 
 .PHONY: client daq clean install install-daq client-py daq-py cppcheck test daq-test-progs rno-g-utils
@@ -102,7 +102,7 @@ $(BUILD_DIR)/librno-g.so: $(addprefix $(BUILD_DIR)/, $(CLIENT_OBJS))
 	@echo Linking $@
 	@cc -o $@ $(LDFLAGS) $^  $(LIBS) 
 
-RAD_OBJS=radiant.o cobs.o adf4350.o 
+RAD_OBJS=radiant.o cobs.o adf4350.o test_filter.o
 $(BUILD_DIR)/libradiant.so: $(addprefix $(BUILD_DIR)/, $(RAD_OBJS))
 	@echo Linking $@
 	@cc -o $@ $(LDFLAGS) $^  $(LIBS) 
@@ -118,7 +118,7 @@ $(BUILD_DIR)/libflower.so: $(addprefix $(BUILD_DIR)/, $(FLWR_OBJS))
 	@cc -o $@ $(LDFLAGS) $^  $(LIBS) 
 
 
-# non-DAQ objects begin with rno-.... haas to be rno- instead of rno-g so that rno-g.c works :) 
+# non-DAQ objects begin with rno-.... has to be rno- instead of rno-g so that rno-g.c works :) 
 $(BUILD_DIR)/rno-%.o: src/rno-%.c $(INCLUDES) | $(BUILD_DIR)
 	@echo Compiling non-DAQ object $@
 	@cc -c -o $@ $(CFLAGS) $< 
