@@ -146,7 +146,7 @@ int main(int nargs, char ** args)
   char which_radiant_trigger=0b0001;
   uint8_t readout_delay=0;
   uint8_t readout_delay_mask=4;
-  real_time_t real_time_data;
+  real_time_t filter;
 
   if(real_time_load_fft(&filter)!=0) {printf("failed to allocate fft space\n"); return -1;}
     
@@ -539,7 +539,7 @@ int main(int nargs, char ** args)
 
     if (quit) break; 
 
-    radiant_read_event_test(rad, &hd, &wf,&real_time_data); 
+    radiant_read_event_test(rad, &hd, &wf,&filter); 
 
     if (hd.trigger_type & RNO_G_TRIGGER_SOFT) pending_force_trigger = 0; 
     rno_g_header_dump(stdout, &hd);
