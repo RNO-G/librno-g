@@ -121,6 +121,7 @@ int maybe_dump_daqstatus(radiant_dev_t * rad, rno_g_file_handle_t h,  rno_g_daqs
 
 int main(int nargs, char ** args) 
 {
+  printf("seg faults whoops\n");
   int N = 100; 
   char * label = NULL; 
   int nbuffers = 2; 
@@ -147,14 +148,16 @@ int main(int nargs, char ** args)
   uint8_t readout_delay=0;
   uint8_t readout_delay_mask=4;
   real_time_t filter;
-
+  printf("loading real time stuff\n");
   if(real_time_load_fft(&filter)!=0) {printf("failed to allocate fft space\n"); return -1;}
-    
+  printf("ffts good\n");
   real_time_load_template(&filter);
+  printf("template good\n");
   real_time_calc_template_fft(&filter);
+  printf("template fft good\n");
   real_time_set_thresh(&filter);
   real_time_set_transform(&filter);
-
+  printf("got through loading\n");
 
   for (int i = 1; i < nargs; i++) 
   {

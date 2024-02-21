@@ -86,7 +86,7 @@ int real_time_calc_snr(real_time_t * rt)
 int real_time_load_template(real_time_t * rt)
 {
     FILE * t_wave_file;
-    t_wave_file=fopen("~/librno-g/helper/template.dat","rb");
+    t_wave_file=fopen("helper/template.dat","rb");
     uint16_t ret=0;
     ret+=fread(rt->template_waveform,2,2048,t_wave_file);
     //printf("%i ret\n",ret);
@@ -111,10 +111,10 @@ int real_time_load_fft(real_time_t * rt)
 
 
     //load/calc the plan
-    fftwf_import_wisdom_from_filename("~/librno-g/helper/imp_wisdom.dat"); 
+    fftwf_import_wisdom_from_filename("helper/imp_wisdom.dat"); 
     rt->forward = fftwf_plan_dft_1d(2048, rt->in_fft, rt->out_fft, FFTW_FORWARD, FFTW_MEASURE);
     rt-> backward = fftwf_plan_dft_1d(2048, rt->out_fft, rt->in_fft, FFTW_BACKWARD, FFTW_MEASURE);
-    fftwf_export_wisdom_to_filename("~/librno-g/helper/imp_wisdom.dat");
+    fftwf_export_wisdom_to_filename("helper/imp_wisdom.dat");
   
     return 0;
 }
