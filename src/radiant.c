@@ -20,7 +20,8 @@
 #include <assert.h> 
 #include <errno.h> 
 #include <math.h> 
-
+#define DO_REAL_TIME 1
+#define WRITE_REAL_TIME 1
 
 
 #if defined(__arm__) && !defined(NOVECTORIZE) 
