@@ -1,4 +1,5 @@
 #include "radiant.h" 
+#include "test_filter.h"
 #include <stdio.h>
 #include <string.h> 
 #include <zlib.h> 
@@ -145,7 +146,7 @@ int main(int nargs, char ** args)
   char which_radiant_trigger=0b0001;
   uint8_t readout_delay=0;
   uint8_t readout_delay_mask=4;
-  rno_g_real_time_t real_time_data;
+  real_time_t real_time_data;
 
   if(real_time_load_fft(&filter)!=0) {printf("failed to allocate fft space\n"); return -1;}
     
