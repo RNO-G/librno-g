@@ -980,15 +980,18 @@ int radiant_read_event_test(radiant_dev_t * bd, rno_g_header_t * hd, rno_g_wavef
     real_time->event_waveform[1][send_wave]=wf->radiant_waveforms[1][send_wave];
     real_time->event_waveform[2][send_wave]=wf->radiant_waveforms[2][send_wave];
     real_time->event_waveform[3][send_wave]=wf->radiant_waveforms[3][send_wave];
+
   }
+  printf("loaded waveforms\n");
 
   //real_time->event_waveform[0]=&wf->radiant_waveforms[0];
   //real_time->event_waveform[1]=&wf->radiant_waveforms[1];
   //real_time->event_waveform[2]=&wf->radiant_waveforms[2];
   //real_time->event_waveform[3]=&wf->radiant_waveforms[3];
   
-  if(DO_REAL_TIME)
+  if(DO_REAL_TIME==1)
   {
+    printf("doing thins\n");
     real_time_calc_rms(real_time); 
     real_time_calc_snr(real_time); 
     real_time_calc_event_fft(real_time);
@@ -1000,7 +1003,7 @@ int radiant_read_event_test(radiant_dev_t * bd, rno_g_header_t * hd, rno_g_wavef
     real_time_calc_desc(real_time);
     printf("lin desc: %f\n",real_time->lin_desc);
 
-    if(WRITE_REAL_TIME)
+    if(WRITE_REAL_TIME==1)
     {
       //new file type called real time something
       //that will store computed values

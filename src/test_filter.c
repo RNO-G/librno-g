@@ -111,10 +111,10 @@ int real_time_load_fft(real_time_t * rt)
 
 
     //load/calc the plan
-    fftwf_import_wisdom_from_filename("imp_wisdom.dat"); 
+    fftwf_import_wisdom_from_filename("~/librno-g/helper/imp_wisdom.dat"); 
     rt->forward = fftwf_plan_dft_1d(2048, rt->in_fft, rt->out_fft, FFTW_FORWARD, FFTW_MEASURE);
     rt-> backward = fftwf_plan_dft_1d(2048, rt->out_fft, rt->in_fft, FFTW_BACKWARD, FFTW_MEASURE);
-    fftwf_export_wisdom_to_filename("imp_wisdom.dat");
+    fftwf_export_wisdom_to_filename("~/librno-g/helper/imp_wisdom.dat");
   
     return 0;
 }
@@ -532,10 +532,10 @@ int test_phased_power_sum()
     fftwf_complex * out_data = fftwf_alloc_complex(NSAMP); //output data
 
     
-    fftwf_import_wisdom_from_filename("imp_wisdom.dat"); 
+    fftwf_import_wisdom_from_filename("~/librno-g/helper/imp_wisdom.dat"); 
     fftwf_plan forward = fftwf_plan_dft_1d(NSAMP, in_data, out_data, FFTW_FORWARD, FFTW_MEASURE);
     fftwf_plan backward = fftwf_plan_dft_1d(NSAMP, out_data, in_data, FFTW_BACKWARD, FFTW_MEASURE);
-    fftwf_export_wisdom_to_filename("imp_wisdom.dat");
+    fftwf_export_wisdom_to_filename("~/librno-g/helper/imp_wisdom.dat");
     
 
 
@@ -1376,10 +1376,10 @@ int test_template()
     fftwf_complex * out_data = fftwf_alloc_complex(NSAMP); //output data
 
     
-    fftwf_import_wisdom_from_filename("imp_wisdom.dat"); 
+    fftwf_import_wisdom_from_filename("~/librno-g/helper/imp_wisdom.dat"); 
     fftwf_plan forward = fftwf_plan_dft_1d(NSAMP, in_data, out_data, FFTW_FORWARD, FFTW_MEASURE);
     fftwf_plan backward = fftwf_plan_dft_1d(NSAMP, out_data, in_data, FFTW_BACKWARD, FFTW_MEASURE);
-    fftwf_export_wisdom_to_filename("imp_wisdom.dat");
+    fftwf_export_wisdom_to_filename("~/librno-g/helper/imp_wisdom.dat");
 
     FILE *t_wave_file;
     int16_t template_wave[2048]={0.};
@@ -1636,13 +1636,13 @@ int fft_time_delay(int16_t * wave1,int16_t * wave2,float * best_corr)
     fftwf_complex * fft1 = fftwf_alloc_complex(NSAMP); //complex fft from real
     fftwf_complex * fft2 = fftwf_alloc_complex(NSAMP);  //complex time for analytic signal
     
-    fftwf_import_wisdom_from_filename("cross_wisdom.dat"); 
+    fftwf_import_wisdom_from_filename("~/librno-g/helper/cross_wisdom.dat"); 
     
     fftwf_plan forward1 = fftwf_plan_dft_1d(NSAMP, real_data1, fft1, FFTW_FORWARD, FFTW_MEASURE);    
     fftwf_plan forward2 = fftwf_plan_dft_1d(NSAMP, real_data2, fft2, FFTW_FORWARD, FFTW_MEASURE);
     fftwf_plan backward = fftwf_plan_dft_1d(NSAMP, fft1, real_data1, FFTW_BACKWARD, FFTW_MEASURE);
 
-    fftwf_export_wisdom_to_filename("cross_wisdom.dat");
+    fftwf_export_wisdom_to_filename("~/librno-g/helper/cross_wisdom.dat");
 
     for (int j = 0; j < NSAMP; j++) 
     {
