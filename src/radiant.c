@@ -98,10 +98,9 @@ typedef enum
   BM_REG_TDBIAS26                   = 0xdc, 
   BM_REG_VPEDLEFT                   = 0xe0, 
   BM_REG_VPEDRIGHT                  = 0xe4,
-  BM_REG_SAMPLING_RATE              = 0xf0
-  BM_REG_VPEDRIGHT                  = 0xe4, 
   BM_REG_TIME_LOW                   = 0xe8,
-  BM_REG_TIME_HIGH                  = 0xec
+  BM_REG_TIME_HIGH                  = 0xec,
+  BM_REG_SAMPLING_RATE              = 0xf0
 }e_bm_reg; 
 
 
