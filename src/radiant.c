@@ -293,13 +293,9 @@ struct radiant_dev
   int triggers_per_cycle; 
   double sleep_per_cycle;
   struct timespec sleep_per_cycle_ts; 
-<<<<<<< HEAD
   radiant_readout_delay_t readout_delays; //32b,32b,8b,8b order
   uint32_t radiant_sampling_rate;
-=======
   uint32_t radiant_rev; 
-
->>>>>>> origin/master
 }; 
 
 
@@ -1010,9 +1006,7 @@ radiant_dev_t * radiant_open(const char *spi_device, const char * uart_device, i
   }
 
   dev->rad_dateversion_int=10000*dev->rad_dateversion.major + 100 * dev->rad_dateversion.minor + dev->rad_dateversion.rev; 
-<<<<<<< HEAD
   dev->bm_dateversion_int=10000*dev->bm_dateversion.major + 100 * dev->bm_dateversion.minor + dev->bm_dateversion.rev; 
-=======
 
   // read in the radiant revision, if available 
   nb = radiant_get_mem(dev,DEST_MANAGER, BM_REG_BDREV, 4, (uint8_t*) &dev->radiant_rev); 
@@ -1023,7 +1017,6 @@ radiant_dev_t * radiant_open(const char *spi_device, const char * uart_device, i
     return 0; 
   }
 
->>>>>>> origin/master
   //read in the radiant CPLD_CTRL, check the programmed bits 
   nb = radiant_get_mem(dev, DEST_FPGA, RAD_REG_CPLD_CTRL, 4, (uint8_t*) &dev->cpldctrl); 
   {
