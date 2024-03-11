@@ -521,6 +521,11 @@ int radiant_get_pps_config( radiant_dev_t *bd, radiant_pps_config_t *cfg);
 
 int radiant_get_fw_version( const radiant_dev_t * bd, radiant_dest_t what,  uint8_t * major, uint8_t *minor, uint8_t* rev, uint8_t * year_minus_2000, uint8_t *month, uint8_t * day); 
 
+
+// returns the revision of the RADIANT board. At this rate, we will exhaust 32 bits in about 4-5 billion years, by which time we should have detected billions of neutrinos. 
+//  (ok, in the future we may stuff minor versions in the upper bits, we'll see). This will return 0 if the board manager firmware is too old to report a version, in which case you can probably assume it's v2. 
+uint32_t radiant_get_board_revision(const radiant_dev_t * bd); 
+
 uint16_t radiant_get_sample_rate(const radiant_dev_t * bd); //Sample rate in MHz
 
 
