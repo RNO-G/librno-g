@@ -370,7 +370,7 @@ inline const rno_g_pedestal_t * rno_g_any_as_pedestal(const rno_g_any_t * any)
 int rno_g_any_read(rno_g_file_handle_t h, rno_g_any_t * any); 
 int rno_g_any_write(rno_g_file_handle_t h, const rno_g_any_t * any); 
 int rno_g_any_dump(FILE * f, const rno_g_any_t * any); 
-int rno_g_any_dump_json(FILE * f, const rno_g_any_t * any); 
+int rno_g_any_dump_json(FILE * f, const rno_g_any_t * any);
 
 const char * rno_g_get_git_hash(); 
 

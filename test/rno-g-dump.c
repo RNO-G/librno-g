@@ -6,13 +6,13 @@
 
 
 
-rno_g_data_type_t filter = RNO_G_INVALID_T; 
+rno_g_data_type_t filter = RNO_G_INVALID_T;
 
 int main(int nargs, char ** args) 
 {
 
-  rno_g_any_t any; 
-  int print_version_magic = 0; 
+  rno_g_any_t any;
+  int print_version_magic = 0;
 
   if (getenv("RNO_G_ENABLE_DEBUG")) print_version_magic = 1; 
 
@@ -109,6 +109,7 @@ int main(int nargs, char ** args)
 
     rno_g_close_handle(&h);
   }
+
   if (json_mode) printf("]}");
 
    return 0;
