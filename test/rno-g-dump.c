@@ -16,10 +16,10 @@ int main(int nargs, char ** args)
   if (getenv("RNO_G_ENABLE_DEBUG")) print_version_magic = 1; 
   
   //check binary name
-  if  (!strcmp(args[0],"rno-g-dump-hdr")) filter = RNO_G_HEADER_T;
-  else if  (!strcmp(args[0],"rno-g-dump-wf")) filter = RNO_G_WAVEFORM_T;
-  else if  (!strcmp(args[0],"rno-g-dump-ped")) filter = RNO_G_PEDESTAL_T;
-  else if  (!strcmp(args[0],"rno-g-dump-ds")) filter = RNO_G_DAQSTATUS_T;
+  if  (strstr(args[0],"rno-g-dump-hdr")) filter = RNO_G_HEADER_T;
+  else if  (strstr(args[0],"rno-g-dump-wf")) filter = RNO_G_WAVEFORM_T;
+  else if  (strstr(args[0],"rno-g-dump-ped")) filter = RNO_G_PEDESTAL_T;
+  else if  (strstr(args[0],"rno-g-dump-ds")) filter = RNO_G_DAQSTATUS_T;
 
 
   for (int i = 1; i < nargs; i++) 
