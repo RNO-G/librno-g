@@ -72,6 +72,11 @@ typedef struct rno_g_file_handle
     FILE * raw; 
     gzFile gz; 
   } handle; 
+  struct      
+  {
+    int version; //version of last packet read (-1  if unset) 
+    int magic; //magic of last packet read (-1  if unset) 
+  } * last;           
 } rno_g_file_handle_t; 
 
 
@@ -174,6 +179,7 @@ int rno_g_header_dump(FILE*f, const rno_g_header_t * header);
 //write in binary format
 int rno_g_header_write(rno_g_file_handle_t handle, const rno_g_header_t * header);
 int rno_g_header_read(rno_g_file_handle_t handle, rno_g_header_t * header);
+
 
 typedef struct radiant_readout_delay_struct
 {
@@ -311,6 +317,49 @@ int rno_g_daqstatus_dump_calpulser(FILE *f, const rno_g_daqstatus_t * ds);
 int rno_g_daqstatus_write(rno_g_file_handle_t handle, const rno_g_daqstatus_t * ds);
 int rno_g_daqstatus_read(rno_g_file_handle_t handle, rno_g_daqstatus_t * ds);
 
+
+typedef enum  rno_g_data_type
+{
+   RNO_G_INVALID_T,
+   RNO_G_WAVEFORM_T, 
+   RNO_G_HEADER_T, 
+   RNO_G_DAQSTATUS_T, 
+   RNO_G_PEDESTAL_T 
+} rno_g_data_type_t;
+
+//tagged union version, mainly for reading (inconvenient for writing, in most csaes)
+typedef struct rno_g_any 
+{
+  union
+  {
+    rno_g_waveform_t wf;
+    rno_g_header_t hd;
+    rno_g_daqstatus_t ds;
+    rno_g_pedestal_t ped;
+  }data; 
+
+  rno_g_data_type_t what; 
+
+  int ok; //non-zero if ok
+
+} rno_g_any_t; 
+
+inline const rno_g_waveform_t * rno_g_any_as_waveform(const rno_g_any_t * any) 
+  { return (any->ok && any->what == RNO_G_WAVEFORM_T) ? &any->data.wf : NULL; }
+
+inline const rno_g_header_t * rno_g_any_as_header(const rno_g_any_t * any) 
+  { return (any->ok && any->what == RNO_G_HEADER_T) ? &any->data.hd : NULL ;}
+
+inline const rno_g_daqstatus_t * rno_g_any_as_daqstatus(const rno_g_any_t * any) 
+  { return (any->ok && any->what == RNO_G_DAQSTATUS_T) ? &any->data.ds : NULL; }
+
+inline const rno_g_pedestal_t * rno_g_any_as_pedestal(const rno_g_any_t * any) 
+  { return (any->ok && any->what == RNO_G_PEDESTAL_T) ? &any->data.ped : NULL ;}
+
+
+int rno_g_any_read(rno_g_file_handle_t h, rno_g_any_t * any); 
+int rno_g_any_write(rno_g_file_handle_t h, const rno_g_any_t * any); 
+int rno_g_any_dump(FILE * f, const rno_g_any_t * any); 
 
 const char * rno_g_get_git_hash(); 
 
