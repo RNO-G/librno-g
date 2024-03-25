@@ -715,7 +715,8 @@ int rno_g_daqstatus_dump_radiant(FILE*f, const rno_g_daqstatus_t *ds)
   int when_radiant = ds->when_radiant; 
   int radiant_ns = (ds->when_radiant-when_radiant)*1e9; 
   struct tm when_tm_radiant; 
-  gmtime_r((time_t*)&when_radiant, &when_tm_radiant); 
+  time_t when_radiant_t = when_radiant;
+  gmtime_r((time_t*)&when_radiant_t, &when_tm_radiant); 
   int ret=fprintf(f,  "========== RADIANT================\n"); 
   ret    += fprintf(f,"DAQSTATUS, radiant_period="); 
   if (!ds->radiant_scaler_period) 
@@ -759,7 +760,8 @@ int rno_g_daqstatus_dump_flower(FILE  *f, const rno_g_daqstatus_t * ds)
   int when_lt = ds->when_lt; 
   int lt_ns = (ds->when_lt - when_lt); 
   struct tm when_tm_lt; 
-  gmtime_r((time_t*)&when_lt, &when_tm_lt); 
+  time_t when_lt_t = when_lt;
+  gmtime_r((time_t*)&when_lt_t, &when_tm_lt); 
 
   ret+=fprintf(f,  "============FLOWER=============\n"); 
   ret += fprintf(f,", recorded at %04d-%02d-%02d %02d:%02d:%02d.%09dZ\n", 
