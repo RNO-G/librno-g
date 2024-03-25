@@ -14,7 +14,7 @@
  */
 
 #define HEADER_VER 1
-#define WF_VER 3 
+#define WF_VER 4 
 #define PED_VER 3 
 #define DAQSTATUS_VER 5 
 
@@ -183,7 +183,7 @@ int rno_g_header_read(rno_g_file_handle_t h, rno_g_header_t *header)
       break; 
     }
     default: 
-      fprintf(stderr,"Uknown header version %d\n", hd.version); 
+      fprintf(stderr,"Unknown header version %d\n", hd.version); 
       return 0; 
   }
 
@@ -222,13 +222,22 @@ int rno_g_waveform_write(rno_g_file_handle_t h, const rno_g_waveform_t *wf)
     wr += do_write(h, wf->lt_nsamples, wf->lt_waveforms[ichan],&sum); 
   }
 
-  wr += do_write(h, 1, &wf->station, &sum); 
+  wr += do_write(h, 2, &wf->radiant_sampling_rate, &sum);
+
+  for (int ichan = 0; ichan < RNO_G_NUM_RADIANT_CHANNELS; ichan++)
+  {
+    wr += do_write(h, 1, &wf->digitizer_readout_delay[ichan], &sum); 
+  }
+
+  wr += do_write(h, 1, &wf->station, &sum);
+
 
   do_write(h, sizeof(sum),&sum,0); 
 
   return wr;
 }
 
+//V1, V2, and V3 all have the same structure - but correspond to bug fixes/firmware updates
 typedef struct rno_g_waveform_v1
 {
   uint32_t event_number; //!< For matching
@@ -240,13 +249,29 @@ typedef struct rno_g_waveform_v1
   uint8_t station; 
 } rno_g_waveform_v1_t; 
 
+typedef struct rno_g_waveform_v4
+{
+  uint32_t event_number; //!< For matching
+  uint32_t run_number;   //!< For matching
+  uint16_t radiant_nsamples; //!< Number of samples per channel for RADIANT
+  uint16_t lt_nsamples; //!< Number of samples per channel for lowthresh
+  int16_t radiant_waveforms[RNO_G_NUM_RADIANT_CHANNELS][RNO_G_MAX_RADIANT_NSAMPLES]; //unrolled. 
+  uint8_t lt_waveforms[RNO_G_NUM_LT_CHANNELS][RNO_G_MAX_LT_NSAMPLES]; // 8-bit digitizer 
+  uint16_t sampling_rate;  
+  uint8_t digitizer_readout_delay[24];
+  uint8_t station;
+
+  //radiant_readout_delay_t radiant_readout_delays;
+
+} rno_g_waveform_v4_t; 
+
 
 int rno_g_waveform_read(rno_g_file_handle_t h, rno_g_waveform_t *wf)
 {
   io_header_t hd; 
   int rd = do_read(h, sizeof(hd), &hd,0); 
   if (!rd) return 0; 
-
+  
   if (hd.magic != WAVEFORM_MAGIC)
   {
     //this is not a waveform! 
@@ -262,9 +287,9 @@ int rno_g_waveform_read(rno_g_file_handle_t h, rno_g_waveform_t *wf)
   // here we handle converting to the newest kind of waveform
   switch (hd.version) 
   {
-    case 1: 
-    case 2: 
-    case WF_VER:
+    case 1:
+    case 2:
+    case 3: //these might need to be rewritten to make the cases useful - though it means repeated blocks of code
       {
         rd = do_read(h,N_BEFORE_DATA,wf,&sum); 
         for (ichan = 0; ichan < RNO_G_NUM_RADIANT_CHANNELS; ichan++)
@@ -295,9 +320,85 @@ int rno_g_waveform_read(rno_g_file_handle_t h, rno_g_waveform_t *wf)
         {
           wf->station =0; 
         }
+
+        if(hd.version<4)
+        {
+          
+          for(ichan=0;ichan<24;ichan++)
+          {
+            wf->digitizer_readout_delay[ichan]=0;
+          }
+          //wf->radiant_readout_delays.rf0_delay=0;
+          //wf->radiant_readout_delays.rf1_delay=0;
+          //wf->radiant_readout_delays.rf0_delay_mask=0;
+          //wf->radiant_readout_delays.rf0_delay_mask=0;
+          wf->radiant_sampling_rate=3200; //the change happened to new versions
+        }
         
         rdsum = do_read(h, sizeof(wanted_sum),&wanted_sum,0); 
 
+
+        if (!rdsum || sum!=wanted_sum) 
+        {
+          fprintf(stderr,"Checksum error. Got %x, wanted %x\n", sum,wanted_sum); 
+          return -1; 
+        }
+        return rd+rdsum; 
+      }
+      case 4:
+      {
+        rd = do_read(h,N_BEFORE_DATA,wf,&sum); 
+        for (ichan = 0; ichan < RNO_G_NUM_RADIANT_CHANNELS; ichan++)
+        {
+          rd+= do_read(h,2*wf->radiant_nsamples, wf->radiant_waveforms[ichan], &sum);
+          if ( hd.version < 3) 
+          {
+            //fix unwrapping bug
+            uint16_t tmp[128]; 
+            memcpy(tmp, wf->radiant_waveforms[ichan], 128*2); 
+            memmove(wf->radiant_waveforms[ichan], wf->radiant_waveforms[ichan]+128, (1024-128)*2); 
+            memcpy(wf->radiant_waveforms[ichan]+1024-128,tmp,128*2); 
+            memcpy(tmp, wf->radiant_waveforms[ichan]+1024, 128*2); 
+            memmove(wf->radiant_waveforms[ichan]+1024, wf->radiant_waveforms[ichan]+128+1024, (1024-128)*2); 
+            memcpy(wf->radiant_waveforms[ichan]+2048-128,tmp,128*2); 
+          }
+        }
+         for (ichan = 0; ichan < RNO_G_NUM_LT_CHANNELS; ichan++)
+        {
+          rd+= do_read(h,wf->lt_nsamples, wf->lt_waveforms[ichan], &sum);
+        }
+
+
+        if(hd.version>3)
+        {
+          rd+= do_read(h,sizeof(wf->radiant_sampling_rate), &wf->radiant_sampling_rate,&sum);
+
+          for(ichan=0;ichan<24;ichan++)
+          {
+            rd+= do_read(h,sizeof(wf->digitizer_readout_delay[0]), &wf->digitizer_readout_delay[ichan],&sum); 
+          }
+
+        }
+        else
+        {
+          for(ichan=0;ichan<24;ichan++)
+          {
+            wf->digitizer_readout_delay[ichan]=0;
+          }
+
+          wf->radiant_sampling_rate=3200;
+        }
+        
+        if (hd.version > 1) 
+        {
+          rd+= do_read(h,sizeof(wf->station), &wf->station,&sum); 
+        }
+        else
+        {
+          wf->station =0; 
+        }
+        
+        rdsum = do_read(h, sizeof(wanted_sum),&wanted_sum,0); 
 
         if (!rdsum || sum!=wanted_sum) 
         {
@@ -368,6 +469,7 @@ int rno_g_waveform_dump(FILE * f, const rno_g_waveform_t * waveform)
 {
   //TODO 
   int ret=0;
+
   for (int i = 0; i < RNO_G_NUM_RADIANT_CHANNELS; i++) 
   {
     for (int j = 0; j < waveform->radiant_nsamples; j++) 
