@@ -248,19 +248,6 @@ typedef struct rno_g_lt_scaler_group
 
 } rno_g_lt_scaler_group_t; 
 
-typedef struct rno_g_lt_scaler_group
-{
-  uint16_t trig_coinc; 
-  uint16_t trig_per_chan[RNO_G_NUM_LT_CHANNELS]; 
-  uint16_t servo_coinc; 
-  uint16_t servo_per_chan[RNO_G_NUM_LT_CHANNELS]; 
-  uint16_t trig_phased;
-  uint16_t trig_per_beam[RNO_G_NUM_LT_BEAMS];
-  uint16_t servo_phased;
-  uint16_t servo_per_beam[RNO_G_NUM_LT_BEAMS];
-
-} rno_g_lt_scaler_group_t; 
-
 
 typedef struct rno_g_lt_scalers
 {
