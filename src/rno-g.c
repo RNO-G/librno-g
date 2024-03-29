@@ -105,7 +105,7 @@ int rno_g_header_dump(FILE *f, const rno_g_header_t *header)
     fprintf(f," %u/%u ", header->radiant_start_windows[i][0], header->radiant_start_windows[i][1]); 
   }
   ret+=fprintf(f, "\n"); 
-  ret+=fprintf(f, " TRIGTYPE: %s %s %s %s %s %s | RAWTRIGINFO: 0x%x| RAWSTATUS: 0x%x\n", 
+  ret+=fprintf(f, " TRIGTYPE: %s %s %s %s %s %s %s | RAWTRIGINFO: 0x%x| RAWSTATUS: 0x%x\n", 
       header->trigger_type & RNO_G_TRIGGER_SOFT ? "SOFT":"",
       header->trigger_type & RNO_G_TRIGGER_PPS ? "PPS":"",
       header->trigger_type & RNO_G_TRIGGER_RF_LT_SIMPLE ? "RFLT":"",
@@ -176,9 +176,6 @@ int rno_g_header_read(rno_g_file_handle_t h, rno_g_header_t *header)
       //I THINK we can just get away with zeroing and reading hdv0 amount
       memset(header,0, sizeof(*header)); 
       rd = do_read(h,sizeof(rno_g_header_v0_t),header, &sum); 
-      hd->lt_simple_trigger_cfg={0.}; //leave empty for now
-      hd->lt_phased_trigger_cfg={0.};
-      hd->radiant_trigger_cfg={0.};
       break; 
     }
     case HEADER_VER:
@@ -762,14 +759,25 @@ int rno_g_daqstatus_write(rno_g_file_handle_t h, const rno_g_daqstatus_t * ds)
   return wr; 
 }
 
-// pre version 5, there was no delay cycle counter 
+// pre version 5, there was no delay cycle counter
+
+typedef struct rno_g_lt_scaler_group_v0
+{
+  uint16_t trig_coinc; 
+  uint16_t trig_per_chan[RNO_G_NUM_LT_CHANNELS]; 
+  uint16_t servo_coinc; 
+  uint16_t servo_per_chan[RNO_G_NUM_LT_CHANNELS]; 
+
+} rno_g_lt_scaler_group_v0_t; 
+
 typedef struct rno_g_lt_scalers_v0
 {
-  rno_g_lt_scaler_group_t s_1Hz; 
-  rno_g_lt_scaler_group_t s_1Hz_gated; 
-  rno_g_lt_scaler_group_t s_100Hz; 
+  rno_g_lt_scaler_group_v0_t s_1Hz; 
+  rno_g_lt_scaler_group_v0_t s_1Hz_gated; 
+  rno_g_lt_scaler_group_v0_t s_100Hz; 
   uint64_t ncycles : 48 ;  //this is the 118 MHz clock
   uint16_t scaler_counter_1Hz : 16; 
+  uint64_t cycle_counter;  // cycle counter, reset on each PPS 
 } rno_g_lt_scalers_v0_t; 
 
 
@@ -840,25 +848,6 @@ typedef struct rno_g_daqstatus_v5
   rno_g_calpulser_info_t cal; 
   uint8_t station;
 } rno_g_daqstatus_v5_t; 
-
-typedef struct rno_g_lt_scaler_group_v0
-{
-  uint16_t trig_coinc; 
-  uint16_t trig_per_chan[RNO_G_NUM_LT_CHANNELS]; 
-  uint16_t servo_coinc; 
-  uint16_t servo_per_chan[RNO_G_NUM_LT_CHANNELS]; 
-
-} rno_g_lt_scaler_group_v0_t; 
-
-typedef struct rno_g_lt_scalers_v0
-{
-  rno_g_lt_scaler_group_v0_t s_1Hz; 
-  rno_g_lt_scaler_group_v0_t s_1Hz_gated; 
-  rno_g_lt_scaler_group_v0_t s_100Hz; 
-  uint64_t ncycles : 48 ;  //this is the 118 MHz clock
-  uint16_t scaler_counter_1Hz : 16; 
-  uint64_t cycle_counter;  // cycle counter, reset on each PPS 
-} rno_g_lt_scalers_v0_t; 
 
 
 int rno_g_daqstatus_read(rno_g_file_handle_t h, rno_g_daqstatus_t *ds)
