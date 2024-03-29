@@ -90,8 +90,8 @@ struct flower_dev
 
   rno_g_lt_simple_trigger_config_t trig_cfg; 
   rno_g_lt_phased_trigger_config_t phased_trig_cfg; 
-  uint8_t trig_thresh[4]; 
-  uint8_t servo_thresh[4]; 
+  uint8_t coinc_trig_thresh[4]; 
+  uint8_t coinc_servo_thresh[4]; 
 
   uint16_t phased_trig_thresh[PHASED_BEAM_NUM]; 
   uint16_t phased_servo_thresh[PHASED_BEAM_NUM]; 
@@ -187,8 +187,8 @@ flower_dev_t * flower_open(const char * spi_device, int spi_en_gpio)
   for (int i = 0; i < 4; i++) 
   {
     flower_read_register(dev, FLWR_REG_TRIG_CH0_THR+i, &thresh_word); 
-    dev->trig_thresh[i] = thresh_word.bytes[3]; 
-    dev->servo_thresh[i] = thresh_word.bytes[2]; 
+    dev->coinc_trig_thresh[i] = thresh_word.bytes[3]; 
+    dev->coinc_servo_thresh[i] = thresh_word.bytes[2]; 
   }
 
   for (int i = 0; i < PHASED_BEAM_NUM; i++) 
@@ -196,7 +196,7 @@ flower_dev_t * flower_open(const char * spi_device, int spi_en_gpio)
     flower_read_register(dev, FLWR_REG_PHASED_THRESHOLDS, &thresh_word);  
     //!!!!!! doubel check VVV !!!!!!
     dev->phased_trig_thresh[i] = ((thresh_word.bytes[2]&0xf)<<8)+thresh_word.bytes[3]; 
-    dev->servo_thresh[i] = (thresh_word.bytes[1]<<4)+((thresh_word.bytes[2]&0xf0)>>4); 
+    dev->phased_servo_thresh[i] = (thresh_word.bytes[1]<<4)+((thresh_word.bytes[2]&0xf0)>>4); 
   }
 
 
@@ -207,10 +207,11 @@ flower_dev_t * flower_open(const char * spi_device, int spi_en_gpio)
   dev->trig_cfg.vpp_mode = cfg_word.bytes[1]; 
   dev->trig_cfg.window = cfg_word.bytes[2];  
   dev->trig_cfg.num_coinc = cfg_word.bytes[3]; 
-
+  flower_read_register(dev,FLWR_REG_TRIG_COINC_MASK, &cfg_word); 
+  dev->trig_cfg.channel_mask=cfg_word.bytes[3];
   flower_read_register(dev,FLWR_REG_PHASED_MASK, &cfg_word); 
   dev->phased_trig_cfg.beam_mask = cfg_word.bytes[3]+(cfg_word.bytes[2]<<8);
-    return dev; 
+  return dev; 
 }
 
 
@@ -298,8 +299,8 @@ int flower_set_coinc_thresholds(flower_dev_t *dev, const uint8_t * trigger_thres
       words[ii].bytes[0] = FLWR_REG_TRIG_CH0_THR+i; 
       words[ii].bytes[2] = servo; 
       words[ii].bytes[3] = trig; 
-      dev->trig_thresh[i] = trig;
-      dev->servo_thresh[i] = servo;
+      dev->coinc_trig_thresh[i] = trig;
+      dev->coinc_servo_thresh[i] = servo;
       ii++; 
     }
   }
@@ -387,8 +388,8 @@ int flower_fill_daqstatus(flower_dev_t *dev, rno_g_daqstatus_t *ds)
 
   for (int i = 0; i < 4; i++) 
   {
-    ds->lt_trigger_thresholds[i] = dev->trig_thresh[i];
-    ds->lt_servo_thresholds[i] = dev->servo_thresh[i];
+    ds->lt_coinc_trigger_thresholds[i] = dev->coinc_trig_thresh[i];
+    ds->lt_coinc_servo_thresholds[i] = dev->coinc_servo_thresh[i];
   }
 
   for (int i = 0; i < PHASED_BEAM_NUM; i++) 
@@ -539,7 +540,7 @@ int flower_dump(FILE * f, flower_dev_t *dev)
 
   for (int i = 0; i < 4; i++) 
   {
-     ret+= fprintf(f,"  THRESH_CH%d:  servo:  %d, trig: %d\n", i, dev->servo_thresh[i], dev->trig_thresh[i]);
+     ret+= fprintf(f,"  THRESH_CH%d:  servo:  %d, trig: %d\n", i, dev->coinc_servo_thresh[i], dev->coinc_trig_thresh[i]);
   }
 
     for (int i = 0; i < PHASED_BEAM_NUM; i++) 
