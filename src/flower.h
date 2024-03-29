@@ -25,7 +25,7 @@ int flower_close(flower_dev_t * dev);
 
 int flower_dump(FILE* f, flower_dev_t *dev); 
 
-int flower_configure_trigger(flower_dev_t* dev, rno_g_lt_simple_trigger_config_t cfg); 
+int flower_configure_trigger(flower_dev_t* dev, rno_g_lt_simple_trigger_config_t cfg, rno_g_lt_simple_trigger_config_t  cfg, rno_g_lt_phased_trigger_config_t phased_cfg); 
 
 int flower_set_thresholds(flower_dev_t *dev, const uint8_t * trigger_thresholds, const uint8_t * servo_thresholds, uint8_t mask); 
 
@@ -90,6 +90,7 @@ typedef struct  flower_trigger_enables
   uint8_t enable_pps : 1; 
   uint8_t enable_ext : 1; 
   uint8_t enable_coinc : 1; 
+  uint8_t enable_phased : 1;
 } flower_trigger_enables_t; 
 
 
