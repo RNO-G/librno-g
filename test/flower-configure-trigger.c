@@ -11,11 +11,13 @@ int main(int nargs, char ** args)
     return 0; 
   }
  rno_g_lt_simple_trigger_config_t cfg; 
+ rno_g_lt_phased_trigger_config_t phased_cfg; 
+
  cfg.window = atoi(args[1]); 
  cfg.num_coinc = atoi(args[2]); 
  cfg.vpp_mode = atoi(args[3]); 
  flower_dev_t * flwr = flower_open("/dev/spidev1.0",-61); 
- flower_configure_trigger(flwr, cfg); 
+ flower_configure_trigger(flwr, cfg, phased_cfg); 
  flower_close(flwr); 
 
 }

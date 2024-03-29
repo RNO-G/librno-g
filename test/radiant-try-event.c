@@ -142,7 +142,7 @@ int main(int nargs, char ** args)
   int internal_pps = 0; 
   int watchdog = 0; 
   int duration = 0; 
-  char which_radiant_trigger=0b0001;
+  char which_radiant_trigger=0;
   uint8_t readout_delay=0;
   uint8_t readout_delay_mask=4;
 
