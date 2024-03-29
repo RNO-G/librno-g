@@ -106,10 +106,10 @@ typedef enum rno_g_flags
 
 typedef struct rno_g_lt_simple_trigger_config
 {
- uint8_t window; 
+  uint8_t window; 
   uint8_t num_coinc : 3; // require > number of coincidences  
   uint8_t vpp_mode : 1; 
-  uint8_t channel_mask: 7;
+  uint8_t channel_mask: 7; 
 } rno_g_lt_simple_trigger_config_t;
 
 typedef struct rno_g_lt_phased_trigger_config
