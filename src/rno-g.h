@@ -311,8 +311,8 @@ typedef struct rno_g_daqstatus
   uint16_t radiant_scalers[RNO_G_NUM_RADIANT_CHANNELS]; 
   uint8_t radiant_prescalers[RNO_G_NUM_RADIANT_CHANNELS]; 
   float radiant_scaler_period; 
-  uint8_t  lt_trigger_thresholds[RNO_G_NUM_LT_CHANNELS]; 
-  uint8_t  lt_servo_thresholds[RNO_G_NUM_LT_CHANNELS]; 
+  uint8_t  lt_coinc_trigger_thresholds[RNO_G_NUM_LT_CHANNELS]; 
+  uint8_t  lt_coinc_servo_thresholds[RNO_G_NUM_LT_CHANNELS]; 
   uint16_t lt_phased_trigger_thresholds[RNO_G_NUM_LT_BEAMS];
   uint16_t lt_phased_servo_thresholds[RNO_G_NUM_LT_BEAMS];
   rno_g_lt_scalers_t lt_scalers; 
