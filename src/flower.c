@@ -88,7 +88,7 @@ struct flower_dev
     flower_word_t word;
   } fwdate;
 
-  rno_g_lt_simple_trigger_config_t trig_cfg; 
+  rno_g_lt_simple_trigger_config_t coinc_trig_cfg; 
   rno_g_lt_phased_trigger_config_t phased_trig_cfg; 
   uint8_t coinc_trig_thresh[4]; 
   uint8_t coinc_servo_thresh[4]; 
@@ -209,11 +209,11 @@ flower_dev_t * flower_open(const char * spi_device, int spi_en_gpio)
   //read in the trigger configuration 
   flower_word_t cfg_word; 
   flower_read_register(dev,FLWR_REG_TRIG_PARAM, &cfg_word); 
-  dev->trig_cfg.vpp_mode = cfg_word.bytes[1]; 
-  dev->trig_cfg.window = cfg_word.bytes[2];  
-  dev->trig_cfg.num_coinc = cfg_word.bytes[3]; 
+  dev->coinc_trig_cfg.vpp_mode = cfg_word.bytes[1]; 
+  dev->coinc_trig_cfg.window = cfg_word.bytes[2];  
+  dev->coinc_trig_cfg.num_coinc = cfg_word.bytes[3]; 
   flower_read_register(dev,FLWR_REG_TRIG_COINC_MASK, &cfg_word); 
-  dev->trig_cfg.channel_mask=cfg_word.bytes[3];
+  dev->coinc_trig_cfg.channel_mask=cfg_word.bytes[3];
   flower_read_register(dev,FLWR_REG_PHASED_MASK, &cfg_word); 
   dev->phased_trig_cfg.beam_mask = cfg_word.bytes[3]+(cfg_word.bytes[2]<<8);
   return dev; 
@@ -321,14 +321,14 @@ int flower_configure_trigger(flower_dev_t * dev, rno_g_lt_simple_trigger_config_
   word.bytes[2] = cfg.window; 
   word.bytes[3] = cfg.num_coinc; 
   ret = write_word(dev,&word); 
-  if (!ret) dev->trig_cfg = cfg; 
+  if (!ret) dev->coinc_trig_cfg = cfg; 
 
   word.bytes[0] = FLWR_REG_TRIG_COINC_MASK;
   word.bytes[1] = 0; 
   word.bytes[2] = 0; 
   word.bytes[3] = cfg.channel_mask; 
   ret = write_word(dev,&word); 
-  if (!ret) dev->trig_cfg = cfg; 
+  if (!ret) dev->coinc_trig_cfg = cfg; 
 
   word.bytes[0] = FLWR_REG_PHASED_MASK;
   word.bytes[1] = 0; 
@@ -343,7 +343,7 @@ int flower_configure_trigger(flower_dev_t * dev, rno_g_lt_simple_trigger_config_
 int flower_fill_header(flower_dev_t * dev, rno_g_header_t * hd)
 {
   if (!dev) return -1; 
-  hd->lt_simple_trigger_cfg = dev->trig_cfg; 
+  hd->lt_simple_trigger_cfg = dev->coinc_trig_cfg; 
   hd->lt_phased_trigger_cfg = dev->phased_trig_cfg;
   return 0; 
 }
@@ -537,7 +537,7 @@ int flower_dump(FILE * f, flower_dev_t *dev)
                 dev->fwdate.word.bytes[0], dev->fwdate.word.bytes[1], 
                 dev->fwdate.word.bytes[2], dev->fwdate.word.bytes[3]); 
   ret+= fprintf(f,"  TRIGCONFIG:  window: %d, num_coinc: %d, vpp_mode: %d, channel_mask1: %d\n", 
-                dev->trig_cfg.window, dev->trig_cfg.num_coinc, dev->trig_cfg.vpp_mode, dev->trig_cfg.channel_mask); 
+                dev->coinc_trig_cfg.window, dev->coinc_trig_cfg.num_coinc, dev->coinc_trig_cfg.vpp_mode, dev->coinc_trig_cfg.channel_mask); 
 
   ret+= fprintf(f,"  PHASEDTRIGCONFIG:  mask: %d\n", 
                 dev->phased_trig_cfg.beam_mask); 
