@@ -26,7 +26,7 @@ int flower_dump(FILE* f, flower_dev_t *dev);
 
 int flower_configure_trigger(flower_dev_t* dev, rno_g_lt_simple_trigger_config_t cfg);
 
-int flower_set_thresholds(flower_dev_t *dev, const uint8_t * trigger_thresholds, const uint8_t * servo_thresholds, uint8_t mask);
+int flower_configure_trigger(flower_dev_t* dev, rno_g_lt_simple_trigger_config_t cfg, rno_g_lt_phased_trigger_config_t phased_cfg); 
 
 int flower_fill_daqstatus(flower_dev_t *dev, rno_g_daqstatus_t * ds);
 
@@ -84,10 +84,11 @@ int flower_equalize(flower_dev_t*dev, float target_rms, uint8_t * gain_codes, in
 
 typedef struct  flower_trigger_enables
 {
-  uint8_t enable_pps : 1;
-  uint8_t enable_ext : 1;
-  uint8_t enable_coinc : 1;
-} flower_trigger_enables_t;
+  uint8_t enable_pps : 1; 
+  uint8_t enable_ext : 1; 
+  uint8_t enable_coinc : 1; 
+  uint8_t enable_phased : 1;
+} flower_trigger_enables_t; 
 
 
 // This is used to determine what forms internal triggers on the FLOWER, though the coinc is required to pass it to trigout too since otherwise it's not formed.

@@ -30,13 +30,13 @@ extern "C"
 
 #define RNO_G_MAX_RADIANT_NSAMPLES 2048
 #define RNO_G_LAB4D_NSAMPLES 4096
-#define RNO_G_PEDESTAL_NSAMPLES RNO_G_LAB4D_NSAMPLES 
-#define RNO_G_NUM_RADIANT_CHANNELS 24 
-#define RNO_G_RADIANT_NBUFS 4 
+#define RNO_G_PEDESTAL_NSAMPLES RNO_G_LAB4D_NSAMPLES
+#define RNO_G_NUM_RADIANT_CHANNELS 24
+#define RNO_G_RADIANT_NBUFS 4
 
 #define RNO_G_MAX_LT_NSAMPLES 512
-#define RNO_G_NUM_LT_CHANNELS 4 
-
+#define RNO_G_NUM_LT_CHANNELS 4
+#define RNO_G_NUM_LT_BEAMS 16
 
 
 /** Forward declarations of file backends, because some may be conditionally compiled in the future */ 
@@ -109,7 +109,14 @@ typedef struct rno_g_lt_simple_trigger_config
  uint8_t window; 
   uint8_t num_coinc : 3; // require > number of coincidences  
   uint8_t vpp_mode : 1; 
+  uint8_t channel_mask: 7;
 } rno_g_lt_simple_trigger_config_t;
+
+typedef struct rno_g_lt_phased_trigger_config
+{
+  uint16_t beam_mask: 15;
+  //maybe if delays are adjustable?
+} rno_g_lt_phased_trigger_config_t;
 
 typedef struct radiant_trigger_config
 {
@@ -165,6 +172,7 @@ typedef struct rno_g_header
   uint16_t lt_nsamples; //!< Number of samples per channel in low-threshold board  (could just keep this in waveform if we wanted)
 
   rno_g_lt_simple_trigger_config_t lt_simple_trigger_cfg; 
+  rno_g_lt_phased_trigger_config_t lt_phased_trigger_cfg;
   rno_g_radiant_trigger_config_t radiant_trigger_cfg[2]; 
 
 } rno_g_header_t; 
@@ -225,14 +233,34 @@ int rno_g_pedestal_write(rno_g_file_handle_t handle, const rno_g_pedestal_t * pe
 int rno_g_pedestal_read(rno_g_file_handle_t handle, rno_g_pedestal_t * pedestal);
 
 
+
+
 typedef struct rno_g_lt_scaler_group
 {
   uint16_t trig_coinc; 
   uint16_t trig_per_chan[RNO_G_NUM_LT_CHANNELS]; 
   uint16_t servo_coinc; 
   uint16_t servo_per_chan[RNO_G_NUM_LT_CHANNELS]; 
+  uint16_t trig_phased;
+  uint16_t trig_per_beam[RNO_G_NUM_LT_BEAMS];
+  uint16_t servo_phased;
+  uint16_t servo_per_beam[RNO_G_NUM_LT_BEAMS];
 
 } rno_g_lt_scaler_group_t; 
+
+typedef struct rno_g_lt_scaler_group
+{
+  uint16_t trig_coinc; 
+  uint16_t trig_per_chan[RNO_G_NUM_LT_CHANNELS]; 
+  uint16_t servo_coinc; 
+  uint16_t servo_per_chan[RNO_G_NUM_LT_CHANNELS]; 
+  uint16_t trig_phased;
+  uint16_t trig_per_beam[RNO_G_NUM_LT_BEAMS];
+  uint16_t servo_phased;
+  uint16_t servo_per_beam[RNO_G_NUM_LT_BEAMS];
+
+} rno_g_lt_scaler_group_t; 
+
 
 typedef struct rno_g_lt_scalers
 {
@@ -298,6 +326,8 @@ typedef struct rno_g_daqstatus
   float radiant_scaler_period; 
   uint8_t  lt_trigger_thresholds[RNO_G_NUM_LT_CHANNELS]; 
   uint8_t  lt_servo_thresholds[RNO_G_NUM_LT_CHANNELS]; 
+  uint16_t lt_phased_trigger_thresholds[RNO_G_NUM_LT_BEAMS];
+  uint16_t lt_phased_servo_thresholds[RNO_G_NUM_LT_BEAMS];
   rno_g_lt_scalers_t lt_scalers; 
   rno_g_radiant_voltages_t radiant_voltages; 
   rno_g_calpulser_info_t cal; 
