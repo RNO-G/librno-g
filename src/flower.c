@@ -11,8 +11,6 @@
 #include <time.h>
 #include <math.h>
 
-#define PHASED_BEAM_NUM 16
-
 typedef enum
 {
   FLWR_REG_FW_VER = 0x01,
@@ -93,8 +91,8 @@ struct flower_dev
   uint8_t coinc_trig_thresh[4]; 
   uint8_t coinc_servo_thresh[4]; 
 
-  uint16_t phased_trig_thresh[PHASED_BEAM_NUM]; 
-  uint16_t phased_servo_thresh[PHASED_BEAM_NUM]; 
+  uint16_t phased_trig_thresh[RNO_G_NUM_LT_BEAMS]; 
+  uint16_t phased_servo_thresh[RNO_G_NUM_LT_BEAMS]; 
 
   int must_clear; 
 
@@ -196,7 +194,7 @@ flower_dev_t * flower_open(const char * spi_device, int spi_en_gpio)
 >>>>>>> 3ddf242 (so many)
   }
 
-  for (int i = 0; i < PHASED_BEAM_NUM; i++) 
+  for (int i = 0; i < RNO_G_NUM_LT_BEAMS; i++) 
   {
     flower_read_register(dev, FLWR_REG_PHASED_THRESHOLDS, &thresh_word);  
     //!!!!!! doubel check VVV !!!!!!
@@ -263,7 +261,7 @@ int flower_set_phased_thresholds(flower_dev_t *dev, const uint16_t * phased_trig
 
   int ii = 0; 
 
-  for (int i = 0; i < PHASED_BEAM_NUM; i++) 
+  for (int i = 0; i < RNO_G_NUM_LT_BEAMS; i++) 
   {
     if (mask & (1 << i)) 
     {
@@ -396,7 +394,7 @@ int flower_fill_daqstatus(flower_dev_t *dev, rno_g_daqstatus_t *ds)
     ds->lt_coinc_servo_thresholds[i] = dev->coinc_servo_thresh[i];
   }
 
-  for (int i = 0; i < PHASED_BEAM_NUM; i++) 
+  for (int i = 0; i < RNO_G_NUM_LT_BEAMS; i++) 
   {
     ds->lt_phased_trigger_thresholds[i] = dev->phased_trig_thresh[i];
     ds->lt_phased_servo_thresholds[i] = dev->phased_servo_thresh[i];
@@ -476,17 +474,17 @@ int flower_fill_daqstatus(flower_dev_t *dev, rno_g_daqstatus_t *ds)
     
 
     ds->lt_scalers.s_1Hz.trig_phased = raw_scalers[36];
-    for (int i = 0; i < PHASED_BEAM_NUM; i++) ds->lt_scalers.s_1Hz.trig_per_beam[i] = raw_scalers[37+i]; 
+    for (int i = 0; i < RNO_G_NUM_LT_BEAMS; i++) ds->lt_scalers.s_1Hz.trig_per_beam[i] = raw_scalers[37+i]; 
     ds->lt_scalers.s_1Hz.servo_coinc = raw_scalers[53];
-    for (int i = 0; i < PHASED_BEAM_NUM; i++) ds->lt_scalers.s_1Hz.servo_per_beam[i] = raw_scalers[54+i]; 
+    for (int i = 0; i < RNO_G_NUM_LT_BEAMS; i++) ds->lt_scalers.s_1Hz.servo_per_beam[i] = raw_scalers[54+i]; 
     ds->lt_scalers.s_1Hz_gated.trig_coinc = raw_scalers[70];
-    for (int i = 0; i < PHASED_BEAM_NUM; i++) ds->lt_scalers.s_1Hz_gated.trig_per_beam[i] = raw_scalers[71+i]; 
+    for (int i = 0; i < RNO_G_NUM_LT_BEAMS; i++) ds->lt_scalers.s_1Hz_gated.trig_per_beam[i] = raw_scalers[71+i]; 
     ds->lt_scalers.s_1Hz_gated.servo_coinc = raw_scalers[87];
-    for (int i = 0; i < PHASED_BEAM_NUM; i++) ds->lt_scalers.s_1Hz_gated.servo_per_beam[i] = raw_scalers[88+i]; 
+    for (int i = 0; i < RNO_G_NUM_LT_BEAMS; i++) ds->lt_scalers.s_1Hz_gated.servo_per_beam[i] = raw_scalers[88+i]; 
     ds->lt_scalers.s_100Hz.trig_coinc = raw_scalers[104];
-    for (int i = 0; i < PHASED_BEAM_NUM; i++) ds->lt_scalers.s_100Hz.trig_per_beam[i] = raw_scalers[105+i]; 
+    for (int i = 0; i < RNO_G_NUM_LT_BEAMS; i++) ds->lt_scalers.s_100Hz.trig_per_beam[i] = raw_scalers[105+i]; 
     ds->lt_scalers.s_100Hz.servo_coinc = raw_scalers[121];
-    for (int i = 0; i < PHASED_BEAM_NUM; i++) ds->lt_scalers.s_100Hz.servo_per_beam[i] = raw_scalers[122+i]; 
+    for (int i = 0; i < RNO_G_NUM_LT_BEAMS; i++) ds->lt_scalers.s_100Hz.servo_per_beam[i] = raw_scalers[122+i]; 
     
 
 
@@ -547,7 +545,7 @@ int flower_dump(FILE * f, flower_dev_t *dev)
      ret+= fprintf(f,"  THRESH_CH%d:  servo:  %d, trig: %d\n", i, dev->coinc_servo_thresh[i], dev->coinc_trig_thresh[i]);
   }
 
-    for (int i = 0; i < PHASED_BEAM_NUM; i++) 
+    for (int i = 0; i < RNO_G_NUM_LT_BEAMS; i++) 
   {
      ret+= fprintf(f,"  THRESH_BEAM%d:  servo:  %d, trig: %d\n", i, dev->phased_servo_thresh[i], dev->phased_trig_thresh[i]);
   }
