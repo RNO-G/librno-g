@@ -21,7 +21,7 @@ int main (int nargs, char ** args)
   for (int i = 1; i <=16; i++) 
   {
     phased_trig_thresh[i-1] = atoi(args[1]); 
-    phased_servo_thresh[i-1] = frac * trig_thresh[i-1]; 
+    phased_servo_thresh[i-1] = frac * phased_trig_thresh[i-1]; 
   }
 
   flower_dev_t * flwr = flower_open("/dev/spidev1.0",-61); 
