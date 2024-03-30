@@ -742,7 +742,7 @@ int rno_g_daqstatus_dump_flower(FILE  *f, const rno_g_daqstatus_t * ds)
                      ds->lt_scalers.s_1Hz.trig_per_beam[i], ds->lt_scalers.s_100Hz.trig_per_beam[i],ds->lt_scalers.s_1Hz_gated.trig_per_beam[i]);
   }
 
-    ret += fprintf(f,"coinc|         |       |      %04d   |      %04d         |       %04d     |      %04d    |      %04d      |   %04d        \n",
+    ret += fprintf(f,"phased|         |       |      %04d   |      %04d         |       %04d     |      %04d    |      %04d      |   %04d        \n",
                      ds->lt_scalers.s_1Hz.servo_phased, ds->lt_scalers.s_100Hz.servo_phased,ds->lt_scalers.s_1Hz_gated.servo_phased,
                      ds->lt_scalers.s_1Hz.trig_phased, ds->lt_scalers.s_100Hz.trig_phased,ds->lt_scalers.s_1Hz_gated.trig_phased); 
 

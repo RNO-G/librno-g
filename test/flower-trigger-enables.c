@@ -5,7 +5,7 @@
 
 int main(int nargs, char ** args) 
 {
-  if (nargs < 5) 
+  if (nargs < 6) 
   {
     printf("Usage: flower-trigger-enables enablecoinc enablepps enableext enablephased\n"); 
     return 0; 
@@ -16,6 +16,7 @@ int main(int nargs, char ** args)
  cfg.enable_pps = atoi(args[2]); 
  cfg.enable_ext = atoi(args[3]); 
  cfg.enable_ext = atoi(args[4]); 
+ cfg.enable_phased= atoi(args[5]);
 
  flower_dev_t * flwr = flower_open("/dev/spidev1.0",-61); 
  flower_set_trigger_enables(flwr, cfg); 
