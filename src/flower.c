@@ -11,6 +11,7 @@
 #include <time.h>
 #include <math.h>
 
+#define NUM_SCALER_REGS 69
 typedef enum
 {
   FLWR_REG_FW_VER = 0x01,
@@ -183,15 +184,9 @@ flower_dev_t * flower_open(const char * spi_device, int spi_en_gpio)
   flower_word_t thresh_word;
   for (int i = 0; i < 4; i++)
   {
-<<<<<<< HEAD
-    flower_read_register(dev, FLWR_REG_TRIG_CH0_THR+i, &thresh_word);
-    dev->trig_thresh[i] = thresh_word.bytes[3];
-    dev->servo_thresh[i] = thresh_word.bytes[2];
-=======
     flower_read_register(dev, FLWR_REG_TRIG_CH0_THR+i, &thresh_word); 
     dev->coinc_trig_thresh[i] = thresh_word.bytes[3]; 
     dev->coinc_servo_thresh[i] = thresh_word.bytes[2]; 
->>>>>>> 3ddf242 (so many)
   }
 
   for (int i = 0; i < RNO_G_NUM_LT_BEAMS; i++) 
@@ -356,11 +351,11 @@ int flower_close(flower_dev_t * dev)
 }
 
 
-static flower_word_t scal_sel_regs[69]; 
+static flower_word_t scal_sel_regs[NUM_SCALER_REGS]; 
 __attribute__((constructor)) 
 static void fill_scal_sel_regs() 
 {
-  for (int i = 0; i < 69; i++) 
+  for (int i = 0; i < NUM_CALER_REGS; i++) 
   {
     scal_sel_regs[i].bytes[0] = FLWR_REG_SCAL_SEL;
     scal_sel_regs[i].bytes[3] = i;
@@ -372,7 +367,7 @@ int flower_fill_daqstatus(flower_dev_t *dev, rno_g_daqstatus_t *ds)
 
   if (!dev) return -1;
 
-  #define MAX_DSNMSG (3*(21)+5)
+  #define MAX_DSNMSG (3*(NUM_SCALER_REGS)+5)
 
   struct spi_ioc_transfer xfer[MAX_DSNMSG] = {0};
 
@@ -380,8 +375,8 @@ int flower_fill_daqstatus(flower_dev_t *dev, rno_g_daqstatus_t *ds)
   static flower_word_t selectread_word = {.bytes = {FLWR_REG_SET_READ_REG,0,0, FLWR_REG_SCAL_RD}};
   static flower_word_t update_tlow = {.bytes = {FLWR_REG_SET_READ_REG,0,0,FLWR_REG_SCAL_TIME_LOW}}; 
   static flower_word_t update_thigh = {.bytes = {FLWR_REG_SET_READ_REG,0,0,FLWR_REG_SCAL_TIME_HIGH}}; 
-  flower_word_t dest_scaler[69] = {0}; 
-  uint16_t raw_scalers[138]; 
+  flower_word_t dest_scaler[NUM_SCALER_REGS] = {0}; 
+  uint16_t raw_scalers[2*NUM_SCALER_REGS]; 
   flower_word_t dest_time[2] = {0}; 
 
   struct timespec start;
@@ -419,7 +414,7 @@ int flower_fill_daqstatus(flower_dev_t *dev, rno_g_daqstatus_t *ds)
   int max_reg;
   if(dev->fwver_int<8) max_reg=32;
   else if(dev->fwver_int==8) max_reg=34;
-  else max_reg=69;
+  else max_reg=NUM_SCALER_REGS;
 
   for (int ireg = 0; ireg <max_reg; ireg++) 
   {
@@ -440,7 +435,7 @@ int flower_fill_daqstatus(flower_dev_t *dev, rno_g_daqstatus_t *ds)
   int nxfer;// =  (dev->fwver_int < 8) ? 3*19+5 : 3*21+5; 
   if(dev->fwver_int <8) nxfer=3*19+5;
   else if (dev->fwver_int == 8) nxfer=3*21+5;
-  else nxfer=3*124+5;
+  else nxfer=3*NUM_SCALER_REGS+5;
 
   clock_gettime(CLOCK_REALTIME,&start);
   int ret = ioctl(dev->spi_fd, SPI_IOC_MESSAGE(nxfer), xfer);
@@ -451,7 +446,7 @@ int flower_fill_daqstatus(flower_dev_t *dev, rno_g_daqstatus_t *ds)
 
   if (ret > 0)
   {
-    for (int i = 0; i < 32; i++)
+    for (int i = 0; i < NUM_SCALER_REGS; i++) 
     {
       uint16_t low =  dest_scaler[i].bytes[3] | ((dest_scaler[i].bytes[2] & 0x0f ) << 8) ;
       uint16_t high = (dest_scaler[i].bytes[1] << 4)  | ((dest_scaler[i].bytes[2] & 0xf0)>>4);
@@ -492,15 +487,15 @@ int flower_fill_daqstatus(flower_dev_t *dev, rno_g_daqstatus_t *ds)
     uint64_t t_low = ( be32toh(dest_time[0].word) & 0xffffff ); 
     uint64_t t_high = ( be32toh(dest_time[1].word) & 0xffffff ); 
     ds->lt_scalers.ncycles =  t_low | t_high << 24; 
-    ds->lt_scalers.scaler_counter_1Hz = raw_scalers[63]; 
+    ds->lt_scalers.scaler_counter_1Hz = raw_scalers[0]; 
 
     //printf("scaler 0x20: %x %x %x %x\n", dest_scaler[32].bytes[0], dest_scaler[32].bytes[1], dest_scaler[32].bytes[2], dest_scaler[32].bytes[3]); 
     //printf("scaler 0x21: %x %x %x %x\n", dest_scaler[33].bytes[0], dest_scaler[33].bytes[1], dest_scaler[33].bytes[2], dest_scaler[33].bytes[3]); 
     if (max_reg > 32) // I have no idea what this is for
     {
-      uint64_t cyc_low =( be32toh(dest_scaler[32].word) & 0xffffff);
-      uint64_t cyc_high =( be32toh(dest_scaler[33].word) & 0xffffff);
-      ds->lt_scalers.cycle_counter = cyc_low  | (cyc_high << 24);
+      uint64_t cyc_low =( be32toh(dest_scaler[1].word) & 0xffffff);  
+      uint64_t cyc_high =( be32toh(dest_scaler[2].word) & 0xffffff);  
+      ds->lt_scalers.cycle_counter = cyc_low  | (cyc_high << 24); 
     }
     else
     {
