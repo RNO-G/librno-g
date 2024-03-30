@@ -12,6 +12,7 @@
 #include <math.h>
 
 #define NUM_SCALER_REGS 69
+
 typedef enum
 {
   FLWR_REG_FW_VER = 0x01,
@@ -424,7 +425,7 @@ int flower_fill_daqstatus(flower_dev_t *dev, rno_g_daqstatus_t *ds)
     xfer[3*ixfer+5].rx_buf = 0;
     xfer[3*ixfer+6].tx_buf =  (uintptr_t)selectread_word.bytes;
     xfer[3*ixfer+6].rx_buf = 0;
-//    xfer[3*ixfer+6].cs_change = 1;
+    //xfer[3*ixfer+6].cs_change = 1;
     xfer[3*ixfer+6].len = sizeof(flower_word_t);
     xfer[3*ixfer+7].rx_buf =  (uintptr_t )dest_scaler[ireg].bytes; // will have to finagle these after
     xfer[3*ixfer+7].len = sizeof(flower_word_t);
@@ -440,7 +441,7 @@ int flower_fill_daqstatus(flower_dev_t *dev, rno_g_daqstatus_t *ds)
   clock_gettime(CLOCK_REALTIME,&start);
   int ret = ioctl(dev->spi_fd, SPI_IOC_MESSAGE(nxfer), xfer);
   clock_gettime(CLOCK_REALTIME,&end);
-//  printf("status ioctl: %d\n", ret);
+  //  printf("status ioctl: %d\n", ret);
 
   ds->when_lt = (start.tv_sec*0.5 + end.tv_sec*0.5) + 1e-9*(start.tv_nsec*0.5 + end.tv_nsec*0.5);
 
@@ -449,7 +450,7 @@ int flower_fill_daqstatus(flower_dev_t *dev, rno_g_daqstatus_t *ds)
     for (int i = 0; i < NUM_SCALER_REGS; i++) 
     {
       uint16_t low =  dest_scaler[i].bytes[3] | ((dest_scaler[i].bytes[2] & 0x0f ) << 8) ;
-      uint16_t high = (dest_scaler[i].bytes[1] << 4)  | ((dest_scaler[i].bytes[2] & 0xf0)>>4);
+      uint16_t high = (dest_scaler[i].bytes[1] << 4) | ((dest_scaler[i].bytes[2] & 0xf0)>>4); 
       raw_scalers[2*i] = low;
       raw_scalers[2*i+1] = high;
     }
@@ -466,24 +467,20 @@ int flower_fill_daqstatus(flower_dev_t *dev, rno_g_daqstatus_t *ds)
     for (int i = 0; i < 4; i++) ds->lt_scalers.s_100Hz.trig_per_chan[i] = raw_scalers[27+i]; 
     ds->lt_scalers.s_100Hz.servo_coinc = raw_scalers[31];
     for (int i = 0; i < 4; i++) ds->lt_scalers.s_100Hz.servo_per_chan[i] = raw_scalers[32+i]; 
-    
 
     ds->lt_scalers.s_1Hz.trig_phased = raw_scalers[36];
     for (int i = 0; i < RNO_G_NUM_LT_BEAMS; i++) ds->lt_scalers.s_1Hz.trig_per_beam[i] = raw_scalers[37+i]; 
-    ds->lt_scalers.s_1Hz.servo_coinc = raw_scalers[53];
+    ds->lt_scalers.s_1Hz.servo_phased = raw_scalers[53];
     for (int i = 0; i < RNO_G_NUM_LT_BEAMS; i++) ds->lt_scalers.s_1Hz.servo_per_beam[i] = raw_scalers[54+i]; 
-    ds->lt_scalers.s_1Hz_gated.trig_coinc = raw_scalers[70];
+    ds->lt_scalers.s_1Hz_gated.trig_phased = raw_scalers[70];
     for (int i = 0; i < RNO_G_NUM_LT_BEAMS; i++) ds->lt_scalers.s_1Hz_gated.trig_per_beam[i] = raw_scalers[71+i]; 
-    ds->lt_scalers.s_1Hz_gated.servo_coinc = raw_scalers[87];
+    ds->lt_scalers.s_1Hz_gated.servo_phased = raw_scalers[87];
     for (int i = 0; i < RNO_G_NUM_LT_BEAMS; i++) ds->lt_scalers.s_1Hz_gated.servo_per_beam[i] = raw_scalers[88+i]; 
-    ds->lt_scalers.s_100Hz.trig_coinc = raw_scalers[104];
+    ds->lt_scalers.s_100Hz.trig_phased = raw_scalers[104];
     for (int i = 0; i < RNO_G_NUM_LT_BEAMS; i++) ds->lt_scalers.s_100Hz.trig_per_beam[i] = raw_scalers[105+i]; 
-    ds->lt_scalers.s_100Hz.servo_coinc = raw_scalers[121];
+    ds->lt_scalers.s_100Hz.servo_phased = raw_scalers[121];
     for (int i = 0; i < RNO_G_NUM_LT_BEAMS; i++) ds->lt_scalers.s_100Hz.servo_per_beam[i] = raw_scalers[122+i]; 
     
-
-
-
     uint64_t t_low = ( be32toh(dest_time[0].word) & 0xffffff ); 
     uint64_t t_high = ( be32toh(dest_time[1].word) & 0xffffff ); 
     ds->lt_scalers.ncycles =  t_low | t_high << 24; 
