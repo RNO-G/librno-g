@@ -358,7 +358,7 @@ static flower_word_t scal_sel_regs[NUM_SCALER_REGS];
 __attribute__((constructor)) 
 static void fill_scal_sel_regs() 
 {
-  for (int i = 0; i < NUM_CALER_REGS; i++) 
+  for (int i = 0; i < NUM_SCALER_REGS; i++) 
   {
     scal_sel_regs[i].bytes[0] = FLWR_REG_SCAL_SEL;
     scal_sel_regs[i].bytes[3] = i; 
