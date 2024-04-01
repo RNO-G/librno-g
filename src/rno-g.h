@@ -109,12 +109,12 @@ typedef struct rno_g_lt_simple_trigger_config
   uint8_t window; 
   uint8_t num_coinc : 3; // require > number of coincidences  
   uint8_t vpp_mode : 1; 
-  uint8_t channel_mask: 7; 
+  uint8_t channel_mask: 4; 
 } rno_g_lt_simple_trigger_config_t;
 
 typedef struct rno_g_lt_phased_trigger_config
 {
-  uint16_t beam_mask: 15;
+  uint16_t beam_mask;
   //maybe if delays are adjustable?
 } rno_g_lt_phased_trigger_config_t;
 
@@ -231,9 +231,6 @@ typedef struct rno_g_pedestal
 int rno_g_pedestal_dump(FILE *f, const rno_g_pedestal_t * pedestal); 
 int rno_g_pedestal_write(rno_g_file_handle_t handle, const rno_g_pedestal_t * pedestal);
 int rno_g_pedestal_read(rno_g_file_handle_t handle, rno_g_pedestal_t * pedestal);
-
-
-
 
 typedef struct rno_g_lt_scaler_group
 {
