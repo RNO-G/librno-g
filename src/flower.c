@@ -209,6 +209,7 @@ flower_dev_t * flower_open(const char * spi_device, int spi_en_gpio)
   flower_read_register(dev,FLWR_REG_TRIG_COINC_MASK, &cfg_word); 
   dev->coinc_trig_cfg.channel_mask=cfg_word.bytes[3];
   flower_read_register(dev,FLWR_REG_PHASED_MASK, &cfg_word); 
+  dev->phased_trig_cfg.power_low_bit = cfg_word.bytes[1];
   dev->phased_trig_cfg.beam_mask = cfg_word.bytes[3]+(cfg_word.bytes[2]<<8);
   return dev; 
 }
@@ -267,7 +268,6 @@ int flower_set_phased_thresholds(flower_dev_t *dev, const uint16_t * phased_trig
       if (phased_trig > 4095) phased_trig = 4095; 
       words[ii].bytes[0] = FLWR_REG_PHASED_THRESHOLDS+i; 
       words[ii].bytes[1] = (phased_servo&0xff0)>>4; 
-
       words[ii].bytes[2] = ((phased_trig&0xf00)>>8)+((phased_servo&0xf)<<4); 
       words[ii].bytes[3] = phased_trig&0xff; 
       dev->phased_trig_thresh[i] = phased_trig;
@@ -325,7 +325,7 @@ int flower_configure_trigger(flower_dev_t * dev, rno_g_lt_simple_trigger_config_
   if (!ret) dev->coinc_trig_cfg = cfg; 
 
   word.bytes[0] = FLWR_REG_PHASED_MASK;
-  word.bytes[1] = 0; 
+  word.bytes[1] = phased_cfg.power_low_bit; 
   word.bytes[2] = (phased_cfg.beam_mask&0xff00)>>8;
   word.bytes[3] = phased_cfg.beam_mask&0xff; 
   ret += write_word(dev,&word); 
@@ -453,6 +453,7 @@ int flower_fill_daqstatus(flower_dev_t *dev, rno_g_daqstatus_t *ds)
       uint16_t high = (dest_scaler[i].bytes[1] << 4) | ((dest_scaler[i].bytes[2] & 0xf0)>>4); 
       raw_scalers[2*i] = low;
       raw_scalers[2*i+1] = high;
+
     }
 
     ds->lt_scalers.s_1Hz.trig_coinc = raw_scalers[6];
@@ -529,8 +530,8 @@ int flower_dump(FILE * f, flower_dev_t *dev)
   ret+= fprintf(f,"  TRIGCONFIG:  window: %d, num_coinc: %d, vpp_mode: %d, channel_mask1: %d\n", 
                 dev->coinc_trig_cfg.window, dev->coinc_trig_cfg.num_coinc, dev->coinc_trig_cfg.vpp_mode, dev->coinc_trig_cfg.channel_mask); 
 
-  ret+= fprintf(f,"  PHASEDTRIGCONFIG:  mask: %d\n", 
-                dev->phased_trig_cfg.beam_mask); 
+  ret+= fprintf(f,"  PHASEDTRIGCONFIG:  mask: %d, power_low_bit: %i\n", 
+                dev->phased_trig_cfg.beam_mask, dev->phased_trig_cfg.power_low_bit); 
 
   for (int i = 0; i < 4; i++) 
   {
