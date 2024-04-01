@@ -115,7 +115,6 @@ typedef struct rno_g_lt_simple_trigger_config
 typedef struct rno_g_lt_phased_trigger_config
 {
   uint16_t beam_mask;
-  uint8_t power_low_bit; //reasonably this could be 0-2
   //maybe if delays are adjustable?
 } rno_g_lt_phased_trigger_config_t;
 
