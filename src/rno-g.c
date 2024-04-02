@@ -149,6 +149,41 @@ typedef struct rno_g_header_v0
   uint16_t lt_nsamples; //!< Number of samples per channel in low-threshold board  (could just keep this in waveform if we wanted)
 } rno_g_header_v0_t; 
 
+typedef struct rno_g_header_v1 
+{
+  uint32_t event_number;  //!< Event number (per run, 0-indexed) 
+  uint32_t trigger_number;//!< Trigger  number (per run, 0-indexed), including triggers not read out due to deadtime
+  uint32_t run_number;    //!< Run number , assigned at startup 
+
+  uint32_t trigger_mask;  //!< Which channels (or beams?) caused the trigger
+  uint32_t trigger_value; //!< Relevant for LT trigger only, probably. Something like the beam power? 
+  uint32_t sys_clk;  //!< Trigger time tag  (number of clock cycles since start of run or since PPS? If since start of run, may need to be 64-bit) 
+  uint32_t pps_count;     //!< Number of PPS's since start of run
+  uint32_t readout_time_secs; // !< readout START time in secondpart
+  uint32_t readout_time_nsecs; // !< readout START time, nanosecond part 
+  uint32_t readout_elapsed_nsecs; // How long it took to do the readout syscall 
+  uint32_t sysclk_last_pps;  //!< sysclk time at last PPS
+  uint32_t sysclk_last_last_pps; //!< sysclk time at last last PPS
+  uint32_t raw_tinfo;       //!< the raw trigger info. To  be figured out. 
+  uint32_t raw_evstatus;    //!< the raw event status flags. To be figured out. 
+
+  uint8_t station_number; //!< The station number. 
+
+  /** Trigger type. See rno_g_trigger_type_t  Or-able */ 
+  uint8_t trigger_type; 
+
+  /** Various flags for the event. See rno_g_flags_t orable */ 
+  uint8_t flags; 
+  uint8_t pretrigger_windows; //!< Number of pretrigger windows? 
+  uint8_t radiant_start_windows[RNO_G_NUM_RADIANT_CHANNELS][2]; //!<this encodes buffer number too. There are two of these because of 2048-sample readout works. The second one will be 0xff (255) if we are in 1024-mode. 
+  uint16_t radiant_nsamples; //!< Number of samples per channel in RADIANT board (could just keep this in waveform if we wanted)
+  uint16_t lt_nsamples; //!< Number of samples per channel in low-threshold board  (could just keep this in waveform if we wanted)
+
+  rno_g_lt_simple_trigger_config_t lt_simple_trigger_cfg; 
+  rno_g_radiant_trigger_config_t radiant_trigger_cfg[2]; 
+
+} rno_g_header_v1_t; 
+
 
 
 int rno_g_header_read(rno_g_file_handle_t h, rno_g_header_t *header)
@@ -175,7 +210,14 @@ int rno_g_header_read(rno_g_file_handle_t h, rno_g_header_t *header)
     {
       //I THINK we can just get away with zeroing and reading hdv0 amount
       memset(header,0, sizeof(*header)); 
-      rd = do_read(h,sizeof(rno_g_header_v0_t),header, &sum); 
+      rd = do_read(h,sizeof(rno_g_header_v0_t),header, &sum);
+      memset(header,0, sizeof(*header)); 
+      break; 
+    }
+    case 1: 
+    {
+      memset(header,0, sizeof(*header)); 
+      rd = do_read(h,sizeof(rno_g_header_v1_t),header, &sum); 
       break; 
     }
     case HEADER_VER:
