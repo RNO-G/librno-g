@@ -1233,6 +1233,7 @@ int radiant_dump(radiant_dev_t *dev, FILE * stream, int flags)
   fprintf(stream,"    RAD_DATE_VERSION: %u.%u.%u (%u/%u/%u) = %d \n", dev->rad_dateversion.major, dev->rad_dateversion.minor, dev->rad_dateversion.rev, 
                       dev->rad_dateversion.year, dev->rad_dateversion.month, dev->rad_dateversion.day , dev->rad_dateversion_int); 
 
+  fprintf(stream,"    SAMPLING RATE: %u MHz\n", dev->radiant_sampling_rate);
   if (dev->radiant_rev)
   {
     fprintf(stream,"    RAD_BOARD_REV: %u\n",dev->radiant_rev);
