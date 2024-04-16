@@ -107,7 +107,7 @@ void quick_spectra(const char * file, int mask = 16777215, const char * save = N
         sub = TMath::Mean(wf.radiant_nsamples, wf.radiant_waveforms[i]); 
       }
 
-      float rate = wf.radiant_nsamples / 1000.f; 
+      float rate = wf.radiant_sampling_rate / 1000.f; 
 
       TGraph * g = new TGraph(wf.radiant_nsamples); 
       for (int j = 0; j < wf.radiant_nsamples; j++) 
