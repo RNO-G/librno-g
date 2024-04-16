@@ -787,6 +787,8 @@ int rno_g_daqstatus_dump_flower(FILE  *f, const rno_g_daqstatus_t * ds)
     ret += fprintf(f,"phased|         |       |      %04d   |      %04d         |       %04d     |      %04d    |      %04d      |   %04d        \n",
                      ds->lt_scalers.s_1Hz.servo_phased, ds->lt_scalers.s_100Hz.servo_phased,ds->lt_scalers.s_1Hz_gated.servo_phased,
                      ds->lt_scalers.s_1Hz.trig_phased, ds->lt_scalers.s_100Hz.trig_phased,ds->lt_scalers.s_1Hz_gated.trig_phased); 
+    
+    ret+=fprintf(f,"phased threshold offset %d\n",ds->lt_phased_threshold_offset);
 
   return ret; 
 }
@@ -997,6 +999,8 @@ int rno_g_daqstatus_read(rno_g_file_handle_t h, rno_g_daqstatus_t *ds)
         ds->radiant_voltages = dsv5.radiant_voltages; 
         ds->cal = dsv5.cal; 
         ds->station = dsv5.station; 
+        //something for lt_phased_thresholds
+
         break; 
       }
     case DAQSTATUS_VER:
