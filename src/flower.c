@@ -198,8 +198,6 @@ flower_dev_t * flower_open(const char * spi_device, int spi_en_gpio)
     dev->phased_servo_thresh[i] = (thresh_word.bytes[1]<<4)+((thresh_word.bytes[2]&0xf0)>>4); 
   }
 
-
-
   //read in the trigger configuration 
   flower_word_t cfg_word; 
   flower_read_register(dev,FLWR_REG_TRIG_PARAM, &cfg_word); 
@@ -210,6 +208,8 @@ flower_dev_t * flower_open(const char * spi_device, int spi_en_gpio)
   dev->coinc_trig_cfg.channel_mask=cfg_word.bytes[3];
   flower_read_register(dev,FLWR_REG_PHASED_MASK, &cfg_word); 
   dev->phased_trig_cfg.beam_mask = cfg_word.bytes[3]+(cfg_word.bytes[2]<<8);
+  flower_read_register(dev,FLWR_REG_PHASED_MASK+1, &cfg_word); 
+  dev->phased_trig_cfg.phased_threshold_offset = cfg_word.bytes[3]+(cfg_word.bytes[2]<<8);
   return dev; 
 }
 
@@ -331,6 +331,13 @@ int flower_configure_trigger(flower_dev_t * dev, rno_g_lt_simple_trigger_config_
   ret += write_word(dev,&word); 
   if (!ret) dev->phased_trig_cfg = phased_cfg; 
 
+  word.bytes[0] = FLWR_REG_PHASED_MASK+1;
+  word.bytes[1] = 0; 
+  word.bytes[2] = (phased_cfg.phased_threshold_offset&0xff00)>>8;
+  word.bytes[3] = phased_cfg.phased_threshold_offset&0xff; 
+  ret += write_word(dev,&word); 
+  if (!ret) dev->phased_trig_cfg = phased_cfg; 
+
   return ret; 
 }
 
@@ -395,7 +402,7 @@ int flower_fill_daqstatus(flower_dev_t *dev, rno_g_daqstatus_t *ds)
     ds->lt_phased_trigger_thresholds[i] = dev->phased_trig_thresh[i];
     ds->lt_phased_servo_thresholds[i] = dev->phased_servo_thresh[i];
   }
-
+  ds->lt_phased_threshold_offset=dev->phased_trig_cfg.phased_threshold_offset;
   //TODO can speed this up by interlacing reads and writes and caching the first part
 
   xfer[0].tx_buf = (uintptr_t) update_word.bytes;
@@ -529,8 +536,8 @@ int flower_dump(FILE * f, flower_dev_t *dev)
   ret+= fprintf(f,"  TRIGCONFIG:  window: %d, num_coinc: %d, vpp_mode: %d, channel_mask1: %d\n", 
                 dev->coinc_trig_cfg.window, dev->coinc_trig_cfg.num_coinc, dev->coinc_trig_cfg.vpp_mode, dev->coinc_trig_cfg.channel_mask); 
 
-  ret+= fprintf(f,"  PHASEDTRIGCONFIG:  mask: %d\n", 
-                dev->phased_trig_cfg.beam_mask); 
+  ret+= fprintf(f,"  PHASEDTRIGCONFIG:  mask: %d, threshold_offset %d \n", 
+                dev->phased_trig_cfg.beam_mask,dev->phased_trig_cfg.phased_threshold_offset); 
 
   for (int i = 0; i < 4; i++) 
   {
