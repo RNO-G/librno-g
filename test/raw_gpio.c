@@ -23,6 +23,7 @@ static int gpio_num = 6;
 #define GPIO_DIN 0x138
 #define GPIO_DOUT 0x13c
 
+int write = -1; 
 
 
 
@@ -37,11 +38,17 @@ int main(int nargs, char ** args)
     sscanf(args[1], "%d.%d", &maybe_gpio_bank, &maybe_gpio_num); 
     if (maybe_gpio_bank < 0 || maybe_gpio_bank > 3 || maybe_gpio_num < 0 || maybe_gpio_num > 31)
     {
-      fprintf(stderr,"usage: raw_gpio BANK.NUM\n"); 
+      fprintf(stderr,"usage: raw_gpio BANK.NUM [writeval]\n"); 
       return 1;
     }
     gpio_bank = maybe_gpio_bank;
     gpio_num = maybe_gpio_num;
+  }
+
+  if (nargs > 2) 
+  {
+    write = atoi(args[2]);
+
   }
 
   int mem_fd = open("/dev/mem", O_RDWR | O_SYNC);;
@@ -61,8 +68,25 @@ int main(int nargs, char ** args)
 
   volatile unsigned * oe = (volatile unsigned*) (gpio_map + GPIO_OE); 
   volatile unsigned * din = (volatile unsigned*) (gpio_map + GPIO_DIN); 
- 
+
+
   printf("GPIO %d.%d:  OE: %d, DIN:%d \n", gpio_bank, gpio_num, !!(*oe & (1 << gpio_num)), !!(*din & (1 << gpio_num))); 
 
+  if (write >=0)
+  {
+    printf("Writing %d!\n", !!write);  
+    volatile unsigned * dout = (volatile unsigned*) (gpio_map + GPIO_DOUT); 
+    if (write) 
+    {
+      *dout |= (1 << gpio_num);
+    }
+    else
+    {
+      *dout &= ~(1 << gpio_num); 
+    }
+
+    printf("GPIO %d.%d:  OE: %d, DIN:%d \n", gpio_bank, gpio_num, !!(*oe & (1 << gpio_num)), !!(*din & (1 << gpio_num))); 
+  }
+ 
 }
 
