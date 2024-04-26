@@ -42,8 +42,6 @@ int main(int nargs, char ** args)
     }
     gpio_bank = maybe_gpio_bank;
     gpio_num = maybe_gpio_num;
-
-
   }
 
   int mem_fd = open("/dev/mem", O_RDWR | O_SYNC);;
@@ -64,7 +62,7 @@ int main(int nargs, char ** args)
   volatile unsigned * oe = (volatile unsigned*) (gpio_map + GPIO_OE); 
   volatile unsigned * din = (volatile unsigned*) (gpio_map + GPIO_DIN); 
  
-  printf("GPIO %d.%d:  OE: %d, DIN:%d \n", !!(*oe & (1 << gpio_num)), !!(*din && (1 << gpio_num))); 
+  printf("GPIO %d.%d:  OE: %d, DIN:%d \n", gpio_bank, gpio_num, !!(*oe & (1 << gpio_num)), !!(*din & (1 << gpio_num))); 
 
 }
 
