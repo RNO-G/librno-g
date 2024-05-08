@@ -40,6 +40,7 @@ typedef enum
   FLWR_REG_PRETRIG= 0x4C,
   FLWR_REG_BUF_CLEAR= 0x4D,
   FLWR_REG_PHASED_MASK = 0x50,
+  FLWR_REG_PHASED_THRESHOLD_OFFSET = 0x51;
   FLWR_REG_TRIGOUT_SYSOUT = 0x5c,
   FLWR_REG_TRIGOUT_AUXOUT = 0x5d,
   FLWR_REG_TRIG_CH0_THR = 0x57,
@@ -328,12 +329,12 @@ int flower_configure_trigger(flower_dev_t * dev, rno_g_lt_simple_trigger_config_
 
   word.bytes[0] = FLWR_REG_PHASED_MASK;
   word.bytes[1] = 0; 
-  word.bytes[2] = (phased_cfg.beam_mask&0xff00)>>8;
+  word.bytes[2] = (phased_cfg.beam_mask&0x0100)>>8;
   word.bytes[3] = phased_cfg.beam_mask&0xff; 
   ret += write_word(dev,&word); 
   if (!ret) dev->phased_trig_cfg = phased_cfg; 
 
-  word.bytes[0] = FLWR_REG_PHASED_MASK+1;
+  word.bytes[0] = FLWR_REG_PHASED_THRESHOLD_OFFSET+1;
   word.bytes[1] = 0; 
   word.bytes[2] = (phased_cfg.phased_threshold_offset&0xff00)>>8;
   word.bytes[3] = phased_cfg.phased_threshold_offset&0xff; 
