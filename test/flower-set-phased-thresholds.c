@@ -16,12 +16,12 @@ int main (int nargs, char ** args)
   //if (nargs > 3) 
   //  frac = atof(args[5]); 
 
-  uint16_t phased_trig_thresh[16]; 
-  uint16_t phased_servo_thresh[16]; 
-  for (int i = 1; i <=16; i++) 
+  uint16_t phased_trig_thresh[9]; 
+  uint16_t phased_servo_thresh[9]; 
+  for (int i = 0; i <9; i++) 
   {
-    phased_trig_thresh[i-1] = atoi(args[1]); 
-    phased_servo_thresh[i-1] = frac * phased_trig_thresh[i-1]; 
+    phased_trig_thresh[i] = atoi(args[1]); 
+    phased_servo_thresh[i] = frac * phased_trig_thresh[i]; 
   }
 
   flower_dev_t * flwr = flower_open("/dev/spidev1.0",-61); 

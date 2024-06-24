@@ -11,7 +11,7 @@
 #include <time.h>
 #include <math.h>
 
-#define NUM_SCALER_REGS 3+(RNO_G_NUM_LT_CHANNELS+1)*3+(RNO_G_NUM_LT_BEAMS+1)*3 //regs are half of scalers nums
+#define NUM_SCALER_REGS 2*(3+(RNO_G_NUM_LT_CHANNELS+1)*3+(RNO_G_NUM_LT_BEAMS+1)*3)
 
 typedef enum
 {
