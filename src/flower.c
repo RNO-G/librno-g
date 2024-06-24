@@ -11,7 +11,7 @@
 #include <time.h>
 #include <math.h>
 
-#define NUM_SCALER_REGS 6+6*4+10*4
+#define NUM_SCALER_REGS 3+(RNO_G_NUM_LT_CHANNELS+1)*3+(RNO_G_NUM_LT_BEAMS+1)*3 //regs are half of scalers nums
 
 typedef enum
 {
@@ -489,7 +489,7 @@ int flower_fill_daqstatus(flower_dev_t *dev, rno_g_daqstatus_t *ds)
     ds->lt_scalers.s_100Hz.trig_phased = raw_scalers[76];
     for (int i = 0; i < RNO_G_NUM_LT_BEAMS; i++) ds->lt_scalers.s_100Hz.trig_per_beam[i] = raw_scalers[77+i]; 
     ds->lt_scalers.s_100Hz.servo_phased = raw_scalers[86];
-    for (int i = 0; i < RNO_G_NUM_LT_BEAMS; i++) ds->lt_scalers.s_100Hz.servo_per_beam[i] = raw_scalers[86+i]; 
+    for (int i = 0; i < RNO_G_NUM_LT_BEAMS; i++) ds->lt_scalers.s_100Hz.servo_per_beam[i] = raw_scalers[87+i]; 
     
     uint64_t t_low = ( be32toh(dest_time[0].word) & 0xffffff ); 
     uint64_t t_high = ( be32toh(dest_time[1].word) & 0xffffff ); 
