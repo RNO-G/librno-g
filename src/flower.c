@@ -193,7 +193,7 @@ flower_dev_t * flower_open(const char * spi_device, int spi_en_gpio)
 
   for (int i = 0; i < RNO_G_NUM_LT_BEAMS; i++) 
   {
-    flower_read_register(dev, FLWR_REG_PHASED_THRESHOLDS, &thresh_word);  
+    flower_read_register(dev, FLWR_REG_PHASED_THRESHOLDS+i, &thresh_word);  
     //!!!!!! doubel check VVV !!!!!!
     dev->phased_trig_thresh[i] = ((thresh_word.bytes[2]&0xf)<<8)+thresh_word.bytes[3]; 
     dev->phased_servo_thresh[i] = (thresh_word.bytes[1]<<4)+((thresh_word.bytes[2]&0xf0)>>4); 
@@ -254,7 +254,7 @@ int flower_set_phased_thresholds(flower_dev_t *dev, const uint16_t * phased_trig
 {
   if (!dev) return -1; 
 
-  flower_word_t words[16] = {0}; 
+  flower_word_t words[9] = {0}; 
 
   int ii = 0; 
 
