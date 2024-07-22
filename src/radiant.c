@@ -998,8 +998,9 @@ radiant_dev_t * radiant_open(const char *spi_device, const char * uart_device, i
     if (dev->bm_dateversion_int >= 219)
     {
       fprintf(stderr,"Attempting a RADIANT COBS flush...\n"); 
-      uint8_t cobs_flush[4] = {0x80,0,0,0};
+      uint8_t cobs_flush[4] = {0,0,0,0,0x80};
       radiant_set_mem(dev,DEST_MANAGER, BM_REG_CONTROL, 4, cobs_flush);
+      sleep(1);
       nb = radiant_get_mem(dev, DEST_FPGA, RAD_REG_IDENT, 4, (uint8_t*) check_radiant);
       if (nb !=4 || memcmp(check_radiant,"TNDR", 4))
       {
