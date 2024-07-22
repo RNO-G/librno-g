@@ -975,16 +975,6 @@ radiant_dev_t * radiant_open(const char *spi_device, const char * uart_device, i
     radiant_close(dev); 
     return 0; 
   }
-  
-  char check_radiant[4] = { 'l','i','a','f' }; 
-  nb = radiant_get_mem(dev, DEST_FPGA, RAD_REG_IDENT, 4, (uint8_t*) check_radiant); 
-
-  if (nb!=4 || memcmp(check_radiant,"TNDR",4))
-  {
-    fprintf(stderr, "RADIANT DID NOT IDENTIFY PROPERLY. READ %d BYTES, HAVE \"%c%c%c%c\"\n", nb, check_radiant[3], check_radiant[2], check_radiant[1], check_radiant[0]); 
-    radiant_close(dev); 
-    return 0; 
-  }
 
   // read in the BM version information 
   nb = radiant_get_mem(dev, DEST_MANAGER, BM_REG_DATEVERSION, 4, (uint8_t *) &dev->bm_dateversion);
@@ -993,6 +983,40 @@ radiant_dev_t * radiant_open(const char *spi_device, const char * uart_device, i
     fprintf(stderr, "Could not read version from RADIANT Board Manager\n"); 
     radiant_close(dev); 
     return 0; 
+  }
+
+  dev->bm_dateversion_int=10000*dev->bm_dateversion.major + 100 * dev->bm_dateversion.minor + dev->bm_dateversion.rev; 
+
+  char check_radiant[4] = { 'l','i','a','f' }; 
+  nb = radiant_get_mem(dev, DEST_FPGA, RAD_REG_IDENT, 4, (uint8_t*) check_radiant); 
+
+  if (nb!=4 || memcmp(check_radiant,"TNDR",4))
+  {
+    fprintf(stderr, "RADIANT DID NOT IDENTIFY PROPERLY. READ %d BYTES, HAVE \"%c%c%c%c\"\n", nb, check_radiant[3], check_radiant[2], check_radiant[1], check_radiant[0]); 
+
+    //try a COBS FLUSH, if supported
+    if (dev->bm_dateversion_int >= 219)
+    {
+      fprintf(stderr,"Attempting a RADIANT COBS flush...\n"); 
+      uint8_t cobs_flush[4] = {0x80,0,0,0};
+      radiant_set_mem(dev,DEST_MANAGER, BM_REG_CONTROL, 4, cobs_flush);
+      nb = radiant_get_mem(dev, DEST_FPGA, RAD_REG_IDENT, 4, (uint8_t*) check_radiant);
+      if (nb !=4 || memcmp(check_radiant,"TNDR", 4))
+      {
+        fprintf(stderr, "RADIANT STILL DID NOT IDENTIFY PROPERLY. READ %d BYTES, HAVE \"%c%c%c%c\"\n", nb, check_radiant[3], check_radiant[2], check_radiant[1], check_radiant[0]); 
+        radiant_close(dev); 
+        return 0;
+      }
+      else
+      {
+        fprintf(stderr,"Hallelujah! It worked\n"); 
+      }
+    }
+    else
+    {
+      radiant_close(dev); 
+      return 0;
+    }
   }
 
   // read in the radiant version information 
@@ -1005,7 +1029,6 @@ radiant_dev_t * radiant_open(const char *spi_device, const char * uart_device, i
   }
 
   dev->rad_dateversion_int=10000*dev->rad_dateversion.major + 100 * dev->rad_dateversion.minor + dev->rad_dateversion.rev; 
-  dev->bm_dateversion_int=10000*dev->bm_dateversion.major + 100 * dev->bm_dateversion.minor + dev->bm_dateversion.rev; 
 
   // read in the radiant revision, if available 
   nb = radiant_get_mem(dev,DEST_MANAGER, BM_REG_BDREV, 4, (uint8_t*) &dev->radiant_rev); 
