@@ -51,8 +51,13 @@ typedef enum
   FLWR_REG_PPS_DELAY = 0x5e, 
   FLWR_REG_TRIG_COINC_MASK = 0x5f,
   FLWR_REG_SET_READ_REG = 0x6d,
+<<<<<<< HEAD
   FLWR_REG_PHASED_THRESHOLDS = 0x80,
   FLWR_REG_MAX=0xff
+=======
+  FLWR_REG_MAX=0xff,
+  FLWR_REG_PHASED_THRESHOLDS = 0x80
+>>>>>>> 503a15667452a35208a19e1fa617f94996f4e2e0
 } e_flower_reg; 
 
 typedef enum
