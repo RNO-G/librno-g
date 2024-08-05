@@ -191,26 +191,34 @@ flower_dev_t * flower_open(const char * spi_device, int spi_en_gpio)
     dev->coinc_servo_thresh[i] = thresh_word.bytes[2]; 
   }
 
-  for (int i = 0; i < RNO_G_NUM_LT_BEAMS; i++) 
-  {
-    flower_read_register(dev, FLWR_REG_PHASED_THRESHOLDS+i, &thresh_word);  
-    //!!!!!! doubel check VVV !!!!!!
-    dev->phased_trig_thresh[i] = ((thresh_word.bytes[2]&0xf)<<8)+thresh_word.bytes[3]; 
-    dev->phased_servo_thresh[i] = (thresh_word.bytes[1]<<4)+((thresh_word.bytes[2]&0xf0)>>4); 
-  }
-
+  
   //read in the trigger configuration 
   flower_word_t cfg_word; 
   flower_read_register(dev,FLWR_REG_TRIG_PARAM, &cfg_word); 
   dev->coinc_trig_cfg.vpp_mode = cfg_word.bytes[1]; 
   dev->coinc_trig_cfg.window = cfg_word.bytes[2];  
   dev->coinc_trig_cfg.num_coinc = cfg_word.bytes[3]; 
-  flower_read_register(dev,FLWR_REG_TRIG_COINC_MASK, &cfg_word); 
-  dev->coinc_trig_cfg.channel_mask=cfg_word.bytes[3];
-  flower_read_register(dev,FLWR_REG_PHASED_MASK, &cfg_word); 
-  dev->phased_trig_cfg.beam_mask = cfg_word.bytes[3]+(cfg_word.bytes[2]<<8);
-  flower_read_register(dev,FLWR_REG_PHASED_MASK+1, &cfg_word); 
-  dev->phased_trig_cfg.phased_threshold_offset = cfg_word.bytes[3]+(cfg_word.bytes[2]<<8);
+
+  if (dev->fwver_int>=9)
+  {  
+    //these will need to be moved into a new fw check when implemented
+    //flower_read_register(dev,FLWR_REG_TRIG_COINC_MASK, &cfg_word); 
+    //dev->coinc_trig_cfg.channel_mask=cfg_word.bytes[3]; //trig config would need updated to include this
+    //for now hardcode
+    dev->coinc_trig_cfg.channel_mask=0xff;
+
+    for (int i = 0; i < RNO_G_NUM_LT_BEAMS; i++) 
+    {
+      flower_read_register(dev, FLWR_REG_PHASED_THRESHOLDS+i, &thresh_word);  
+      dev->phased_trig_thresh[i] = ((thresh_word.bytes[2]&0xf)<<8)+thresh_word.bytes[3]; 
+      dev->phased_servo_thresh[i] = (thresh_word.bytes[1]<<4)+((thresh_word.bytes[2]&0xf0)>>4); 
+    }
+    flower_read_register(dev,FLWR_REG_PHASED_MASK, &cfg_word); 
+    dev->phased_trig_cfg.beam_mask = cfg_word.bytes[3]+(cfg_word.bytes[2]<<8);
+    flower_read_register(dev,FLWR_REG_PHASED_MASK+1, &cfg_word); 
+    dev->phased_trig_cfg.phased_threshold_offset = cfg_word.bytes[3]+(cfg_word.bytes[2]<<8);
+  }
+
   return dev; 
 }
 
@@ -252,9 +260,9 @@ int flower_read_register(flower_dev_t*dev, uint8_t addr, flower_word_t * result)
 
 int flower_set_phased_thresholds(flower_dev_t *dev, const uint16_t * phased_trigger_thresholds, const uint16_t * phased_servo_thresholds, uint16_t mask) 
 {
-  if (!dev) return -1; 
+  if (!dev || dev->fwver_int<9) return -1; 
 
-  flower_word_t words[9] = {0}; 
+  flower_word_t words[RNO_G_NUM_LT_BEAMS] = {0}; 
 
   int ii = 0; 
 
@@ -318,26 +326,35 @@ int flower_configure_trigger(flower_dev_t * dev, rno_g_lt_simple_trigger_config_
   ret = write_word(dev,&word); 
   if (!ret) dev->coinc_trig_cfg = cfg; 
 
-  word.bytes[0] = FLWR_REG_TRIG_COINC_MASK;
-  word.bytes[1] = 0; 
-  word.bytes[2] = 0; 
-  word.bytes[3] = cfg.channel_mask; 
-  ret = write_word(dev,&word); 
-  if (!ret) dev->coinc_trig_cfg = cfg; 
+  /* not implemented yet but leaving software so commenting write/read
+  if(dev->fwver_int>=10)
+  {  
+    word.bytes[0] = FLWR_REG_TRIG_COINC_MASK;
+    word.bytes[1] = 0; 
+    word.bytes[2] = 0; 
+    word.bytes[3] = cfg.channel_mask; 
+    ret = write_word(dev,&word); 
+    if (!ret) dev->coinc_trig_cfg = cfg; 
+  }
+  */
 
-  word.bytes[0] = FLWR_REG_PHASED_MASK;
-  word.bytes[1] = 0; 
-  word.bytes[2] = (phased_cfg.beam_mask&0x0100)>>8;
-  word.bytes[3] = phased_cfg.beam_mask&0xff; 
-  ret += write_word(dev,&word); 
-  if (!ret) dev->phased_trig_cfg = phased_cfg; 
+  if(dev->fwver_int>=9)
+  {
+    word.bytes[0] = FLWR_REG_PHASED_MASK;
+    word.bytes[1] = 0; 
+    word.bytes[2] = (phased_cfg.beam_mask&0x0100)>>8;
+    word.bytes[3] = phased_cfg.beam_mask&0xff; 
+    ret += write_word(dev,&word); 
+    if (!ret) dev->phased_trig_cfg = phased_cfg; 
 
-  word.bytes[0] = FLWR_REG_PHASED_THRESHOLD_OFFSET+1;
-  word.bytes[1] = 0; 
-  word.bytes[2] = (phased_cfg.phased_threshold_offset&0xff00)>>8;
-  word.bytes[3] = phased_cfg.phased_threshold_offset&0xff; 
-  ret += write_word(dev,&word); 
-  if (!ret) dev->phased_trig_cfg = phased_cfg; 
+    word.bytes[0] = FLWR_REG_PHASED_THRESHOLD_OFFSET+1;
+    word.bytes[1] = 0; 
+    word.bytes[2] = (phased_cfg.phased_threshold_offset&0xff00)>>8;
+    word.bytes[3] = phased_cfg.phased_threshold_offset&0xff; 
+    ret += write_word(dev,&word); 
+    if (!ret) dev->phased_trig_cfg = phased_cfg; 
+  }
+
 
   return ret; 
 }
@@ -358,7 +375,6 @@ int flower_close(flower_dev_t * dev)
   free(dev);
   return 0;
 }
-
 
 static flower_word_t scal_sel_regs[NUM_SCALER_REGS]; 
 __attribute__((constructor)) 
@@ -398,12 +414,14 @@ int flower_fill_daqstatus(flower_dev_t *dev, rno_g_daqstatus_t *ds)
     ds->lt_coinc_servo_thresholds[i] = dev->coinc_servo_thresh[i];
   }
 
+  //these don't need version checking since it doesn't do the read (should be 0 in dev)
   for (int i = 0; i < RNO_G_NUM_LT_BEAMS; i++) 
   {
     ds->lt_phased_trigger_thresholds[i] = dev->phased_trig_thresh[i];
     ds->lt_phased_servo_thresholds[i] = dev->phased_servo_thresh[i];
   }
   ds->lt_phased_threshold_offset=dev->phased_trig_cfg.phased_threshold_offset;
+
   //TODO can speed this up by interlacing reads and writes and caching the first part
 
   xfer[0].tx_buf = (uintptr_t) update_word.bytes;
@@ -423,7 +441,7 @@ int flower_fill_daqstatus(flower_dev_t *dev, rno_g_daqstatus_t *ds)
   int max_reg;
   if(dev->fwver_int<8) max_reg=32;
   else if(dev->fwver_int==8) max_reg=34;
-  else max_reg=NUM_SCALER_REGS;
+  else max_reg=NUM_SCALER_REGS; //dev->fwver_int==9
 
   for (int ireg = 0; ireg <max_reg; ireg++) 
   {
@@ -444,7 +462,7 @@ int flower_fill_daqstatus(flower_dev_t *dev, rno_g_daqstatus_t *ds)
   int nxfer;// =  (dev->fwver_int < 8) ? 3*19+5 : 3*21+5; 
   if(dev->fwver_int <8) nxfer=3*19+5;
   else if (dev->fwver_int == 8) nxfer=3*21+5;
-  else nxfer=3*NUM_SCALER_REGS+5;
+  else nxfer=3*NUM_SCALER_REGS+5; //dev->fwver_int==9
 
   clock_gettime(CLOCK_REALTIME,&start);
   int ret = ioctl(dev->spi_fd, SPI_IOC_MESSAGE(nxfer), xfer);
@@ -463,52 +481,72 @@ int flower_fill_daqstatus(flower_dev_t *dev, rno_g_daqstatus_t *ds)
       raw_scalers[2*i+1] = high;
     }
     
-    ds->lt_scalers.s_1Hz.trig_coinc = raw_scalers[6];
-    for (int i = 0; i < 4; i++) ds->lt_scalers.s_1Hz.trig_per_chan[i] = raw_scalers[7+i]; 
-    ds->lt_scalers.s_1Hz.servo_coinc = raw_scalers[11];
-    for (int i = 0; i < 4; i++) ds->lt_scalers.s_1Hz.servo_per_chan[i] = raw_scalers[12+i]; 
-    ds->lt_scalers.s_1Hz_gated.trig_coinc = raw_scalers[16];
-    for (int i = 0; i < 4; i++) ds->lt_scalers.s_1Hz_gated.trig_per_chan[i] = raw_scalers[17+i]; 
-    ds->lt_scalers.s_1Hz_gated.servo_coinc = raw_scalers[21];
-    for (int i = 0; i < 4; i++) ds->lt_scalers.s_1Hz_gated.servo_per_chan[i] = raw_scalers[22+i]; 
-    ds->lt_scalers.s_100Hz.trig_coinc = raw_scalers[26];
-    for (int i = 0; i < 4; i++) ds->lt_scalers.s_100Hz.trig_per_chan[i] = raw_scalers[27+i]; 
-    ds->lt_scalers.s_100Hz.servo_coinc = raw_scalers[31];
-    for (int i = 0; i < 4; i++) ds->lt_scalers.s_100Hz.servo_per_chan[i] = raw_scalers[32+i]; 
-
-    ds->lt_scalers.s_1Hz.trig_phased = raw_scalers[36];
-    for (int i = 0; i < RNO_G_NUM_LT_BEAMS; i++) ds->lt_scalers.s_1Hz.trig_per_beam[i] = raw_scalers[37+i]; 
-    ds->lt_scalers.s_1Hz.servo_phased = raw_scalers[46];
-    for (int i = 0; i < RNO_G_NUM_LT_BEAMS; i++) ds->lt_scalers.s_1Hz.servo_per_beam[i] = raw_scalers[47+i]; 
-    ds->lt_scalers.s_1Hz_gated.trig_phased = raw_scalers[56];
-    for (int i = 0; i < RNO_G_NUM_LT_BEAMS; i++) ds->lt_scalers.s_1Hz_gated.trig_per_beam[i] = raw_scalers[57+i]; 
-    ds->lt_scalers.s_1Hz_gated.servo_phased = raw_scalers[66];
-    for (int i = 0; i < RNO_G_NUM_LT_BEAMS; i++) ds->lt_scalers.s_1Hz_gated.servo_per_beam[i] = raw_scalers[67+i]; 
-    ds->lt_scalers.s_100Hz.trig_phased = raw_scalers[76];
-    for (int i = 0; i < RNO_G_NUM_LT_BEAMS; i++) ds->lt_scalers.s_100Hz.trig_per_beam[i] = raw_scalers[77+i]; 
-    ds->lt_scalers.s_100Hz.servo_phased = raw_scalers[86];
-    for (int i = 0; i < RNO_G_NUM_LT_BEAMS; i++) ds->lt_scalers.s_100Hz.servo_per_beam[i] = raw_scalers[87+i]; 
+    ds->lt_scalers.cycle_counter = 0;
     
-    uint64_t t_low = ( be32toh(dest_time[0].word) & 0xffffff ); 
-    uint64_t t_high = ( be32toh(dest_time[1].word) & 0xffffff ); 
-    ds->lt_scalers.ncycles =  t_low | t_high << 24; 
-    ds->lt_scalers.scaler_counter_1Hz = raw_scalers[0]; 
-
-    //printf("scaler 0x20: %x %x %x %x\n", dest_scaler[32].bytes[0], dest_scaler[32].bytes[1], dest_scaler[32].bytes[2], dest_scaler[32].bytes[3]); 
-    //printf("scaler 0x21: %x %x %x %x\n", dest_scaler[33].bytes[0], dest_scaler[33].bytes[1], dest_scaler[33].bytes[2], dest_scaler[33].bytes[3]); 
-    if (max_reg > 32) // I have no idea what this is for
+    //these need different version
+    if(dev->fwver_int>=9)
     {
+      ds->lt_scalers.s_1Hz.trig_coinc = raw_scalers[6];
+      for (int i = 0; i < 4; i++) ds->lt_scalers.s_1Hz.trig_per_chan[i] = raw_scalers[7+i]; 
+      ds->lt_scalers.s_1Hz.servo_coinc = raw_scalers[11];
+      for (int i = 0; i < 4; i++) ds->lt_scalers.s_1Hz.servo_per_chan[i] = raw_scalers[12+i]; 
+      ds->lt_scalers.s_1Hz_gated.trig_coinc = raw_scalers[16];
+      for (int i = 0; i < 4; i++) ds->lt_scalers.s_1Hz_gated.trig_per_chan[i] = raw_scalers[17+i]; 
+      ds->lt_scalers.s_1Hz_gated.servo_coinc = raw_scalers[21];
+      for (int i = 0; i < 4; i++) ds->lt_scalers.s_1Hz_gated.servo_per_chan[i] = raw_scalers[22+i]; 
+      ds->lt_scalers.s_100Hz.trig_coinc = raw_scalers[26];
+      for (int i = 0; i < 4; i++) ds->lt_scalers.s_100Hz.trig_per_chan[i] = raw_scalers[27+i]; 
+      ds->lt_scalers.s_100Hz.servo_coinc = raw_scalers[31];
+      for (int i = 0; i < 4; i++) ds->lt_scalers.s_100Hz.servo_per_chan[i] = raw_scalers[32+i]; 
+
+      ds->lt_scalers.s_1Hz.trig_phased = raw_scalers[36];
+      for (int i = 0; i < RNO_G_NUM_LT_BEAMS; i++) ds->lt_scalers.s_1Hz.trig_per_beam[i] = raw_scalers[37+i]; 
+      ds->lt_scalers.s_1Hz.servo_phased = raw_scalers[46];
+      for (int i = 0; i < RNO_G_NUM_LT_BEAMS; i++) ds->lt_scalers.s_1Hz.servo_per_beam[i] = raw_scalers[47+i]; 
+      ds->lt_scalers.s_1Hz_gated.trig_phased = raw_scalers[56];
+      for (int i = 0; i < RNO_G_NUM_LT_BEAMS; i++) ds->lt_scalers.s_1Hz_gated.trig_per_beam[i] = raw_scalers[57+i]; 
+      ds->lt_scalers.s_1Hz_gated.servo_phased = raw_scalers[66];
+      for (int i = 0; i < RNO_G_NUM_LT_BEAMS; i++) ds->lt_scalers.s_1Hz_gated.servo_per_beam[i] = raw_scalers[67+i]; 
+      ds->lt_scalers.s_100Hz.trig_phased = raw_scalers[76];
+      for (int i = 0; i < RNO_G_NUM_LT_BEAMS; i++) ds->lt_scalers.s_100Hz.trig_per_beam[i] = raw_scalers[77+i]; 
+      ds->lt_scalers.s_100Hz.servo_phased = raw_scalers[86];
+      for (int i = 0; i < RNO_G_NUM_LT_BEAMS; i++) ds->lt_scalers.s_100Hz.servo_per_beam[i] = raw_scalers[87+i]; 
+      
+      ds->lt_scalers.scaler_counter_1Hz = raw_scalers[0]; 
+
       uint64_t cyc_low =( be32toh(dest_scaler[1].word) & 0xffffff);  
       uint64_t cyc_high =( be32toh(dest_scaler[2].word) & 0xffffff);  
       ds->lt_scalers.cycle_counter = cyc_low  | (cyc_high << 24); 
+
     }
-    else
+    else //dev->fwver_int<9
     {
-      ds->lt_scalers.cycle_counter = 0;
+      ds->lt_scalers.s_1Hz.trig_coinc = raw_scalers[0];
+      for (int i = 0; i < 4; i++) ds->lt_scalers.s_1Hz.trig_per_chan[i] = raw_scalers[1+i];
+      ds->lt_scalers.s_1Hz.servo_coinc = raw_scalers[5];
+      for (int i = 0; i < 4; i++) ds->lt_scalers.s_1Hz.servo_per_chan[i] = raw_scalers[6+i];
+      ds->lt_scalers.s_1Hz_gated.trig_coinc = raw_scalers[12];
+      for (int i = 0; i < 4; i++) ds->lt_scalers.s_1Hz_gated.trig_per_chan[i] = raw_scalers[13+i];
+      ds->lt_scalers.s_1Hz_gated.servo_coinc = raw_scalers[12+5];
+      for (int i = 0; i < 4; i++) ds->lt_scalers.s_1Hz_gated.servo_per_chan[i] = raw_scalers[18+i];
+      ds->lt_scalers.s_100Hz.trig_coinc = raw_scalers[24];
+      for (int i = 0; i < 4; i++) ds->lt_scalers.s_100Hz.trig_per_chan[i] = raw_scalers[25+i];
+      ds->lt_scalers.s_100Hz.servo_coinc = raw_scalers[24+5];
+      for (int i = 0; i < 4; i++) ds->lt_scalers.s_100Hz.servo_per_chan[i] = raw_scalers[30+i];
 
+      ds->lt_scalers.scaler_counter_1Hz = raw_scalers[63]; 
+        
+      uint64_t cyc_low =( be32toh(dest_scaler[32].word) & 0xffffff);  
+      uint64_t cyc_high =( be32toh(dest_scaler[33].word) & 0xffffff);  
+      ds->lt_scalers.cycle_counter = cyc_low  | (cyc_high << 24); 
     }
-
-
+  
+    uint64_t t_low = ( be32toh(dest_time[0].word) & 0xffffff ); 
+    uint64_t t_high = ( be32toh(dest_time[1].word) & 0xffffff ); 
+    ds->lt_scalers.ncycles =  t_low | t_high << 24; 
+    
+    //printf("scaler 0x20: %x %x %x %x\n", dest_scaler[32].bytes[0], dest_scaler[32].bytes[1], dest_scaler[32].bytes[2], dest_scaler[32].bytes[3]); 
+    //printf("scaler 0x21: %x %x %x %x\n", dest_scaler[33].bytes[0], dest_scaler[33].bytes[1], dest_scaler[33].bytes[2], dest_scaler[33].bytes[3]); 
 
     return 0;
   }
@@ -534,7 +572,7 @@ int flower_dump(FILE * f, flower_dev_t *dev)
                 dev->fwdate.word.word,
                 dev->fwdate.word.bytes[0], dev->fwdate.word.bytes[1], 
                 dev->fwdate.word.bytes[2], dev->fwdate.word.bytes[3]); 
-  ret+= fprintf(f,"  TRIGCONFIG:  window: %d, num_coinc: %d, vpp_mode: %d, channel_mask1: %d\n", 
+  ret+= fprintf(f,"  TRIGCONFIG:  window: %d, num_coinc: %d, vpp_mode: %d, channel_mask: %d\n", 
                 dev->coinc_trig_cfg.window, dev->coinc_trig_cfg.num_coinc, dev->coinc_trig_cfg.vpp_mode, dev->coinc_trig_cfg.channel_mask); 
 
   ret+= fprintf(f,"  PHASEDTRIGCONFIG:  mask: %d, threshold_offset %d \n", 
