@@ -25,6 +25,6 @@ int main (int nargs, char ** args)
   }
 
   flower_dev_t * flwr = flower_open("/dev/spidev1.0",-61); 
-  flower_set_thresholds(flwr, trig_thresh, servo_thresh, 0xf); 
+  flower_set_coinc_thresholds(flwr, trig_thresh, servo_thresh, 0xf); 
   flower_close(flwr); 
 }
