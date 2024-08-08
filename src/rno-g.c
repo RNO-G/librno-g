@@ -602,13 +602,13 @@ int rno_g_pedestal_dump_json(FILE *f, const rno_g_pedestal_t *pd)
   {
     for (int j = 0; j < RNO_G_PEDESTAL_NSAMPLES; j++)
     {
-    ret += fprintf(f,"%c%hu", i == 0 ? '[' : ',', pd->pedestals[i][j]);
+    ret += fprintf(f,"%c%hu", j == 0 ? '[' : ',', pd->pedestals[i][j]);
     }
 
     ret+=fprintf(f,"]%c", i == RNO_G_NUM_RADIANT_CHANNELS -1 ? ']' : ',');
   }
 
-  ret += fprintf(f,"] }"); 
+  ret += fprintf(f," }"); 
   return ret;
 }
 
@@ -797,7 +797,7 @@ int rno_g_daqstatus_dump_calpulser_json(FILE *f, const rno_g_daqstatus_t *ds)
 {
   if (!ds->cal.enabled)
   {
-    return fprintf(f,"{ \"rev\": \"%c\", \"enabled\": false }", ds->cal.rev);
+    return fprintf(f,"{ \"enabled\": false }");
   }
   else
   {
@@ -857,13 +857,13 @@ int rno_g_daqstatus_dump_radiant_json(FILE *f, const rno_g_daqstatus_t  *ds)
 {
   int ret = 0;
   ret += fprintf(f," { \"when\": %f, \"voltages\": "
-                "{ \"V1\": %f, \"V1.8\": %f, \"V2.5\", %f, \"VLeftMon\": %f, \"VRightMon: %f}"
+                "{ \"V1\": %f, \"V1.8\": %f, \"V2.5\": %f, \"VLeftMon\": %f, \"VRightMon\": %f}"
                 ", \"period\" : ",  ds->when_radiant,
-                ds->radiant_voltages.V_1_0/65535.,
-                ds->radiant_voltages.V_1_8/65535.,
-                ds->radiant_voltages.V_2_5/65535.,
-                ds->radiant_voltages.V_LeftMon/65535.,
-                ds->radiant_voltages.V_RightMon/65535.
+                3.3*ds->radiant_voltages.V_1_0/65535.,
+                3.3*ds->radiant_voltages.V_1_8/65535.,
+                3.3*ds->radiant_voltages.V_2_5/65535.,
+                3.3*ds->radiant_voltages.V_LeftMon/65535.,
+                3.3*ds->radiant_voltages.V_RightMon/65535.
                 );
   if ( !ds->radiant_scaler_period)
     ret += fprintf(f,"\"PPS\",");
@@ -936,7 +936,7 @@ int rno_g_daqstatus_dump_flower_json(FILE *f, const rno_g_daqstatus_t *ds)
 {
   int ret = 0;
   uint64_t ncycles = ds->lt_scalers.ncycles;
-  ret += fprintf(f,"{ \"when\": %f, \"ncycles\" : %" PRIu64 ", \"cycle_counter\": %" PRIu64 " , \" scaler_counter_1Hz: %hu, ", 
+  ret += fprintf(f,"{ \"when\": %f, \"ncycles\" : %" PRIu64 ", \"cycle_counter\": %" PRIu64 " , \"scaler_counter_1Hz\": %hu, ", 
       ds->when_lt, ncycles, ds->lt_scalers.cycle_counter, ds->lt_scalers.scaler_counter_1Hz);
 
 
