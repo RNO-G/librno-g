@@ -54,9 +54,9 @@ static void andall16(uint16_t *v, uint16_t andme, int N)
 static void bswap16(uint16_t *vv, int N) 
 {
   int i = 0;
-  uint8_t*v = (uint8_t*) vv; 
 
 #if defined(__arm__) && !defined(NOVECTORIZE) 
+  uint8_t*v = (uint8_t*) vv; 
 //we'll use ARM NEON intrinsics. Since usually this will be a multiple of 32, we'll use vandq_u16 unrolled by 4 
   int Niter = N/32; 
 
@@ -95,7 +95,7 @@ static uint16_t test_in[65536];
 static uint16_t test_and[65536]; 
 static uint16_t test_swap[65536]; 
 
-int main (int nargs, char ** args) 
+int main () 
 {
 
   //randomize test_buffer 
@@ -105,18 +105,18 @@ int main (int nargs, char ** args)
   fclose(frandom); 
 
 
-  //memcpy(test_and, test_in, sizeof(test_in));
+  memcpy(test_and, test_in, sizeof(test_in));
   memcpy(test_swap, test_in, sizeof(test_in));
 
   for (int i = 0; i < 9001; i++) 
   {
-//    andall16(test_and, 0x0fff, 4096); 
+    andall16(test_and, 0x0fff, 4096); 
     bswap16(test_swap, 4096); 
   }
 
   for (int i = 0; i < 4096; i++) 
   {
- //   assert (test_and[i] == (test_in[i] & 0x0fff)); 
+    assert (test_and[i] == (test_in[i] & 0x0fff)); 
 //    printf("%04x,%04x\n", test_swap[i], test_in[i]); 
     assert (test_swap[i] == __builtin_bswap16(test_in[i])); 
   }
