@@ -51,7 +51,7 @@ int buf_get_bytes(int N, uint8_t * bytes, void * vbufptr)
 
 
 
-int main(int nargs, char ** args) 
+int main() 
 {
 
   const uint8_t foo[] = { 0,1, 4,5,9,20,20,0,20,10,0,255}; 

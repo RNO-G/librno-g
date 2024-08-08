@@ -129,6 +129,7 @@ flower_dev_t * flower_open(const char * spi_device, int spi_en_gpio)
   }
 
   dev = calloc(sizeof(*dev),1);
+
   if (!dev)
   {
     fprintf(stderr,"Could not allocate memory for flower\n");

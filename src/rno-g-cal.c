@@ -91,7 +91,7 @@ rno_g_cal_dev_t * rno_g_cal_open(uint8_t bus, uint16_t gpio, char rev)
     return NULL; 
   }
 
-  rno_g_cal_dev_t * dev = calloc(sizeof(rno_g_cal_dev_t),1); 
+  rno_g_cal_dev_t * dev = calloc(1,sizeof(rno_g_cal_dev_t)); 
 
   if (!dev) 
   {
