@@ -754,7 +754,7 @@ int rno_g_daqstatus_dump(FILE *f, const rno_g_daqstatus_t* ds)
   return rno_g_daqstatus_dump_radiant(f,ds) + rno_g_daqstatus_dump_flower(f,ds) + rno_g_daqstatus_dump_calpulser(f,ds); 
 }
 
-int rno_g_daqstatus_json(FILE *f, const rno_g_daqstatus_t* ds) 
+int rno_g_daqstatus_dump_json(FILE *f, const rno_g_daqstatus_t* ds) 
 {
   int ret = fprintf(f,"{ \"radiant\": ");
   ret += rno_g_daqstatus_dump_radiant_json(f,ds);
