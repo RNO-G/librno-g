@@ -82,7 +82,7 @@ int rno_g_close_handle(rno_g_file_handle_t * h);
 #define rno_g_handle_is_open(h) (h.handle.raw)
 
 
-typedef enum rno_g_trigger_type 
+typedef enum rno_g_trigger_type
 {
     RNO_G_TRIGGER_SOFT         = 1 << 0,  /**< This was a software trigger */
     RNO_G_TRIGGER_EXT          = 1 << 1,  /**< This was an external trigger (note that the LT is implemented as an external trigger, but this is not it!) */
@@ -92,8 +92,9 @@ typedef enum rno_g_trigger_type
     RNO_G_TRIGGER_RF_RADIANT1  = 1 << 5,  /**< This was an RF trigger from the RADIANT's trigger 1*/
     RNO_G_TRIGGER_RF_RADIANTX  = 1 << 6,  /**< This was a RF trigger from the RADIANT. The reason this is exists is that due to unreliable bits, we don't know if it was 0 or 1 */
     RNO_G_TRIGGER_PPS          = 1 << 7   /**< This was a PPS trigger*/
-} rno_g_trigger_type_t ; 
+} rno_g_trigger_type_t;
 
+const char * rno_g_trigger_type_to_string(rno_g_trigger_type_t t); 
 
 
 typedef enum rno_g_flags
@@ -171,6 +172,7 @@ typedef struct rno_g_header
 
 //write in ascii format 
 int rno_g_header_dump(FILE*f, const rno_g_header_t * header);
+int rno_g_header_dump_json(FILE*f, const rno_g_header_t * header);
 //write in binary format
 int rno_g_header_write(rno_g_file_handle_t handle, const rno_g_header_t * header);
 int rno_g_header_read(rno_g_file_handle_t handle, rno_g_header_t * header);
@@ -203,6 +205,7 @@ typedef struct rno_g_waveform
 
 //write in ascii format (e.g. for stdout) 
 int rno_g_waveform_dump(FILE *f, const rno_g_waveform_t * waveform);
+int rno_g_waveform_dump_json(FILE *f, const rno_g_waveform_t * waveform);
 // write in binary format 
 int rno_g_waveform_write(rno_g_file_handle_t handle, const rno_g_waveform_t * waveform);
 int rno_g_waveform_read(rno_g_file_handle_t handle, rno_g_waveform_t * waveform);
@@ -220,7 +223,8 @@ typedef struct rno_g_pedestal
   int run; 
 } rno_g_pedestal_t; 
 
-int rno_g_pedestal_dump(FILE *f, const rno_g_pedestal_t * pedestal); 
+int rno_g_pedestal_dump(FILE *f, const rno_g_pedestal_t * pedestal);
+int rno_g_pedestal_dump_json(FILE *f, const rno_g_pedestal_t * pedestal);
 int rno_g_pedestal_write(rno_g_file_handle_t handle, const rno_g_pedestal_t * pedestal);
 int rno_g_pedestal_read(rno_g_file_handle_t handle, rno_g_pedestal_t * pedestal);
 
@@ -305,9 +309,13 @@ typedef struct rno_g_daqstatus
 } rno_g_daqstatus_t; 
 
 int rno_g_daqstatus_dump(FILE *f, const rno_g_daqstatus_t * ds); 
+int rno_g_daqstatus_dump_json(FILE *f, const rno_g_daqstatus_t * ds); 
 int rno_g_daqstatus_dump_flower(FILE *f, const rno_g_daqstatus_t * ds); 
 int rno_g_daqstatus_dump_radiant(FILE *f, const rno_g_daqstatus_t * ds); 
 int rno_g_daqstatus_dump_calpulser(FILE *f, const rno_g_daqstatus_t * ds); 
+int rno_g_daqstatus_dump_flower_json(FILE *f, const rno_g_daqstatus_t * ds); 
+int rno_g_daqstatus_dump_radiant_json(FILE *f, const rno_g_daqstatus_t * ds); 
+int rno_g_daqstatus_dump_calpulser_json(FILE *f, const rno_g_daqstatus_t * ds); 
 int rno_g_daqstatus_write(rno_g_file_handle_t handle, const rno_g_daqstatus_t * ds);
 int rno_g_daqstatus_read(rno_g_file_handle_t handle, rno_g_daqstatus_t * ds);
 

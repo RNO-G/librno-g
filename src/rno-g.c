@@ -117,6 +117,34 @@ int rno_g_header_dump(FILE *f, const rno_g_header_t *header)
   return ret; 
 }
 
+int rno_g_header_dump_json(FILE *f, const rno_g_header_t *h)
+{
+  int ret = fprintf(f,
+        "{ \"station_number\": %hhu, "
+           "\"event_number\": %u, "
+           "\"run_number\": %u, "
+           "\"sys_clk\": %u, "
+           "\"sysclk_last_pps\": %u, "
+           "\"sysclk_last_last_pps\": %u, "
+           "\"pps_count\": %u, "
+           "\"readout_time\": %f, "
+           "\"trigger_type\": \"%s\", "
+           "\"radiant_start_windows\" : [",
+           h->station_number, h->event_number, h->run_number, h->sys_clk,
+           h->sysclk_last_pps, h->sysclk_last_last_pps, h->pps_count,
+           h->readout_time_secs + 1e-9 * h->readout_time_nsecs,
+           rno_g_trigger_type_to_string(h->trigger_type)
+   );
+
+  for (int ichan = 0; ichan < RNO_G_NUM_RADIANT_CHANNELS; ichan++)
+  {
+    ret += fprintf(f,"[%hhu,%hhu]%c", h->radiant_start_windows[ichan][0], h->radiant_start_windows[ichan][1], ichan == RNO_G_NUM_RADIANT_CHANNELS -1 ? ']' : ',');
+  }
+  ret += fprintf(f,", \"raw_tinfo\": \"0x%x\", \"raw_evstatus\": \"0x%x\"}", h->raw_tinfo, h->raw_evstatus);
+
+  return ret;
+}
+
 typedef struct rno_g_header_v0
 {
   uint32_t event_number;  //!< Event number (per run, 0-indexed) 
@@ -481,6 +509,32 @@ int rno_g_waveform_dump(FILE * f, const rno_g_waveform_t * waveform)
   return ret; 
 }
 
+int rno_g_waveform_dump_json(FILE *f, const rno_g_waveform_t * w)
+{
+  int ret = fprintf(f, "{ \"station\": %hhu, \"run_number\": %u, \"event_number\": %u, \"radiant_nsamples\": %hu, \"radiant_sampling_rate\": %hu, \"radiant_waveforms\": [",
+      w->station, w->run_number, w->event_number, w->radiant_nsamples, w->radiant_sampling_rate);
+
+  for (int i = 0; i < RNO_G_NUM_RADIANT_CHANNELS; i++) 
+  {
+    for (int j = 0; j < w->radiant_nsamples; j++)
+    {
+      ret+=fprintf(f,"%c%hd", j == 0 ? '[' : ',', w->radiant_waveforms[i][j]);
+    }
+    ret+=fprintf(f,"]%c", i == RNO_G_NUM_RADIANT_CHANNELS -1 ? ']' : ',');
+  }
+
+  ret+= fprintf(f,", \"digitizer_readout_delay\": ");
+
+  for (int i = 0; i < RNO_G_NUM_RADIANT_CHANNELS; i++) 
+    ret += fprintf(f,"%c%hhu", i == 0 ? '[' : ',', w->digitizer_readout_delay[i]);
+
+
+  ret += fprintf(f,"] }");
+
+  return ret;
+}
+
+
 
 int rno_g_pedestal_dump(FILE *f, const rno_g_pedestal_t *pedestal) 
 {
@@ -501,6 +555,24 @@ int rno_g_pedestal_dump(FILE *f, const rno_g_pedestal_t *pedestal)
   return ret; 
 }
 
+int rno_g_pedestal_dump_json(FILE *f, const rno_g_pedestal_t *pd)
+{
+  int ret = fprintf(f,"{ \"station\": %hhu, \"when\": %u, \"nevents\": %u, \"mask\": \"0x%x\", \"vbias\": [ %hhu, %hhu], \"pedestals\": [", 
+      pd->station, pd->when, pd->nevents, pd->mask, pd->vbias[0], pd->vbias[1]); 
+
+  for (int i = 0; i < RNO_G_NUM_RADIANT_CHANNELS; i++)
+  {
+    for (int j = 0; j < RNO_G_PEDESTAL_NSAMPLES; j++)
+    {
+    ret += fprintf(f,"%c%hu", i == 0 ? '[' : ',', pd->pedestals[i][j]);
+    }
+
+    ret+=fprintf(f,"]%c", i == RNO_G_NUM_RADIANT_CHANNELS -1 ? ']' : ',');
+  }
+
+  ret += fprintf(f,"] }"); 
+  return ret;
+}
 
 // TODO: could only read/write unmasked if we wanted to... 
 
@@ -637,6 +709,18 @@ int rno_g_daqstatus_dump(FILE *f, const rno_g_daqstatus_t* ds)
   return rno_g_daqstatus_dump_radiant(f,ds) + rno_g_daqstatus_dump_flower(f,ds) + rno_g_daqstatus_dump_calpulser(f,ds); 
 }
 
+int rno_g_daqstatus_json(FILE *f, const rno_g_daqstatus_t* ds) 
+{
+  int ret = fprintf(f,"{ \"radiant\": ");
+  ret += rno_g_daqstatus_dump_radiant_json(f,ds);
+  ret += fprintf(f,", \"flower\": ");
+  ret += rno_g_daqstatus_dump_flower_json(f,ds);
+  ret += fprintf(f,", \"calpulser\": ");
+  ret += rno_g_daqstatus_dump_calpulser_json(f,ds);
+  ret += fprintf(f,"}"); 
+  return ret; 
+}
+
 static const char * calpulse_mode_strings[] ={ "NONE", "PULSE","VCO","VCO2"}; 
 static const char * calpulse_output_strings[] ={ "NONE","COAX","FIBER0","FIBER1"}; 
 int rno_g_daqstatus_dump_calpulser(FILE *f, const rno_g_daqstatus_t * ds) 
@@ -662,6 +746,21 @@ int rno_g_daqstatus_dump_calpulser(FILE *f, const rno_g_daqstatus_t * ds)
   ret+= fprintf(f,"    Attenuation: %g\n", ds->cal.atten_times_2/2.); 
   ret+= fprintf(f,"    Output: %s\n", calpulse_output_strings[ds->cal.out]); 
   return ret; 
+}
+
+int rno_g_daqstatus_dump_calpulser_json(FILE *f, const rno_g_daqstatus_t *ds)
+{
+  if (!ds->cal.enabled)
+  {
+    return fprintf(f,"{ \"rev\": \"%c\", \"enabled\": false }", ds->cal.rev);
+  }
+  else
+  {
+    return fprintf(f,"{ \"rev\": \"%c\", \"enabled\" true, \"temperature\": %0.3f,"
+                   " \"mode\": \"%s\", \"attenuation\": %f, \"output\": \"%s\" }",
+                   ds->cal.rev, ds->cal.T_times_16/16., calpulse_mode_strings[ds->cal.mode], 
+                   ds->cal.atten_times_2/2., calpulse_output_strings[ds->cal.out]);
+  }
 }
 
 
@@ -705,8 +804,56 @@ int rno_g_daqstatus_dump_radiant(FILE*f, const rno_g_daqstatus_t *ds)
     }
   }
 
-  return ret; 
+  return ret;
 }
+
+int rno_g_daqstatus_dump_radiant_json(FILE *f, const rno_g_daqstatus_t  *ds)  
+{
+  int ret = 0;
+  ret += fprintf(f," { \"when\": %f, \"voltages\": "
+                "{ \"V1\": %f, \"V1.8\": %f, \"V2.5\", %f, \"VLeftMon\": %f, \"VRightMon: %f}"
+                ", \"period\" : ",  ds->when_radiant,
+                ds->radiant_voltages.V_1_0/65535.,
+                ds->radiant_voltages.V_1_8/65535.,
+                ds->radiant_voltages.V_2_5/65535.,
+                ds->radiant_voltages.V_LeftMon/65535.,
+                ds->radiant_voltages.V_RightMon/65535.
+                );
+  if ( !ds->radiant_scaler_period)
+    ret += fprintf(f,"\"PPS\",");
+  else
+    ret += fprintf(f,"%f,", ds->radiant_scaler_period);
+
+  ret+= fprintf(f,"\"thresholds\": [");
+
+  for (int i = 0; i < RNO_G_NUM_RADIANT_CHANNELS; i++)
+  {
+    if (ds->radiant_thresholds[i] == 0xffffffff)
+      ret +=fprintf(f,"null");
+    else
+      ret +=fprintf(f,"%0.4f",  ds->radiant_thresholds[i] * 2.5/16777215);
+
+    if (i == RNO_G_NUM_RADIANT_CHANNELS -1)
+      ret +=fprintf(f,"]");
+    else
+      ret += fprintf(f,",");
+  }
+
+  ret+= fprintf(f,", \"scalers\": [");
+  for (int i = 0; i < RNO_G_NUM_RADIANT_CHANNELS; i++)
+  {
+    ret += fprintf(f,"%hu%c", ds->radiant_scalers[i], i == RNO_G_NUM_RADIANT_CHANNELS -1 ? ']': ',');
+  }
+  ret+= fprintf(f,", \"prescalers\": [");
+  for (int i = 0; i < RNO_G_NUM_RADIANT_CHANNELS; i++)
+  {
+    ret += fprintf(f,"%hu%c", ds->radiant_prescalers[i], i == RNO_G_NUM_RADIANT_CHANNELS -1 ? ']': ',');
+  }
+
+  ret +=fprintf(f,"}");
+  return ret;
+}
+
 
 int rno_g_daqstatus_dump_flower(FILE  *f, const rno_g_daqstatus_t * ds) 
 {
@@ -736,6 +883,36 @@ int rno_g_daqstatus_dump_flower(FILE  *f, const rno_g_daqstatus_t * ds)
                      ds->lt_scalers.s_1Hz.trig_coinc, ds->lt_scalers.s_100Hz.trig_coinc,ds->lt_scalers.s_1Hz_gated.trig_coinc); 
 
   return ret; 
+}
+
+int rno_g_daqstatus_dump_flower_json(FILE *f, const rno_g_daqstatus_t *ds)
+{
+  int ret = 0;
+  uint64_t ncycles = ds->lt_scalers.ncycles;
+  ret += fprintf(f,"{ \"when\": %f, \"ncycles\" : %" PRIu64 ", \"cycle_counter\": %" PRIu64 " , \" scaler_counter_1Hz: %hu, ", 
+      ds->when_lt, ncycles, ds->lt_scalers.cycle_counter, ds->lt_scalers.scaler_counter_1Hz);
+
+
+ 
+  const rno_g_lt_scaler_group_t *groups[] = {
+    &ds->lt_scalers.s_1Hz,
+    &ds->lt_scalers.s_1Hz_gated,
+    &ds->lt_scalers.s_100Hz,
+  };
+  const char * group_names[] = { "1Hz", "100Hz","1HzGated" };
+
+  ret += fprintf(f, "\"scalers\" : {");
+  for (int i = 0; i < 3; i++)
+  {
+    ret += fprintf(f, "%c \"%s\": { \"coinc_trig\": %u, \"channel_trig\" : [ %u,%u,%u,%u], \"coinc_servo\": %u, \"channel_servo\": [ %u,%u,%u,%u] } "
+        , i == 0  ? ' ' : ',', group_names[i], 
+        groups[i]->trig_coinc, groups[i]->trig_per_chan[0], groups[i]->trig_per_chan[1], groups[i]->trig_per_chan[2], groups[i]->trig_per_chan[3],
+        groups[i]->servo_coinc, groups[i]->servo_per_chan[0], groups[i]->servo_per_chan[1], groups[i]->servo_per_chan[2], groups[i]->servo_per_chan[3]);
+
+  }
+
+  ret += fprintf(f,"} }"); 
+  return ret;
 }
 
 int rno_g_daqstatus_write(rno_g_file_handle_t h, const rno_g_daqstatus_t * ds) 
@@ -920,6 +1097,31 @@ int rno_g_daqstatus_read(rno_g_file_handle_t h, rno_g_daqstatus_t *ds)
 
   return rd; 
 }
+
+
+const char * rno_g_trigger_type_to_string(rno_g_trigger_type_t t)
+{
+  switch((int) t)
+  {
+    case RNO_G_TRIGGER_SOFT:
+      return "SOFT";
+    case RNO_G_TRIGGER_EXT:
+      return "EXT";
+    case RNO_G_TRIGGER_PPS:
+      return "PPS";
+    case RNO_G_TRIGGER_RF_RADIANTX:
+      return "RADIANTX";
+    case RNO_G_TRIGGER_RF_RADIANT0 | RNO_G_TRIGGER_RF_RADIANTX:
+      return "RADIANT0";
+    case RNO_G_TRIGGER_RF_RADIANT1 | RNO_G_TRIGGER_RF_RADIANTX:
+      return "RADIANT1";
+    default:
+      return "UNKNOWN";
+  }
+}
+
+
+
 
 
 
