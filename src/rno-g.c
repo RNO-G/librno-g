@@ -1254,3 +1254,43 @@ int rno_g_any_dump(FILE * f, const rno_g_any_t * any)
   return -1; 
 }
 
+const char * rno_g_data_type_name(rno_g_data_type_t t)
+{
+  switch(t)
+  {
+    case RNO_G_WAVEFORM_T:
+      return "waveform";
+    case RNO_G_HEADER_T:
+      return "header";
+    case RNO_G_DAQSTATUS_T:
+      return "daqstatus";
+    case RNO_G_PEDESTAL_T:
+      return "pedestal";
+    default:
+      return "invalid";
+  }
+
+  return NULL;
+}
+int rno_g_any_dump_json(FILE * f, const rno_g_any_t * any) 
+{
+  if (!any || !any->ok) return -1; 
+
+  int ret = fprintf(f, " { \"type\": \"%s\", \"payload\": ", rno_g_data_type_name(any->what));
+  switch (any->what) 
+  {
+    case RNO_G_WAVEFORM_T: 
+      return ret + rno_g_waveform_dump_json(f, &any->data.wf) + fprintf(f," }");
+    case RNO_G_HEADER_T: 
+      return ret + rno_g_header_dump_json(f, &any->data.hd) + fprintf(f," }");
+    case RNO_G_DAQSTATUS_T: 
+      return ret + rno_g_daqstatus_dump_json(f, &any->data.ds) + fprintf(f," }");
+    case RNO_G_PEDESTAL_T: 
+      return ret + rno_g_pedestal_dump_json(f, &any->data.ped) + fprintf(f," }");
+    default: 
+      return -1; 
+  }
+  return -1; 
+}
+
+
