@@ -595,7 +595,7 @@ int rno_g_pedestal_dump(FILE *f, const rno_g_pedestal_t *pedestal)
 
 int rno_g_pedestal_dump_json(FILE *f, const rno_g_pedestal_t *pd)
 {
-  int ret = fprintf(f,"{ \"station\": %hhu, \"when\": %u, \"nevents\": %u, \"mask\": \"0x%x\", \"vbias\": [ %hhu, %hhu], \"pedestals\": [", 
+  int ret = fprintf(f,"{ \"station\": %hhu, \"when\": %u, \"nevents\": %u, \"mask\": \"0x%x\", \"vbias\": [ %hu, %hu], \"pedestals\": [", 
       pd->station, pd->when, pd->nevents, pd->mask, pd->vbias[0], pd->vbias[1]); 
 
   for (int i = 0; i < RNO_G_NUM_RADIANT_CHANNELS; i++)
