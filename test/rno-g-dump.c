@@ -24,14 +24,38 @@ int main(int nargs, char ** args)
 
   int json_mode = 0;
 
-  if ( nargs > 1 && (!strcmp(args[1],"-j") || !strcmp(args[1],"--json")))
-  {
-    json_mode = 1;
-    printf("{ \"files\" : [\n");
-  }
-  int nfiles = 0;
+  //get args
+  int start_arg = 1;
+  int nskip = 0;
+  int N  = 0;
 
-  for (int i = json_mode+1; i < nargs; i++)
+  while (args[start_arg][0] == '-')
+  {
+    if (!strcmp(args[start_arg],"-j") || !strcmp(args[1],"--json")) json_mode=1;
+    else if (!strcmp(args[start_arg],"-s") || !strcmp(args[1],"--skip"))
+    {
+      start_arg++;
+      nskip = atoi(args[start_arg]);
+    }
+    else if (!strcmp(args[start_arg],"-n") || !strcmp(args[1],"--num"))
+    {
+
+      start_arg++;
+      N = atoi(args[start_arg]);
+    }
+
+    start_arg++;
+  }
+
+
+  if (json_mode)
+  {
+    printf("{ \"packets\" : [\n");
+  }
+
+  int npackets = 0;
+
+  for (int i = start_arg; i < nargs; i++)
   {
 
     rno_g_file_handle_t h;
@@ -40,12 +64,20 @@ int main(int nargs, char ** args)
       continue;
     }
 
-    if (json_mode) printf("%s{ \"filename\": \"%s\", \"packets\": [\n", nfiles++ ? "," : "", args[i]);
 
-    int npackets = 0;
 
     while (rno_g_any_read(h, &any) > 0)
     {
+
+      if (nskip)
+      {
+        nskip--;
+        continue;
+      }
+      if (N && npackets >= N)
+      {
+        break;
+      }
 
       if (json_mode && npackets++)
       {
@@ -74,7 +106,6 @@ int main(int nargs, char ** args)
         rno_g_any_dump(stdout,&any);
       }
     }
-    if (json_mode) printf("]}");
 
     rno_g_close_handle(&h);
   }
