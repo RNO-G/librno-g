@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "flower.h"
+#include <inttypes.h>
 #include <time.h>
 #include <string.h>
 #include <unistd.h>
@@ -22,6 +23,7 @@ int main (int nargs, char ** args)
   if (nargs > 2)
   {
     force = atoi(args[2]);
+    if (force > 1) flower_enable_force_trigger_preclear(flwr,1);
   }
 
   uint8_t data[RNO_G_NUM_LT_CHANNELS][LEN];
@@ -34,7 +36,7 @@ int main (int nargs, char ** args)
   printf("{\n\t\"hostname\" : \"%s\",\n\t\"events\" : [", hostname);
   for (int iev = 0; iev < N; iev++)
   {
-    flower_buffer_clear(flwr);
+    if (force < 2 )flower_buffer_clear(flwr);
     if (force) flower_force_trigger(flwr);
     clock_gettime(CLOCK_REALTIME, &now);
     int avail = 0;
@@ -46,8 +48,8 @@ int main (int nargs, char ** args)
 
     printf("%s\n\t\t{\n\t\t\t\"force\": %s,\n", iev > 0 ? "," : "", force ? "true" : "false");
     printf("\t\t\t\"when\": %09d.%09d,\n", (int) now.tv_sec, (int) now.tv_nsec);
-    printf("\t\t\t\"meta\": { \"event_counter\": %u, \"trigger_counter\": %u, \"trigger_type\": \"%s\", \"pps_flag\": %s, \"timestamp\": %llu, \"recent_pps_timestamp\": %llu},\n",
-      meta->event_counter, meta->trigger_counter, meta->trigger_type, flower_trigger_type_as_string(meta->trigger_type), meta->pps_flag ? "true" : "false",  meta->timestamp, meta->recent_pps_timestamp);
+    printf("\t\t\t\"metadata\": { \"event_counter\": %u, \"trigger_counter\": %u, \"trigger_type\": \"%s\", \"pps_flag\": %s, \"timestamp\": %"PRIu64 ", \"recent_pps_timestamp\": %"PRIu64 "},\n",
+      meta.event_counter, meta.trigger_counter, flower_trigger_type_as_string(meta.trigger_type), meta.pps_flag ? "true" : "false",  meta.timestamp, meta.recent_pps_timestamp);
 
     for (int i = 0 ; i < RNO_G_NUM_LT_CHANNELS; i++)
     {

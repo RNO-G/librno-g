@@ -93,6 +93,7 @@ struct flower_dev
   uint8_t trig_thresh[4];
   uint8_t servo_thresh[4];
   int must_clear;
+  int force_trigger_preclear;
 
 };
 
@@ -448,8 +449,16 @@ int flower_dump(FILE * f, flower_dev_t *dev)
   return ret;
 }
 
-static flower_word_t sw_trig_low = {.bytes={FLWR_REG_FORCE_TRIG,0,0,0}};
-static flower_word_t sw_trig_high = {.bytes={FLWR_REG_FORCE_TRIG,0,0,1}};
+static const flower_word_t buffer_clear = {.bytes={FLWR_REG_BUF_CLEAR,0,0,1}};
+int flower_buffer_clear(flower_dev_t * dev)
+{
+  return write_word(dev, &buffer_clear);
+}
+
+
+static const flower_word_t sw_trig_low = {.bytes={FLWR_REG_FORCE_TRIG,0,0,0}};
+static const flower_word_t sw_trig_high = {.bytes={FLWR_REG_FORCE_TRIG,0,0,1}};
+static flower_word_t sw_trig_high_with_preclear[2]  = { buffer_clear, sw_trig_high };
 
 int flower_force_trigger(flower_dev_t * dev)
 {
@@ -461,7 +470,14 @@ int flower_force_trigger(flower_dev_t * dev)
     ret += write_word(dev, &sw_trig_low);
   }
 
-  ret += write_word(dev, &sw_trig_high);
+  if (dev->force_trigger_preclear)
+  {
+    ret += write_words(dev, 2, sw_trig_high_with_preclear);
+  }
+  else
+  {
+    ret += write_word(dev, &sw_trig_high);
+  }
 
   if (dev->fwver_int < 6)
   {
@@ -469,12 +485,6 @@ int flower_force_trigger(flower_dev_t * dev)
   }
 
   return ret;
-}
-
-static flower_word_t buffer_clear = {.bytes={FLWR_REG_BUF_CLEAR,0,0,1}};
-int flower_buffer_clear(flower_dev_t * dev)
-{
-  return write_word(dev, &buffer_clear);
 }
 
 int flower_buffer_check(flower_dev_t * dev, int * avail)
@@ -770,4 +780,9 @@ const char * flower_trigger_type_as_string(uint8_t type)
   if (type >= FLOWER_TRIG_INVALID) type = FLOWER_TRIG_INVALID;
   const char * types[] = {"NONE","SOFT","EXT","COINC","PHASED","PPS","INVALID"};
   return types[type];
+}
+
+void flower_enable_force_trigger_preclear(flower_dev_t * dev, int preclear)
+{
+  if (dev) dev->force_trigger_preclear = preclear;
 }

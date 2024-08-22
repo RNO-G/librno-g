@@ -32,6 +32,9 @@ int flower_fill_daqstatus(flower_dev_t *dev, rno_g_daqstatus_t * ds);
 
 int flower_fill_header(flower_dev_t *dev, rno_g_header_t * hd);
 
+// if preclear non-zero (not default), then buffer cleared in same spi transaction as sending trigger, minimzing chance of accidental RF trigger.
+void flower_enable_force_trigger_preclear(flower_dev_t *dev, int preclear);
+
 int flower_force_trigger(flower_dev_t *dev);
 
 int flower_buffer_check(flower_dev_t * dev, int * avail);
