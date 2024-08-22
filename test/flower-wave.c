@@ -38,11 +38,17 @@ int main (int nargs, char ** args)
     if (force) flower_force_trigger(flwr);
     clock_gettime(CLOCK_REALTIME, &now);
     int avail = 0;
+    flower_waveform_metadata_t meta = {0};
     while (!avail) flower_buffer_check(flwr, &avail);
     flower_read_waveforms(flwr, LEN, data_ptr);
+    flower_read_waveform_metadata(flwr,&meta);
+
 
     printf("%s\n\t\t{\n\t\t\t\"force\": %s,\n", iev > 0 ? "," : "", force ? "true" : "false");
     printf("\t\t\t\"when\": %09d.%09d,\n", (int) now.tv_sec, (int) now.tv_nsec);
+    printf("\t\t\t\"meta\": { \"event_counter\": %u, \"trigger_counter\": %u, \"trigger_type\": \"%s\", \"pps_flag\": %s, \"timestamp\": %llu, \"recent_pps_timestamp\": %llu},\n",
+      meta->event_counter, meta->trigger_counter, meta->trigger_type, flower_trigger_type_as_string(meta->trigger_type), meta->pps_flag ? "true" : "false",  meta->timestamp, meta->recent_pps_timestamp);
+
     for (int i = 0 ; i < RNO_G_NUM_LT_CHANNELS; i++)
     {
       printf("\t\t\t\"ch%d\": [",i);
