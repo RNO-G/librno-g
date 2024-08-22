@@ -17,6 +17,11 @@ typedef enum
   FLWR_REG_FW_VER = 0x01,
   FLWR_REG_FW_DATE = 0x02,
   FLWR_REG_SCAL_RD = 0x03,
+  FLWR_REG_META_EVENT_COUNT =0x0a,
+  FLWR_REG_META_TRIG_COUNT =0x0b,
+  FLWR_REG_META_TRIG_TIME_LOW =0x0c,
+  FLWR_REG_META_TRIG_TIME_HIGH =0x0d,
+  FLWR_REG_META_TRIG_INFO =0x0e,
   FLWR_REG_DATA_STATUS = 0x07,
   FLWR_REG_DATA_CHUNK0 = 0x23,
   FLWR_REG_DATA_CHUNK1 = 0x24,
@@ -557,6 +562,74 @@ int flower_read_waveforms(flower_dev_t *dev, int len, uint8_t ** dest)
   return ret;
 }
 
+int flower_read_waveform_metadata(flower_dev_t * dev, flower_waveform_metadata_t * meta)
+{
+  if (!meta) return 1;
+
+  flower_word_t ev_counter = {0};
+  flower_word_t trig_counter = {0};
+  flower_word_t trig_type = {0};
+  flower_word_t time_low = {0};
+  flower_word_t time_high = {0};
+  flower_word_t latched_time_low = {0};
+  flower_word_t latched_time_high = {0};
+
+  struct spi_ioc_transfer xfer[] =
+  {
+    { .len = 4, .tx_buf = (uintptr_t) (uint8_t[]){ FLWR_REG_SCAL_UPD, 0,0,1}}, //latch recent PPS (also updates scalers
+    { .len = 4, .tx_buf = (uintptr_t) (uint8_t[]){ FLWR_REG_SET_READ_REG, 0,0,FLWR_REG_META_EVENT_COUNT}},
+    { .len = 4, .rx_buf = (uintptr_t) ev_counter.bytes},
+    { .len = 4, .tx_buf = (uintptr_t) (uint8_t[]){ FLWR_REG_SET_READ_REG, 0,0,FLWR_REG_META_TRIG_COUNT}},
+    { .len = 4, .rx_buf = (uintptr_t) trig_counter.bytes},
+    { .len = 4, .tx_buf = (uintptr_t) (uint8_t[]){ FLWR_REG_SET_READ_REG, 0,0,FLWR_REG_META_TRIG_INFO}},
+    { .len = 4, .rx_buf = (uintptr_t) trig_type.bytes},
+    { .len = 4, .tx_buf = (uintptr_t) (uint8_t[]){ FLWR_REG_SET_READ_REG, 0,0,FLWR_REG_META_TRIG_TIME_LOW}},
+    { .len = 4, .rx_buf = (uintptr_t) time_low.bytes},
+    { .len = 4, .tx_buf = (uintptr_t) (uint8_t[]){ FLWR_REG_SET_READ_REG, 0,0,FLWR_REG_META_TRIG_TIME_HIGH}},
+    { .len = 4, .rx_buf = (uintptr_t) time_high.bytes},
+    { .len = 4, .tx_buf = (uintptr_t) (uint8_t[]){ FLWR_REG_SET_READ_REG, 0,0,FLWR_REG_SCAL_TIME_LOW}},
+    { .len = 4, .rx_buf = (uintptr_t) latched_time_low.bytes},
+    { .len = 4, .tx_buf = (uintptr_t) (uint8_t[]){ FLWR_REG_SET_READ_REG, 0,0,FLWR_REG_SCAL_TIME_HIGH}},
+    { .len = 4, .rx_buf = (uintptr_t) latched_time_high.bytes}
+  };
+
+  const int nxfer = sizeof (xfer)/sizeof(*xfer);
+
+  int nioctl = ioctl(dev->spi_fd, SPI_IOC_MESSAGE(nxfer), xfer);
+  if (nioctl < 0 || nioctl != sizeof(flower_word_t) * nxfer)
+  {
+    fprintf(stderr,"in flower_read_waveform_metadata: ioctl returned %d, less than %d expected\n", nioctl, 4 * nxfer);
+    return -1;
+  }
+
+  if (
+      ev_counter.bytes[0] != FLWR_REG_META_EVENT_COUNT ||
+      trig_counter.bytes[0] != FLWR_REG_META_TRIG_COUNT ||
+      trig_type.bytes[0] != FLWR_REG_META_TRIG_INFO ||
+      time_low.bytes[0] != FLWR_REG_META_TRIG_TIME_LOW ||
+      time_high.bytes[0] != FLWR_REG_META_TRIG_TIME_HIGH ||
+      latched_time_low.bytes[0] != FLWR_REG_SCAL_TIME_LOW ||
+      latched_time_high.bytes[0] != FLWR_REG_SCAL_TIME_HIGH
+      )
+  {
+    fprintf(stderr,"wrong first byte in a register!!!\n");
+    return -1;
+  }
+
+  meta->event_counter = be32toh(ev_counter.word) & 0xffffff;
+  meta->trigger_counter = be32toh(trig_counter.word) & 0xffffff;
+  meta->trigger_type = trig_type.bytes[3];
+  meta->pps_flag = trig_type.bytes[1];
+  meta->timestamp = be32toh(time_high.word) & 0xffffff;
+  meta->timestamp <<= 24;
+  meta->timestamp |= be32toh(time_low.word) & 0xffffff;
+  meta->recent_pps_timestamp = be32toh(latched_time_high.word) & 0xffffff;
+  meta->recent_pps_timestamp <<= 24;
+  meta->recent_pps_timestamp |= be32toh(latched_time_low.word) & 0xffffff;
+
+  return 0;
+};
+
 
 int flower_set_gains(flower_dev_t *dev, const uint8_t * codes)
 {
@@ -690,4 +763,11 @@ int flower_get_delayed_pps_delay(flower_dev_t * dev, uint32_t *delay)
   if (!ret)  *delay = word.bytes[3] | (word.bytes[2] <<8) | (word.bytes[1] << 16);
   return ret;
 
+}
+
+const char * flower_trigger_type_as_string(uint8_t type)
+{
+  if (type >= FLOWER_TRIG_INVALID) type = FLOWER_TRIG_INVALID;
+  const char * types[] = {"NONE","SOFT","EXT","COINC","PHASED","PPS","INVALID"};
+  return types[type];
 }
