@@ -49,6 +49,7 @@ typedef struct flower_waveform_metadata
 {
   uint32_t event_counter;
   uint32_t trigger_counter;
+  uint32_t pps_counter;
   uint8_t trigger_type; //1=soft,2=ext,3=coinc,4=phased,5=pps. see enum below.
   uint8_t pps_flag;
   uint64_t timestamp; //48 bit, will roll over
