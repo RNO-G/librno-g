@@ -579,6 +579,7 @@ int flower_read_waveform_metadata(flower_dev_t * dev, flower_waveform_metadata_t
 
   flower_word_t ev_counter = {0};
   flower_word_t trig_counter = {0};
+  flower_word_t pps_counter = {0};
   flower_word_t trig_type = {0};
   flower_word_t time_low = {0};
   flower_word_t time_high = {0};
@@ -592,6 +593,8 @@ int flower_read_waveform_metadata(flower_dev_t * dev, flower_waveform_metadata_t
     { .len = 4, .rx_buf = (uintptr_t) ev_counter.bytes},
     { .len = 4, .tx_buf = (uintptr_t) (uint8_t[]){ FLWR_REG_SET_READ_REG, 0,0,FLWR_REG_META_TRIG_COUNT}},
     { .len = 4, .rx_buf = (uintptr_t) trig_counter.bytes},
+    { .len = 4, .tx_buf = (uintptr_t) (uint8_t[]){ FLWR_REG_SET_READ_REG, 0,0,FLWR_REG_META_PPS_COUNT}},
+    { .len = 4, .rx_buf = (uintptr_t) pps_counter.bytes},
     { .len = 4, .tx_buf = (uintptr_t) (uint8_t[]){ FLWR_REG_SET_READ_REG, 0,0,FLWR_REG_META_TRIG_INFO}},
     { .len = 4, .rx_buf = (uintptr_t) trig_type.bytes},
     { .len = 4, .tx_buf = (uintptr_t) (uint8_t[]){ FLWR_REG_SET_READ_REG, 0,0,FLWR_REG_META_TRIG_TIME_LOW}},
@@ -630,6 +633,7 @@ int flower_read_waveform_metadata(flower_dev_t * dev, flower_waveform_metadata_t
   meta->event_counter = be32toh(ev_counter.word) & 0xffffff;
   meta->trigger_counter = be32toh(trig_counter.word) & 0xffffff;
   meta->trigger_type = trig_type.bytes[3];
+  meta->pps_counter = be32toh(pps_counter.word) & 0xffffff;
   meta->pps_flag = trig_type.bytes[1];
   meta->timestamp = be32toh(time_high.word) & 0xffffff;
   meta->timestamp <<= 24;
