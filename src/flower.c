@@ -617,7 +617,7 @@ int flower_read_waveform_metadata(flower_dev_t * dev, flower_waveform_metadata_t
   }
 
   if (
-      ev_counter.bytes[0] != FLWR_REG_META_EVENT_COUNT ||
+      ev_counter.bytes[0] & 0xf != FLWR_REG_META_EVENT_COUNT ||
       trig_counter.bytes[0] != FLWR_REG_META_TRIG_COUNT ||
       trig_type.bytes[0] != FLWR_REG_META_TRIG_INFO ||
       time_low.bytes[0] != FLWR_REG_META_TRIG_TIME_LOW ||
