@@ -457,7 +457,7 @@ int flower_force_trigger(flower_dev_t * dev)
     ret += write_word(dev, &sw_trig_low);
   }
 
-  ret += write_word(dev, &sw_trig_high);
+  ret+= write_word(dev, &sw_trig_high);
 
   if (dev->fwver_int < 6)
   {
