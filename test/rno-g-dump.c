@@ -8,13 +8,15 @@
 
 rno_g_data_type_t filter = RNO_G_INVALID_T;
 
-int main(int nargs, char ** args) 
+int main(int nargs, char ** args)
 {
+
+  if (nargs < 2) return 0;
 
   rno_g_any_t any;
   int print_version_magic = 0;
 
-  if (getenv("RNO_G_ENABLE_DEBUG")) print_version_magic = 1; 
+  if (getenv("RNO_G_ENABLE_DEBUG")) print_version_magic = 1;
 
   //check binary name
   if  (strstr(args[0],"rno-g-dump-hdr")) filter = RNO_G_HEADER_T;
@@ -28,6 +30,7 @@ int main(int nargs, char ** args)
   int start_arg = 1;
   int nskip = 0;
   int N  = 0;
+
 
   while (args[start_arg][0] == '-')
   {
