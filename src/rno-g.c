@@ -3,6 +3,7 @@
 #include <stdio.h> 
 #include <stddef.h> 
 #include <zlib.h> 
+#include <stdlib.h>
 #include <string.h> 
 #include <inttypes.h>
 #include <time.h> 
@@ -31,31 +32,11 @@ typedef struct io_header
 } io_header_t; 
 
 
-
-static uint32_t init_cksum =1; 
-
 //This is a bit silly, since we usually will save as gzip and have a checksum anyway
 static uint32_t cksum(uint32_t start_cksum, int N, const uint8_t *data) 
 {
   return adler32(start_cksum, data,N); 
 }
-
-static int do_write(rno_g_file_handle_t h, int N, const void *data, uint32_t * sum) 
-{
-
-  if (sum) *sum = cksum(*sum,N,data); 
-
-  switch  (h.type)
-  {
-    case RNO_G_RAW: 
-      return fwrite(data,N,1,h.handle.raw); 
-    case RNO_G_GZIP: 
-      return gzwrite(h.handle.gz, data,N); 
-    default: 
-      return 0; 
-  }
-}
-
 
 
 static int do_read(rno_g_file_handle_t h, int N, void *data, uint32_t * sum) 
@@ -76,6 +57,42 @@ static int do_read(rno_g_file_handle_t h, int N, void *data, uint32_t * sum)
   if (sum) *sum = cksum(*sum,rd,data); 
   return rd; 
 }
+
+static int read_io_header(io_header_t * hd, rno_g_file_handle_t h)
+{
+
+  int rd = do_read(h, sizeof (*hd), hd, 0); 
+
+  if (rd == sizeof(*hd) && h.last) 
+  {
+    h.last->version = hd->version;
+    h.last->magic = hd->magic;
+  }
+
+  return rd; 
+}
+
+static uint32_t init_cksum =1; 
+
+static int do_write(rno_g_file_handle_t h, int N, const void *data, uint32_t * sum) 
+{
+
+  if (sum) *sum = cksum(*sum,N,data); 
+
+  switch  (h.type)
+  {
+    case RNO_G_RAW: 
+      return fwrite(data,N,1,h.handle.raw); 
+    case RNO_G_GZIP: 
+      return gzwrite(h.handle.gz, data,N); 
+    default: 
+      return 0; 
+  }
+}
+
+
+
+
 
 
 
@@ -117,6 +134,34 @@ int rno_g_header_dump(FILE *f, const rno_g_header_t *header)
   return ret; 
 }
 
+int rno_g_header_dump_json(FILE *f, const rno_g_header_t *h)
+{
+  int ret = fprintf(f,
+        "{ \"station_number\": %hhu, "
+           "\"event_number\": %u, "
+           "\"run_number\": %u, "
+           "\"sys_clk\": %u, "
+           "\"sysclk_last_pps\": %u, "
+           "\"sysclk_last_last_pps\": %u, "
+           "\"pps_count\": %u, "
+           "\"readout_time\": %f, "
+           "\"trigger_type\": \"%s\", "
+           "\"radiant_start_windows\": [",
+           h->station_number, h->event_number, h->run_number, h->sys_clk,
+           h->sysclk_last_pps, h->sysclk_last_last_pps, h->pps_count,
+           h->readout_time_secs + 1e-9 * h->readout_time_nsecs,
+           rno_g_trigger_type_to_string(h->trigger_type)
+   );
+
+  for (int ichan = 0; ichan < RNO_G_NUM_RADIANT_CHANNELS; ichan++)
+  {
+    ret += fprintf(f,"[%hhu,%hhu]%c", h->radiant_start_windows[ichan][0], h->radiant_start_windows[ichan][1], ichan == RNO_G_NUM_RADIANT_CHANNELS -1 ? ']' : ',');
+  }
+  ret += fprintf(f,", \"raw_tinfo\": \"0x%x\", \"raw_evstatus\": \"0x%x\"}", h->raw_tinfo, h->raw_evstatus);
+
+  return ret;
+}
+
 typedef struct rno_g_header_v0
 {
   uint32_t event_number;  //!< Event number (per run, 0-indexed) 
@@ -150,25 +195,17 @@ typedef struct rno_g_header_v0
 
 
 
-int rno_g_header_read(rno_g_file_handle_t h, rno_g_header_t *header)
-{
-  io_header_t hd; 
-  int rd = do_read(h, sizeof(hd), &hd,0); 
-  if (!rd) return 0; 
 
-  if (hd.magic != HEADER_MAGIC)
-  {
-    //this is not a header! 
-    fprintf(stderr,"Wrong magic! Got %hx, expected %hx\n", hd.magic, HEADER_MAGIC); 
-    return -1; 
-  }
+
+static int real_rno_g_header_read(rno_g_file_handle_t h, rno_g_header_t * header, int version)
+{
 
   uint32_t sum = init_cksum; 
   uint32_t wanted_sum = 0; 
-  rd = 0; 
+  int rd = 0; 
   int rdsum = 0;
   // here we handle converting to the newest kind of header
-  switch (hd.version) 
+  switch (version) 
   {
     case 0: 
     {
@@ -183,7 +220,7 @@ int rno_g_header_read(rno_g_file_handle_t h, rno_g_header_t *header)
       break; 
     }
     default: 
-      fprintf(stderr,"Unknown header version %d\n", hd.version); 
+      fprintf(stderr,"Unknown header version %d\n", version); 
       return 0; 
   }
 
@@ -197,6 +234,21 @@ int rno_g_header_read(rno_g_file_handle_t h, rno_g_header_t *header)
   return rd; 
 }
 
+int rno_g_header_read(rno_g_file_handle_t h, rno_g_header_t *header)
+{
+  io_header_t hd; 
+  int rd = read_io_header(&hd, h); 
+  if (!rd) return 0; 
+
+  if (hd.magic != HEADER_MAGIC)
+  {
+    //this is not a header! 
+    fprintf(stderr,"Wrong magic! Got %hx, expected %hx\n", hd.magic, HEADER_MAGIC); 
+    return -1; 
+  }
+
+  return real_rno_g_header_read(h, header, hd.version);
+}
 
  //WARNING: watch out for this struct changing! 
 #define N_BEFORE_DATA  ( offsetof(rno_g_waveform_t,lt_nsamples) + sizeof(((rno_g_waveform_t*) 0)->lt_nsamples)) 
@@ -266,26 +318,15 @@ typedef struct rno_g_waveform_v4
 } rno_g_waveform_v4_t; 
 
 
-int rno_g_waveform_read(rno_g_file_handle_t h, rno_g_waveform_t *wf)
+static int real_rno_g_waveform_read(rno_g_file_handle_t h, rno_g_waveform_t * wf, int version)
 {
-  io_header_t hd; 
-  int rd = do_read(h, sizeof(hd), &hd,0); 
-  if (!rd) return 0; 
-  
-  if (hd.magic != WAVEFORM_MAGIC)
-  {
-    //this is not a waveform! 
-    fprintf(stderr,"Wrong magic! Got %hx, expected %hx\n", hd.magic, WAVEFORM_MAGIC); 
-    return -1; 
-  }
-
   uint32_t sum = init_cksum; 
   uint32_t wanted_sum = 0; 
   int rdsum;
   int ichan = 0; 
-  rd = 0; 
+  int rd = 0; 
   // here we handle converting to the newest kind of waveform
-  switch (hd.version) 
+  switch (version) 
   {
     case 1:
     case 2:
@@ -295,7 +336,7 @@ int rno_g_waveform_read(rno_g_file_handle_t h, rno_g_waveform_t *wf)
         for (ichan = 0; ichan < RNO_G_NUM_RADIANT_CHANNELS; ichan++)
         {
           rd+= do_read(h,2*wf->radiant_nsamples, wf->radiant_waveforms[ichan], &sum);
-          if ( hd.version < 3) 
+          if ( version < 3) 
           {
             //fix unwrapping bug
             uint16_t tmp[128]; 
@@ -312,7 +353,7 @@ int rno_g_waveform_read(rno_g_file_handle_t h, rno_g_waveform_t *wf)
           rd+= do_read(h,wf->lt_nsamples, wf->lt_waveforms[ichan], &sum);
         }
 
-        if (hd.version > 1) 
+        if (version > 1) 
         {
           rd+= do_read(h,sizeof(wf->station), &wf->station,&sum); 
         }
@@ -321,7 +362,7 @@ int rno_g_waveform_read(rno_g_file_handle_t h, rno_g_waveform_t *wf)
           wf->station =0; 
         }
 
-        if(hd.version<4)
+        if(version<4)
         {
           
           for(ichan=0;ichan<24;ichan++)
@@ -351,7 +392,7 @@ int rno_g_waveform_read(rno_g_file_handle_t h, rno_g_waveform_t *wf)
         for (ichan = 0; ichan < RNO_G_NUM_RADIANT_CHANNELS; ichan++)
         {
           rd+= do_read(h,2*wf->radiant_nsamples, wf->radiant_waveforms[ichan], &sum);
-          if ( hd.version < 3) 
+          if (version < 3) 
           {
             //fix unwrapping bug
             uint16_t tmp[128]; 
@@ -369,7 +410,7 @@ int rno_g_waveform_read(rno_g_file_handle_t h, rno_g_waveform_t *wf)
         }
 
 
-        if(hd.version>3)
+        if(version>3)
         {
           rd+= do_read(h,sizeof(wf->radiant_sampling_rate), &wf->radiant_sampling_rate,&sum);
 
@@ -389,7 +430,7 @@ int rno_g_waveform_read(rno_g_file_handle_t h, rno_g_waveform_t *wf)
           wf->radiant_sampling_rate=3200;
         }
         
-        if (hd.version > 1) 
+        if (version > 1) 
         {
           rd+= do_read(h,sizeof(wf->station), &wf->station,&sum); 
         }
@@ -408,15 +449,37 @@ int rno_g_waveform_read(rno_g_file_handle_t h, rno_g_waveform_t *wf)
         return rd+rdsum; 
       }
     default: 
-      fprintf(stderr,"Unknown waveform version %d\n", hd.version); 
+      fprintf(stderr,"Unknown waveform version %d\n", version); 
   }
   return 0; 
 }
+
+int rno_g_waveform_read(rno_g_file_handle_t h, rno_g_waveform_t *wf)
+{
+  io_header_t hd; 
+
+  int rd = read_io_header(&hd, h); 
+  if (!rd) return 0; 
+
+  if (hd.magic != WAVEFORM_MAGIC)
+  {
+    //this is not a waveform! 
+    fprintf(stderr,"Wrong magic! Got %hx, expected %hx\n", hd.magic, WAVEFORM_MAGIC); 
+    return -1; 
+  }
+
+  return real_rno_g_waveform_read(h, wf, hd.version);
+}
+
+
 
 
 int rno_g_init_handle(rno_g_file_handle_t * h, const char * name, const char * mode) 
 {
 
+  h->last = malloc(sizeof(int) *2); 
+  h->last->version = -1; 
+  h->last->magic = -1; 
   //check for gz ending
   char * dot = strrchr(name,'.'); 
   h->handle.raw = NULL;
@@ -462,7 +525,10 @@ int rno_g_close_handle(rno_g_file_handle_t *h)
     else return 1; 
   }
 
-  return 1; 
+  if (h->last) 
+    free (h->last); 
+
+  return 0; 
 }
 
 int rno_g_waveform_dump(FILE * f, const rno_g_waveform_t * waveform) 
@@ -480,6 +546,32 @@ int rno_g_waveform_dump(FILE * f, const rno_g_waveform_t * waveform)
 
   return ret; 
 }
+
+int rno_g_waveform_dump_json(FILE *f, const rno_g_waveform_t * w)
+{
+  int ret = fprintf(f, "{\"station\": %hhu, \"run_number\": %u, \"event_number\": %u, \"radiant_nsamples\": %hu, \"radiant_sampling_rate\": %hu, \"radiant_waveforms\": [",
+      w->station, w->run_number, w->event_number, w->radiant_nsamples, w->radiant_sampling_rate);
+
+  for (int i = 0; i < RNO_G_NUM_RADIANT_CHANNELS; i++) 
+  {
+    for (int j = 0; j < w->radiant_nsamples; j++)
+    {
+      ret+=fprintf(f,"%c%hd", j == 0 ? '[' : ',', w->radiant_waveforms[i][j]);
+    }
+    ret+=fprintf(f,"]%c", i == RNO_G_NUM_RADIANT_CHANNELS -1 ? ']' : ',');
+  }
+
+  ret+= fprintf(f,", \"digitizer_readout_delay\": ");
+
+  for (int i = 0; i < RNO_G_NUM_RADIANT_CHANNELS; i++) 
+    ret += fprintf(f,"%c%hhu", i == 0 ? '[' : ',', w->digitizer_readout_delay[i]);
+
+
+  ret += fprintf(f,"]}");
+
+  return ret;
+}
+
 
 
 int rno_g_pedestal_dump(FILE *f, const rno_g_pedestal_t *pedestal) 
@@ -501,6 +593,24 @@ int rno_g_pedestal_dump(FILE *f, const rno_g_pedestal_t *pedestal)
   return ret; 
 }
 
+int rno_g_pedestal_dump_json(FILE *f, const rno_g_pedestal_t *pd)
+{
+  int ret = fprintf(f,"{ \"station\": %hhu, \"when\": %u, \"nevents\": %u, \"mask\": \"0x%x\", \"vbias\": [ %hu, %hu], \"pedestals\": [", 
+      pd->station, pd->when, pd->nevents, pd->mask, pd->vbias[0], pd->vbias[1]); 
+
+  for (int i = 0; i < RNO_G_NUM_RADIANT_CHANNELS; i++)
+  {
+    for (int j = 0; j < RNO_G_PEDESTAL_NSAMPLES; j++)
+    {
+    ret += fprintf(f,"%c%hu", j == 0 ? '[' : ',', pd->pedestals[i][j]);
+    }
+
+    ret+=fprintf(f,"]%c", i == RNO_G_NUM_RADIANT_CHANNELS -1 ? ']' : ',');
+  }
+
+  ret += fprintf(f," }"); 
+  return ret;
+}
 
 // TODO: could only read/write unmasked if we wanted to... 
 
@@ -546,24 +656,14 @@ typedef struct rno_g_pedestal_v2
 
 
 
-int rno_g_pedestal_read(rno_g_file_handle_t h, rno_g_pedestal_t * pd) 
+static int real_rno_g_pedestal_read(rno_g_file_handle_t h, rno_g_pedestal_t *pd, int version)
 {
-  io_header_t hd; 
-  int rd = do_read(h, sizeof(hd), &hd,0); 
-
-  if (!rd) return 0; 
-
-  if (hd.magic != PEDESTAL_MAGIC) 
-  {
-    fprintf(stderr,"Wrong magic! Got %hx, expected %hx\n", hd.magic, PEDESTAL_MAGIC); 
-    return -1; 
-  }
-
   uint32_t sum = init_cksum; 
   uint32_t wanted_sum = 0; 
   int rdsum=0;
+  int rd = 0; 
 
-  switch (hd.version) 
+  switch (version) 
   {
     case 0: 
     {
@@ -615,7 +715,7 @@ int rno_g_pedestal_read(rno_g_file_handle_t h, rno_g_pedestal_t * pd)
       rd += do_read(h, sizeof(rno_g_pedestal_t), pd, &sum); 
       break; 
     default: 
-      fprintf(stderr,"Unknown pedestal version %d\n", hd.version); 
+      fprintf(stderr,"Unknown pedestal version %d\n", version); 
       return 0; 
   }
 
@@ -626,15 +726,44 @@ int rno_g_pedestal_read(rno_g_file_handle_t h, rno_g_pedestal_t * pd)
      return -1; 
   }
 
-
   return rd; 
-
 }
+int rno_g_pedestal_read(rno_g_file_handle_t h, rno_g_pedestal_t * pd) 
+{
+  io_header_t hd; 
+  int rd = read_io_header(&hd, h);
+
+  if (!rd) return 0; 
+
+
+
+  if (hd.magic != PEDESTAL_MAGIC) 
+  {
+    fprintf(stderr,"Wrong magic! Got %hx, expected %hx\n", hd.magic, PEDESTAL_MAGIC); 
+    return -1; 
+  }
+
+  return real_rno_g_pedestal_read(h, pd, hd.version);
+}
+
+
 
 
 int rno_g_daqstatus_dump(FILE *f, const rno_g_daqstatus_t* ds) 
 {
   return rno_g_daqstatus_dump_radiant(f,ds) + rno_g_daqstatus_dump_flower(f,ds) + rno_g_daqstatus_dump_calpulser(f,ds); 
+}
+
+int rno_g_daqstatus_dump_json(FILE *f, const rno_g_daqstatus_t* ds) 
+{
+  int ret = fprintf(f,"{ \"radiant\": ");
+  ret += rno_g_daqstatus_dump_radiant_json(f,ds);
+  ret += fprintf(f,", \"flower\": ");
+  ret += rno_g_daqstatus_dump_flower_json(f,ds);
+  ret += fprintf(f,", \"calpulser\": ");
+  ret += rno_g_daqstatus_dump_calpulser_json(f,ds);
+  ret += fprintf(f,"}"); 
+  return ret; 
 }
 
 static const char * calpulse_mode_strings[] ={ "NONE", "PULSE","VCO","VCO2"}; 
@@ -664,13 +793,29 @@ int rno_g_daqstatus_dump_calpulser(FILE *f, const rno_g_daqstatus_t * ds)
   return ret; 
 }
 
+int rno_g_daqstatus_dump_calpulser_json(FILE *f, const rno_g_daqstatus_t *ds)
+{
+  if (!ds->cal.enabled)
+  {
+    return fprintf(f,"{ \"enabled\": false }");
+  }
+  else
+  {
+    return fprintf(f,"{\"rev\": \"%c\", \"enabled\": true, \"temperature\": %0.3f,"
+                   " \"mode\": \"%s\", \"attenuation\": %f, \"output\": \"%s\"}",
+                   ds->cal.rev, ds->cal.T_times_16/16., calpulse_mode_strings[ds->cal.mode], 
+                   ds->cal.atten_times_2/2., calpulse_output_strings[ds->cal.out]);
+  }
+}
+
 
 int rno_g_daqstatus_dump_radiant(FILE*f, const rno_g_daqstatus_t *ds) 
 {
   int when_radiant = ds->when_radiant; 
   int radiant_ns = (ds->when_radiant-when_radiant)*1e9; 
   struct tm when_tm_radiant; 
-  gmtime_r((time_t*)&when_radiant, &when_tm_radiant); 
+  time_t when_radiant_t = when_radiant;
+  gmtime_r((time_t*)&when_radiant_t, &when_tm_radiant); 
   int ret=fprintf(f,  "========== RADIANT================\n"); 
   ret    += fprintf(f,"DAQSTATUS, radiant_period="); 
   if (!ds->radiant_scaler_period) 
@@ -705,8 +850,56 @@ int rno_g_daqstatus_dump_radiant(FILE*f, const rno_g_daqstatus_t *ds)
     }
   }
 
-  return ret; 
+  return ret;
 }
+
+int rno_g_daqstatus_dump_radiant_json(FILE *f, const rno_g_daqstatus_t  *ds)  
+{
+  int ret = 0;
+  ret += fprintf(f," {\"when\": %f, \"voltages\": "
+                "{\"V1\": %f, \"V1.8\": %f, \"V2.5\": %f, \"VLeftMon\": %f, \"VRightMon\": %f}"
+                ", \"period\": ",  ds->when_radiant,
+                3.3*ds->radiant_voltages.V_1_0/65535.,
+                3.3*ds->radiant_voltages.V_1_8/65535.,
+                3.3*ds->radiant_voltages.V_2_5/65535.,
+                3.3*ds->radiant_voltages.V_LeftMon/65535.,
+                3.3*ds->radiant_voltages.V_RightMon/65535.
+                );
+  if ( !ds->radiant_scaler_period)
+    ret += fprintf(f,"\"PPS\",");
+  else
+    ret += fprintf(f,"%f,", ds->radiant_scaler_period);
+
+  ret+= fprintf(f,"\"thresholds\": [");
+
+  for (int i = 0; i < RNO_G_NUM_RADIANT_CHANNELS; i++)
+  {
+    if (ds->radiant_thresholds[i] == 0xffffffff)
+      ret +=fprintf(f,"null");
+    else
+      ret +=fprintf(f,"%0.4f",  ds->radiant_thresholds[i] * 2.5/16777215);
+
+    if (i == RNO_G_NUM_RADIANT_CHANNELS -1)
+      ret +=fprintf(f,"]");
+    else
+      ret += fprintf(f,",");
+  }
+
+  ret+= fprintf(f,", \"scalers\": [");
+  for (int i = 0; i < RNO_G_NUM_RADIANT_CHANNELS; i++)
+  {
+    ret += fprintf(f,"%hu%c", ds->radiant_scalers[i], i == RNO_G_NUM_RADIANT_CHANNELS -1 ? ']': ',');
+  }
+  ret+= fprintf(f,", \"prescalers\": [");
+  for (int i = 0; i < RNO_G_NUM_RADIANT_CHANNELS; i++)
+  {
+    ret += fprintf(f,"%hu%c", ds->radiant_prescalers[i], i == RNO_G_NUM_RADIANT_CHANNELS -1 ? ']': ',');
+  }
+
+  ret +=fprintf(f,"}");
+  return ret;
+}
+
 
 int rno_g_daqstatus_dump_flower(FILE  *f, const rno_g_daqstatus_t * ds) 
 {
@@ -714,7 +907,8 @@ int rno_g_daqstatus_dump_flower(FILE  *f, const rno_g_daqstatus_t * ds)
   int when_lt = ds->when_lt; 
   int lt_ns = (ds->when_lt - when_lt); 
   struct tm when_tm_lt; 
-  gmtime_r((time_t*)&when_lt, &when_tm_lt); 
+  time_t when_lt_t = when_lt;
+  gmtime_r((time_t*)&when_lt_t, &when_tm_lt); 
 
   ret+=fprintf(f,  "============FLOWER=============\n"); 
   ret += fprintf(f,", recorded at %04d-%02d-%02d %02d:%02d:%02d.%09dZ\n", 
@@ -736,6 +930,36 @@ int rno_g_daqstatus_dump_flower(FILE  *f, const rno_g_daqstatus_t * ds)
                      ds->lt_scalers.s_1Hz.trig_coinc, ds->lt_scalers.s_100Hz.trig_coinc,ds->lt_scalers.s_1Hz_gated.trig_coinc); 
 
   return ret; 
+}
+
+int rno_g_daqstatus_dump_flower_json(FILE *f, const rno_g_daqstatus_t *ds)
+{
+  int ret = 0;
+  uint64_t ncycles = ds->lt_scalers.ncycles;
+  ret += fprintf(f,"{\"when\": %f, \"ncycles\": %" PRIu64 ", \"cycle_counter\": %" PRIu64 ", \"scaler_counter_1Hz\": %hu, ", 
+      ds->when_lt, ncycles, ds->lt_scalers.cycle_counter, ds->lt_scalers.scaler_counter_1Hz);
+
+
+ 
+  const rno_g_lt_scaler_group_t *groups[] = {
+    &ds->lt_scalers.s_1Hz,
+    &ds->lt_scalers.s_1Hz_gated,
+    &ds->lt_scalers.s_100Hz,
+  };
+  const char * group_names[] = { "1Hz", "100Hz","1HzGated" };
+
+  ret += fprintf(f, "\"scalers\" : {");
+  for (int i = 0; i < 3; i++)
+  {
+    ret += fprintf(f, "%c \"%s\": {\"coinc_trig\": %u, \"channel_trig\": [%u,%u,%u,%u], \"coinc_servo\": %u, \"channel_servo\": [%u,%u,%u,%u]} "
+        , i == 0  ? ' ' : ',', group_names[i], 
+        groups[i]->trig_coinc, groups[i]->trig_per_chan[0], groups[i]->trig_per_chan[1], groups[i]->trig_per_chan[2], groups[i]->trig_per_chan[3],
+        groups[i]->servo_coinc, groups[i]->servo_per_chan[0], groups[i]->servo_per_chan[1], groups[i]->servo_per_chan[2], groups[i]->servo_per_chan[3]);
+
+  }
+
+  ret += fprintf(f,"}}"); 
+  return ret;
 }
 
 int rno_g_daqstatus_write(rno_g_file_handle_t h, const rno_g_daqstatus_t * ds) 
@@ -811,27 +1035,14 @@ typedef struct rno_g_daqstatus_v4
   uint8_t station;
 } rno_g_daqstatus_v4_t; 
 
-
-
-int rno_g_daqstatus_read(rno_g_file_handle_t h, rno_g_daqstatus_t *ds)
+static int real_rno_g_daqstatus_read(rno_g_file_handle_t h, rno_g_daqstatus_t *ds, int version)
 {
-  io_header_t hd; 
-  int rd = do_read(h, sizeof(hd), &hd,0); 
-  if (!rd) return 0; 
-
-  if (hd.magic != DAQSTATUS_MAGIC)
-  {
-    //this is not a header! 
-    fprintf(stderr,"Wrong magic! Got %hx, expected %hx\n", hd.magic, DAQSTATUS_MAGIC); 
-    return -1; 
-  }
-
   uint32_t sum = init_cksum; 
   uint32_t wanted_sum = 0; 
-  rd = 0; 
+  int rd = 0; 
   int rdsum = 0;
   // here we handle converting to the newest kind of daqstatus
-  switch (hd.version) 
+  switch (version) 
   {
 
     case 0: 
@@ -841,7 +1052,7 @@ int rno_g_daqstatus_read(rno_g_file_handle_t h, rno_g_daqstatus_t *ds)
         memset(ds,0,sizeof(*ds)); 
         rno_g_daqstatus_v1_t dsv1; 
         rd = do_read(h,sizeof(dsv1),&dsv1, &sum); 
-        if (hd.version == 0) dsv1.scaler_period /=2.5; 
+        if (version == 0) dsv1.scaler_period /=2.5; 
         ds->when_radiant = dsv1.when; 
         ds->radiant_scaler_period = dsv1.scaler_period; 
         memcpy(ds->radiant_thresholds, dsv1.thresholds, sizeof(ds->radiant_thresholds));
@@ -907,7 +1118,7 @@ int rno_g_daqstatus_read(rno_g_file_handle_t h, rno_g_daqstatus_t *ds)
         break;
       }
     default: 
-      fprintf(stderr,"Unknown daqstatus version %d\n", hd.version); 
+      fprintf(stderr,"Unknown daqstatus version %d\n", version); 
       return 0; 
   }
 
@@ -921,6 +1132,167 @@ int rno_g_daqstatus_read(rno_g_file_handle_t h, rno_g_daqstatus_t *ds)
   return rd; 
 }
 
+int rno_g_daqstatus_read(rno_g_file_handle_t h, rno_g_daqstatus_t *ds)
+{
+  io_header_t hd; 
 
+  int rd = read_io_header(&hd, h);
+  if (!rd) return 0; 
+
+  if (hd.magic != DAQSTATUS_MAGIC)
+  {
+    //this is not a header! 
+    fprintf(stderr,"Wrong magic! Got %hx, expected %hx\n", hd.magic, DAQSTATUS_MAGIC); 
+    return -1; 
+  }
+
+  return real_rno_g_daqstatus_read(h, ds, hd.version);
+}
+
+const char * rno_g_trigger_type_to_string(rno_g_trigger_type_t t)
+{
+  switch((int) t)
+  {
+    case RNO_G_TRIGGER_SOFT:
+      return "SOFT";
+    case RNO_G_TRIGGER_EXT:
+      return "EXT";
+    case RNO_G_TRIGGER_RF_LT_SIMPLE:
+      return "LT";
+    case RNO_G_TRIGGER_PPS:
+      return "PPS";
+    case RNO_G_TRIGGER_RF_RADIANTX:
+      return "RADIANTX";
+    case RNO_G_TRIGGER_RF_RADIANT0 | RNO_G_TRIGGER_RF_RADIANTX:
+      return "RADIANT0";
+    case RNO_G_TRIGGER_RF_RADIANT1 | RNO_G_TRIGGER_RF_RADIANTX:
+      return "RADIANT1";
+    default:
+      return "UNKNOWN";
+  }
+}
+
+
+
+
+
+
+
+
+int rno_g_any_read(rno_g_file_handle_t h, rno_g_any_t * any)
+{
+
+  if (!any) return -1; 
+  any->ok = 0; 
+  io_header_t hd;
+  int rd = read_io_header(&hd, h); 
+  if (!rd) return 0; 
+
+  switch (hd.magic) 
+  {
+    case HEADER_MAGIC: 
+      rd  = real_rno_g_header_read(h, &any->data.hd, hd.version); 
+      any->what = RNO_G_HEADER_T; 
+      break;
+    case WAVEFORM_MAGIC: 
+      rd  = real_rno_g_waveform_read(h, &any->data.wf, hd.version); 
+      any->what = RNO_G_WAVEFORM_T; 
+      break;
+    case DAQSTATUS_MAGIC: 
+      rd  = real_rno_g_daqstatus_read(h, &any->data.ds, hd.version); 
+      any->what = RNO_G_DAQSTATUS_T; 
+      break;
+    case PEDESTAL_MAGIC: 
+      rd  = real_rno_g_pedestal_read(h, &any->data.ped, hd.version); 
+      any->what = RNO_G_PEDESTAL_T; 
+      break;
+    default: 
+      printf("Unrecognized magic: %x\n", hd.magic); 
+  }
+
+  // TODO, this should be a better check... 
+  any->ok = rd > 0; 
+
+  return rd; 
+}
+
+int rno_g_any_write(rno_g_file_handle_t h, const rno_g_any_t * any) 
+{
+  if (!any || !any->ok) return -1; 
+
+  switch (any->what) 
+  {
+    case RNO_G_WAVEFORM_T: 
+      return rno_g_waveform_write(h, &any->data.wf);
+    case RNO_G_HEADER_T: 
+      return rno_g_header_write(h, &any->data.hd);
+    case RNO_G_DAQSTATUS_T: 
+      return rno_g_daqstatus_write(h, &any->data.ds);
+    case RNO_G_PEDESTAL_T: 
+      return rno_g_pedestal_write(h, &any->data.ped);
+    default: 
+      return -1; 
+  }
+  return -1; 
+}
+
+int rno_g_any_dump(FILE * f, const rno_g_any_t * any) 
+{
+  if (!any || !any->ok) return -1; 
+
+  switch (any->what) 
+  {
+    case RNO_G_WAVEFORM_T: 
+      return rno_g_waveform_dump(f, &any->data.wf);
+    case RNO_G_HEADER_T: 
+      return rno_g_header_dump(f, &any->data.hd);
+    case RNO_G_DAQSTATUS_T: 
+      return rno_g_daqstatus_dump(f, &any->data.ds);
+    case RNO_G_PEDESTAL_T: 
+      return rno_g_pedestal_dump(f, &any->data.ped);
+    default: 
+      return -1; 
+  }
+  return -1; 
+}
+
+const char * rno_g_data_type_name(rno_g_data_type_t t)
+{
+  switch(t)
+  {
+    case RNO_G_WAVEFORM_T:
+      return "waveform";
+    case RNO_G_HEADER_T:
+      return "header";
+    case RNO_G_DAQSTATUS_T:
+      return "daqstatus";
+    case RNO_G_PEDESTAL_T:
+      return "pedestal";
+    default:
+      return "invalid";
+  }
+
+  return NULL;
+}
+int rno_g_any_dump_json(FILE * f, const rno_g_any_t * any)
+{
+  if (!any || !any->ok) return -1;
+
+  int ret = fprintf(f, " {\"type\": \"%s\", \"payload\": ", rno_g_data_type_name(any->what));
+  switch (any->what)
+  {
+    case RNO_G_WAVEFORM_T:
+      return ret + rno_g_waveform_dump_json(f, &any->data.wf) + fprintf(f,"}");
+    case RNO_G_HEADER_T:
+      return ret + rno_g_header_dump_json(f, &any->data.hd) + fprintf(f,"}");
+    case RNO_G_DAQSTATUS_T:
+      return ret + rno_g_daqstatus_dump_json(f, &any->data.ds) + fprintf(f,"}");
+    case RNO_G_PEDESTAL_T:
+      return ret + rno_g_pedestal_dump_json(f, &any->data.ped) + fprintf(f,"}");
+    default:
+      return -1;
+  }
+  return -1;
+}
 
 

@@ -4,3 +4,5 @@
 src/rno-g-version.c 
 config.mk
 build/* 
+test/data/*.expected
+test/data/*.expected.json

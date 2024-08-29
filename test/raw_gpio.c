@@ -26,7 +26,6 @@ static int gpio_num = 6;
 int write = -1; 
 
 
-
 static off_t gpio_base[4] = { GPIO0_BASE, GPIO1_BASE, GPIO2_BASE, GPIO3_BASE }; 
 
 int main(int nargs, char ** args) 
@@ -48,7 +47,6 @@ int main(int nargs, char ** args)
   if (nargs > 2) 
   {
     write = atoi(args[2]);
-
   }
 
   int mem_fd = open("/dev/mem", O_RDWR | O_SYNC);;
@@ -87,6 +85,5 @@ int main(int nargs, char ** args)
 
     printf("GPIO %d.%d:  OE: %d, DIN:%d \n", gpio_bank, gpio_num, !!(*oe & (1 << gpio_num)), !!(*din & (1 << gpio_num))); 
   }
- 
 }
 
