@@ -32,6 +32,9 @@ int flower_fill_daqstatus(flower_dev_t *dev, rno_g_daqstatus_t * ds);
 
 int flower_fill_header(flower_dev_t *dev, rno_g_header_t * hd);
 
+// if preclear non-zero (not default), then buffer cleared in same spi transaction as sending trigger, minimzing chance of accidental RF trigger.
+void flower_enable_force_trigger_preclear(flower_dev_t *dev, int preclear);
+
 int flower_force_trigger(flower_dev_t *dev);
 
 int flower_buffer_check(flower_dev_t * dev, int * avail);
@@ -39,6 +42,36 @@ int flower_buffer_check(flower_dev_t * dev, int * avail);
 int flower_buffer_clear(flower_dev_t * dev);
 
 int flower_read_waveforms(flower_dev_t * dev, int len, uint8_t ** dest);
+
+
+// WARNING experimental, ABI may change without notice
+typedef struct flower_waveform_metadata
+{
+  uint32_t event_counter;
+  uint32_t trigger_counter;
+  uint32_t pps_counter;// this doesn't seem to work?
+  uint8_t trigger_type; //1=soft,2=ext,3=coinc,4=phased,5=pps. see enum below.
+  uint8_t pps_flag;
+  uint64_t timestamp; //48 bit, will roll over
+  uint64_t recent_pps_timestamp; //48 bit, will roll over.
+                                 //Note that this is recent at readout time, not trigger time, so could be after the trigger timestamp.
+} flower_waveform_metadata_t;
+
+enum
+{
+  FLOWER_TRIG_NONE,
+  FLOWER_TRIG_SOFT,
+  FLOWER_TRIG_EXT,
+  FLOWER_TRIG_COINC,
+  FLOWER_TRIG_PHASED,
+  FLOWER_TRIG_PPS,
+  FLOWER_TRIG_INVALID
+} flower_trigger_type;
+
+const char * flower_trigger_type_as_string(uint8_t type);
+
+// EXPERIMENTAL
+int flower_read_waveform_metadata(flower_dev_t * dev, flower_waveform_metadata_t * meta);
 
 enum
 {
