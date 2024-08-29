@@ -1,7 +1,8 @@
 #! /bin/bash 
 #
-test_files=`echo test/data/s21_dh_pulsetest/*.dat.gz`
+test_files=`echo test/data/*.dat.gz`
 
+tar xf test/data/expected.tar.xz -C test/data "*.expected"
 
 for f in $test_files ;
 do
