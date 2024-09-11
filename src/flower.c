@@ -212,7 +212,7 @@ flower_dev_t * flower_open(const char * spi_device, int spi_en_gpio)
     //flower_read_register(dev,FLWR_REG_TRIG_COINC_MASK, &cfg_word); 
     //dev->coinc_trig_cfg.channel_mask=cfg_word.bytes[3]; //trig config would need updated to include this
     //for now hardcode
-    dev->coinc_trig_cfg.channel_mask=0xff;
+    dev->coinc_trig_cfg.channel_mask=0xf;
 
     for (int i = 0; i < RNO_G_NUM_LT_BEAMS; i++) 
     {
@@ -250,7 +250,7 @@ static int read_word (flower_dev_t * dev, flower_word_t *word)
 
 int flower_read_register(flower_dev_t*dev, uint8_t addr, flower_word_t * result)
 {
-  if (addr <1 || addr > FLWR_REG_MAX || !dev) return -1;
+  if (addr <1 || !dev) return -1;
   struct spi_ioc_transfer xfer[2] = {0};
   flower_word_t word = {0} ;
   word.bytes[0] = FLWR_REG_SET_READ_REG ;
