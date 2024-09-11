@@ -13,10 +13,10 @@
  *
  */
 
-#define HEADER_VER 1
+#define HEADER_VER 2
 #define WF_VER 4 
 #define PED_VER 3 
-#define DAQSTATUS_VER 5 
+#define DAQSTATUS_VER 6
 
 #define HEADER_MAGIC 0xead1 
 #define WAVEFORM_MAGIC 0xafd1 
@@ -105,10 +105,11 @@ int rno_g_header_dump(FILE *f, const rno_g_header_t *header)
     fprintf(f," %u/%u ", header->radiant_start_windows[i][0], header->radiant_start_windows[i][1]); 
   }
   ret+=fprintf(f, "\n"); 
-  ret+=fprintf(f, " TRIGTYPE: %s %s %s %s %s %s | RAWTRIGINFO: 0x%x| RAWSTATUS: 0x%x\n", 
+  ret+=fprintf(f, " TRIGTYPE: %s %s %s %s %s %s %s | RAWTRIGINFO: 0x%x| RAWSTATUS: 0x%x\n", 
       header->trigger_type & RNO_G_TRIGGER_SOFT ? "SOFT":"",
       header->trigger_type & RNO_G_TRIGGER_PPS ? "PPS":"",
       header->trigger_type & RNO_G_TRIGGER_RF_LT_SIMPLE ? "RFLT":"",
+      header->trigger_type & RNO_G_TRIGGER_RF_LT_PHASED ? "RFLT_PHASED":"",
       (header->trigger_type & (RNO_G_TRIGGER_RF_RADIANT0 | RNO_G_TRIGGER_RF_RADIANTX)) == (RNO_G_TRIGGER_RF_RADIANT0 | RNO_G_TRIGGER_RF_RADIANTX)? "RFRAD0":"",
       (header->trigger_type & (RNO_G_TRIGGER_RF_RADIANT1 | RNO_G_TRIGGER_RF_RADIANTX)) == (RNO_G_TRIGGER_RF_RADIANT1 | RNO_G_TRIGGER_RF_RADIANTX)? "RFRAD1":"", 
       (header->trigger_type & (RNO_G_TRIGGER_RF_RADIANTX  | RNO_G_TRIGGER_RF_RADIANT0 | RNO_G_TRIGGER_RF_RADIANT1)) == (RNO_G_TRIGGER_RF_RADIANTX ) ? "RFRAD?":"", 
@@ -148,6 +149,41 @@ typedef struct rno_g_header_v0
   uint16_t lt_nsamples; //!< Number of samples per channel in low-threshold board  (could just keep this in waveform if we wanted)
 } rno_g_header_v0_t; 
 
+typedef struct rno_g_header_v1 
+{
+  uint32_t event_number;  //!< Event number (per run, 0-indexed) 
+  uint32_t trigger_number;//!< Trigger  number (per run, 0-indexed), including triggers not read out due to deadtime
+  uint32_t run_number;    //!< Run number , assigned at startup 
+
+  uint32_t trigger_mask;  //!< Which channels (or beams?) caused the trigger
+  uint32_t trigger_value; //!< Relevant for LT trigger only, probably. Something like the beam power? 
+  uint32_t sys_clk;  //!< Trigger time tag  (number of clock cycles since start of run or since PPS? If since start of run, may need to be 64-bit) 
+  uint32_t pps_count;     //!< Number of PPS's since start of run
+  uint32_t readout_time_secs; // !< readout START time in secondpart
+  uint32_t readout_time_nsecs; // !< readout START time, nanosecond part 
+  uint32_t readout_elapsed_nsecs; // How long it took to do the readout syscall 
+  uint32_t sysclk_last_pps;  //!< sysclk time at last PPS
+  uint32_t sysclk_last_last_pps; //!< sysclk time at last last PPS
+  uint32_t raw_tinfo;       //!< the raw trigger info. To  be figured out. 
+  uint32_t raw_evstatus;    //!< the raw event status flags. To be figured out. 
+
+  uint8_t station_number; //!< The station number. 
+
+  /** Trigger type. See rno_g_trigger_type_t  Or-able */ 
+  uint8_t trigger_type; 
+
+  /** Various flags for the event. See rno_g_flags_t orable */ 
+  uint8_t flags; 
+  uint8_t pretrigger_windows; //!< Number of pretrigger windows? 
+  uint8_t radiant_start_windows[RNO_G_NUM_RADIANT_CHANNELS][2]; //!<this encodes buffer number too. There are two of these because of 2048-sample readout works. The second one will be 0xff (255) if we are in 1024-mode. 
+  uint16_t radiant_nsamples; //!< Number of samples per channel in RADIANT board (could just keep this in waveform if we wanted)
+  uint16_t lt_nsamples; //!< Number of samples per channel in low-threshold board  (could just keep this in waveform if we wanted)
+
+  rno_g_lt_simple_trigger_config_v0_t lt_simple_trigger_cfg; 
+  rno_g_radiant_trigger_config_t radiant_trigger_cfg[2]; 
+
+} rno_g_header_v1_t; 
+
 
 
 int rno_g_header_read(rno_g_file_handle_t h, rno_g_header_t *header)
@@ -174,7 +210,14 @@ int rno_g_header_read(rno_g_file_handle_t h, rno_g_header_t *header)
     {
       //I THINK we can just get away with zeroing and reading hdv0 amount
       memset(header,0, sizeof(*header)); 
-      rd = do_read(h,sizeof(rno_g_header_v0_t),header, &sum); 
+      rd = do_read(h,sizeof(rno_g_header_v0_t),header, &sum);
+      memset(header,0, sizeof(*header)); 
+      break; 
+    }
+    case 1: 
+    {
+      memset(header,0, sizeof(*header)); 
+      rd = do_read(h,sizeof(rno_g_header_v1_t),header, &sum); 
       break; 
     }
     case HEADER_VER:
@@ -328,10 +371,7 @@ int rno_g_waveform_read(rno_g_file_handle_t h, rno_g_waveform_t *wf)
           {
             wf->digitizer_readout_delay[ichan]=0;
           }
-          //wf->radiant_readout_delays.rf0_delay=0;
-          //wf->radiant_readout_delays.rf1_delay=0;
-          //wf->radiant_readout_delays.rf0_delay_mask=0;
-          //wf->radiant_readout_delays.rf0_delay_mask=0;
+
           wf->radiant_sampling_rate=3200; //the change happened to new versions
         }
         
@@ -725,8 +765,8 @@ int rno_g_daqstatus_dump_flower(FILE  *f, const rno_g_daqstatus_t * ds)
   ret+=fprintf(f,  "==CH==SERVO_THR=TRIG_THR=SERVO_SCAL_1HZ==SERVO_SCAL_100HZ==SERVO_SCAL_GTE==TRIG_SCAL_1HZ==TRIG_SCAL_100Hz=TRIG_SCAL_GTE\n"); 
   for (int i = 0; i < RNO_G_NUM_LT_CHANNELS; i++)
   {
-    ret+=fprintf(f," %d   | %03d     | %03d   |      %04d   |      %04d         |       %04d     |      %04d    |      %04d      |   %04d        \n",
-                     i, ds->lt_servo_thresholds[i], ds->lt_trigger_thresholds[i],
+    ret+=fprintf(f," %02d   | %03d     | %03d   |      %04d   |      %04d         |       %04d     |      %04d    |      %04d      |   %04d        \n",
+                     i, ds->lt_coinc_servo_thresholds[i], ds->lt_coinc_trigger_thresholds[i],
                      ds->lt_scalers.s_1Hz.servo_per_chan[i], ds->lt_scalers.s_100Hz.servo_per_chan[i],ds->lt_scalers.s_1Hz_gated.servo_per_chan[i],
                      ds->lt_scalers.s_1Hz.trig_per_chan[i], ds->lt_scalers.s_100Hz.trig_per_chan[i],ds->lt_scalers.s_1Hz_gated.trig_per_chan[i]);
   }
@@ -734,6 +774,21 @@ int rno_g_daqstatus_dump_flower(FILE  *f, const rno_g_daqstatus_t * ds)
   ret += fprintf(f,"coinc|         |       |      %04d   |      %04d         |       %04d     |      %04d    |      %04d      |   %04d        \n",
                      ds->lt_scalers.s_1Hz.servo_coinc, ds->lt_scalers.s_100Hz.servo_coinc,ds->lt_scalers.s_1Hz_gated.servo_coinc,
                      ds->lt_scalers.s_1Hz.trig_coinc, ds->lt_scalers.s_100Hz.trig_coinc,ds->lt_scalers.s_1Hz_gated.trig_coinc); 
+
+
+  for (int i = 0; i < RNO_G_NUM_LT_BEAMS; i++)
+  {
+    ret+=fprintf(f," %02d   | %03d     | %03d   |      %04d   |      %04d         |       %04d     |      %04d    |      %04d      |   %04d        \n",
+                     i, ds->lt_phased_servo_thresholds[i], ds->lt_phased_trigger_thresholds[i],
+                     ds->lt_scalers.s_1Hz.servo_per_beam[i], ds->lt_scalers.s_100Hz.servo_per_beam[i],ds->lt_scalers.s_1Hz_gated.servo_per_beam[i],
+                     ds->lt_scalers.s_1Hz.trig_per_beam[i], ds->lt_scalers.s_100Hz.trig_per_beam[i],ds->lt_scalers.s_1Hz_gated.trig_per_beam[i]);
+  }
+
+    ret += fprintf(f,"phased|         |       |      %04d   |      %04d         |       %04d     |      %04d    |      %04d      |   %04d        \n",
+                     ds->lt_scalers.s_1Hz.servo_phased, ds->lt_scalers.s_100Hz.servo_phased,ds->lt_scalers.s_1Hz_gated.servo_phased,
+                     ds->lt_scalers.s_1Hz.trig_phased, ds->lt_scalers.s_100Hz.trig_phased,ds->lt_scalers.s_1Hz_gated.trig_phased); 
+    
+    ret+=fprintf(f,"phased threshold offset %d\n",ds->lt_phased_threshold_offset);
 
   return ret; 
 }
@@ -748,14 +803,25 @@ int rno_g_daqstatus_write(rno_g_file_handle_t h, const rno_g_daqstatus_t * ds)
   return wr; 
 }
 
-// pre version 5, there was no delay cycle counter 
+// pre version 5, there was no delay cycle counter
+
+typedef struct rno_g_lt_scaler_group_v0
+{
+  uint16_t trig_coinc; 
+  uint16_t trig_per_chan[RNO_G_NUM_LT_CHANNELS]; 
+  uint16_t servo_coinc; 
+  uint16_t servo_per_chan[RNO_G_NUM_LT_CHANNELS]; 
+
+} rno_g_lt_scaler_group_v0_t; 
+
 typedef struct rno_g_lt_scalers_v0
 {
-  rno_g_lt_scaler_group_t s_1Hz; 
-  rno_g_lt_scaler_group_t s_1Hz_gated; 
-  rno_g_lt_scaler_group_t s_100Hz; 
+  rno_g_lt_scaler_group_v0_t s_1Hz; 
+  rno_g_lt_scaler_group_v0_t s_1Hz_gated; 
+  rno_g_lt_scaler_group_v0_t s_100Hz; 
   uint64_t ncycles : 48 ;  //this is the 118 MHz clock
   uint16_t scaler_counter_1Hz : 16; 
+  uint64_t cycle_counter;  // cycle counter, reset on each PPS 
 } rno_g_lt_scalers_v0_t; 
 
 
@@ -811,6 +877,21 @@ typedef struct rno_g_daqstatus_v4
   uint8_t station;
 } rno_g_daqstatus_v4_t; 
 
+typedef struct rno_g_daqstatus_v5 
+{
+  double when_radiant; 
+  double when_lt; 
+  uint32_t radiant_thresholds[RNO_G_NUM_RADIANT_CHANNELS]; 
+  uint16_t radiant_scalers[RNO_G_NUM_RADIANT_CHANNELS]; 
+  uint8_t radiant_prescalers[RNO_G_NUM_RADIANT_CHANNELS]; 
+  float radiant_scaler_period; 
+  uint8_t  lt_trigger_thresholds[RNO_G_NUM_LT_CHANNELS]; 
+  uint8_t  lt_servo_thresholds[RNO_G_NUM_LT_CHANNELS]; 
+  rno_g_lt_scalers_v0_t lt_scalers; //scalers got bigger
+  rno_g_radiant_voltages_t radiant_voltages; 
+  rno_g_calpulser_info_t cal; 
+  uint8_t station;
+} rno_g_daqstatus_v5_t; 
 
 
 int rno_g_daqstatus_read(rno_g_file_handle_t h, rno_g_daqstatus_t *ds)
@@ -859,8 +940,8 @@ int rno_g_daqstatus_read(rno_g_file_handle_t h, rno_g_daqstatus_t *ds)
         memcpy(ds->radiant_scalers, dsv2.radiant_scalers, sizeof(ds->radiant_scalers));
         memcpy(ds->radiant_prescalers, dsv2.radiant_prescalers, sizeof(ds->radiant_prescalers));
         ds->radiant_scaler_period = dsv2.radiant_scaler_period; 
-        memcpy(ds->lt_trigger_thresholds, dsv2.lt_trigger_thresholds, sizeof(ds->lt_trigger_thresholds));
-        memcpy(ds->lt_servo_thresholds, dsv2.lt_servo_thresholds, sizeof(ds->lt_servo_thresholds));
+        memcpy(ds->lt_coinc_trigger_thresholds, dsv2.lt_trigger_thresholds, sizeof(ds->lt_coinc_trigger_thresholds));
+        memcpy(ds->lt_coinc_servo_thresholds, dsv2.lt_servo_thresholds, sizeof(ds->lt_coinc_servo_thresholds));
         memcpy(&ds->lt_scalers, &dsv2.lt_scalers, sizeof(dsv2.lt_scalers)); 
         ds->station = dsv2.station; 
         break; 
@@ -876,8 +957,8 @@ int rno_g_daqstatus_read(rno_g_file_handle_t h, rno_g_daqstatus_t *ds)
         memcpy(ds->radiant_scalers, dsv3.radiant_scalers, sizeof(ds->radiant_scalers));
         memcpy(ds->radiant_prescalers, dsv3.radiant_prescalers, sizeof(ds->radiant_prescalers));
         ds->radiant_scaler_period = dsv3.radiant_scaler_period; 
-        memcpy(ds->lt_trigger_thresholds, dsv3.lt_trigger_thresholds, sizeof(ds->lt_trigger_thresholds));
-        memcpy(ds->lt_servo_thresholds, dsv3.lt_servo_thresholds, sizeof(ds->lt_servo_thresholds));
+        memcpy(ds->lt_coinc_trigger_thresholds, dsv3.lt_trigger_thresholds, sizeof(ds->lt_coinc_trigger_thresholds));
+        memcpy(ds->lt_coinc_servo_thresholds, dsv3.lt_servo_thresholds, sizeof(ds->lt_coinc_servo_thresholds));
         memcpy(&ds->lt_scalers, &dsv3.lt_scalers, sizeof(dsv3.lt_scalers)); 
         ds->station = dsv3.station; 
         break; 
@@ -893,12 +974,33 @@ int rno_g_daqstatus_read(rno_g_file_handle_t h, rno_g_daqstatus_t *ds)
         memcpy(ds->radiant_scalers, dsv4.radiant_scalers, sizeof(ds->radiant_scalers));
         memcpy(ds->radiant_prescalers, dsv4.radiant_prescalers, sizeof(ds->radiant_prescalers));
         ds->radiant_scaler_period = dsv4.radiant_scaler_period; 
-        memcpy(ds->lt_trigger_thresholds, dsv4.lt_trigger_thresholds, sizeof(ds->lt_trigger_thresholds));
-        memcpy(ds->lt_servo_thresholds, dsv4.lt_servo_thresholds, sizeof(ds->lt_servo_thresholds));
+        memcpy(ds->lt_coinc_trigger_thresholds, dsv4.lt_trigger_thresholds, sizeof(ds->lt_coinc_trigger_thresholds));
+        memcpy(ds->lt_coinc_servo_thresholds, dsv4.lt_servo_thresholds, sizeof(ds->lt_coinc_servo_thresholds));
         memcpy(&ds->lt_scalers, &dsv4.lt_scalers, sizeof(dsv4.lt_scalers)); 
         ds->radiant_voltages = dsv4.radiant_voltages; 
         ds->cal = dsv4.cal; 
         ds->station = dsv4.station; 
+        break; 
+      }
+       case 5: 
+      {
+        memset(ds,0,sizeof(*ds)); 
+        rno_g_daqstatus_v5_t dsv5; 
+        rd = do_read(h, sizeof(dsv5), &dsv5, &sum); 
+        ds->when_radiant = dsv5.when_radiant; 
+        ds->when_lt = dsv5.when_lt; 
+        memcpy(ds->radiant_thresholds, dsv5.radiant_thresholds, sizeof(ds->radiant_thresholds));
+        memcpy(ds->radiant_scalers, dsv5.radiant_scalers, sizeof(ds->radiant_scalers));
+        memcpy(ds->radiant_prescalers, dsv5.radiant_prescalers, sizeof(ds->radiant_prescalers));
+        ds->radiant_scaler_period = dsv5.radiant_scaler_period; 
+        memcpy(ds->lt_coinc_trigger_thresholds, dsv5.lt_trigger_thresholds, sizeof(ds->lt_coinc_trigger_thresholds));
+        memcpy(ds->lt_coinc_servo_thresholds, dsv5.lt_servo_thresholds, sizeof(ds->lt_coinc_servo_thresholds));
+        memcpy(&ds->lt_scalers, &dsv5.lt_scalers, sizeof(dsv5.lt_scalers)); 
+        ds->radiant_voltages = dsv5.radiant_voltages; 
+        ds->cal = dsv5.cal; 
+        ds->station = dsv5.station; 
+        //something for lt_phased_thresholds
+
         break; 
       }
     case DAQSTATUS_VER:
