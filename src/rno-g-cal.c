@@ -30,7 +30,7 @@ struct rno_g_cal_dev
   FILE * fgpioval;
 }; 
 
-const char valid_revs[] = "DE"; 
+const char valid_revs[] = "DEF"; 
 
 const uint8_t addr0 = 0x38; 
 const uint8_t addr1 = 0x3f; 
@@ -332,7 +332,7 @@ int rno_g_cal_select(rno_g_cal_dev_t * dev, rno_g_calpulser_out_t ch)
   if (do_read(dev, addr1, output_reg, &val1)) 
     return -errno; 
 
-  if (dev->rev == 'E') 
+  if (dev->rev >= 'E') 
   {
     val1 |= 0xc; 
     if (do_write(dev, addr1, output_reg, val1))
@@ -425,6 +425,11 @@ int rno_g_cal_set_atten(rno_g_cal_dev_t *dev, uint8_t atten)
 
 int rno_g_cal_read_temp(rno_g_cal_dev_t *dev, float *Tout) 
 {
+  if (dev->rev == 'F') 
+  {
+    *Tout = -128;
+    return 0;
+  }
   uint8_t data[2]; 
 
   if (do_readv(dev, addr2, tmp_reg, sizeof(data), data)) return -errno; 
