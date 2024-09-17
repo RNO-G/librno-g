@@ -389,6 +389,7 @@ int rno_g_cal_select(rno_g_cal_dev_t * dev, rno_g_calpulser_out_t ch)
 
 int rno_g_cal_set_atten(rno_g_cal_dev_t *dev, uint8_t atten) 
 {
+  if (!dev) return -1;
   if (dev->setup && dev->atten == atten) return 0; 
   //read addr0
   uint8_t val;
