@@ -35,7 +35,7 @@ client:  $(BUILD_DIR)/librno-g.so
 
 daq: client $(BUILD_DIR)/libradiant.so  $(BUILD_DIR)/libflower.so $(BUILD_DIR)/librno-g-cal.so 
 
-daq-test-progs:  $(addprefix $(BUILD_DIR)/test/, flower-configure-trigger flower-dump flower-equalize flower-set-thresholds\
+daq-test-progs:  $(addprefix $(BUILD_DIR)/test/, flower-configure-trigger flower-dump flower-equalize flower-set-thresholds flower-set-pps-delay\
 	                  flower-status flower-trigger-enables flower-trigout-enables flower-wave radiant-check-trigger radiant-dump\
 										radiant-scan radiant-threshold-scan radiant-try-daqstatus radiant-try-event radiant-try-ped cal-cmd)
 
