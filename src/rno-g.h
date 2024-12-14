@@ -36,7 +36,7 @@ extern "C"
 
 #define RNO_G_MAX_LT_NSAMPLES 512
 #define RNO_G_NUM_LT_CHANNELS 4
-#define RNO_G_NUM_LT_BEAMS 9
+#define RNO_G_NUM_LT_BEAMS 12
 
 
 /** Forward declarations of file backends, because some may be conditionally compiled in the future */ 

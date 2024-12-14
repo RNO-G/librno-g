@@ -210,8 +210,7 @@ flower_dev_t * flower_open(const char * spi_device, int spi_en_gpio)
   {  
     //these will need to be moved into a new fw check when implemented
     //flower_read_register(dev,FLWR_REG_TRIG_COINC_MASK, &cfg_word); 
-    //dev->coinc_trig_cfg.channel_mask=cfg_word.bytes[3]; //trig config would need updated to include this
-    //for now hardcode
+    //dev->coinc_trig_cfg.channel_mask=cfg_word.bytes[3]; //trig config would need updated to include thi
     dev->coinc_trig_cfg.channel_mask=0xf;
 
     for (int i = 0; i < RNO_G_NUM_LT_BEAMS; i++) 
@@ -349,7 +348,7 @@ int flower_configure_trigger(flower_dev_t * dev, rno_g_lt_simple_trigger_config_
   {
     word.bytes[0] = FLWR_REG_PHASED_MASK;
     word.bytes[1] = 0; 
-    word.bytes[2] = (phased_cfg.beam_mask&0x0100)>>8;
+    word.bytes[2] = (phased_cfg.beam_mask&0xff00)>>8;
     word.bytes[3] = phased_cfg.beam_mask&0xff; 
     ret += write_word(dev,&word); 
     if (!ret) dev->phased_trig_cfg = phased_cfg; 
@@ -506,18 +505,19 @@ int flower_fill_daqstatus(flower_dev_t *dev, rno_g_daqstatus_t *ds)
       ds->lt_scalers.s_100Hz.servo_coinc = raw_scalers[31];
       for (int i = 0; i < 4; i++) ds->lt_scalers.s_100Hz.servo_per_chan[i] = raw_scalers[32+i]; 
 
-      ds->lt_scalers.s_1Hz.trig_phased = raw_scalers[36];
-      for (int i = 0; i < RNO_G_NUM_LT_BEAMS; i++) ds->lt_scalers.s_1Hz.trig_per_beam[i] = raw_scalers[37+i]; 
-      ds->lt_scalers.s_1Hz.servo_phased = raw_scalers[46];
-      for (int i = 0; i < RNO_G_NUM_LT_BEAMS; i++) ds->lt_scalers.s_1Hz.servo_per_beam[i] = raw_scalers[47+i]; 
-      ds->lt_scalers.s_1Hz_gated.trig_phased = raw_scalers[56];
-      for (int i = 0; i < RNO_G_NUM_LT_BEAMS; i++) ds->lt_scalers.s_1Hz_gated.trig_per_beam[i] = raw_scalers[57+i]; 
-      ds->lt_scalers.s_1Hz_gated.servo_phased = raw_scalers[66];
-      for (int i = 0; i < RNO_G_NUM_LT_BEAMS; i++) ds->lt_scalers.s_1Hz_gated.servo_per_beam[i] = raw_scalers[67+i]; 
-      ds->lt_scalers.s_100Hz.trig_phased = raw_scalers[76];
-      for (int i = 0; i < RNO_G_NUM_LT_BEAMS; i++) ds->lt_scalers.s_100Hz.trig_per_beam[i] = raw_scalers[77+i]; 
-      ds->lt_scalers.s_100Hz.servo_phased = raw_scalers[86];
-      for (int i = 0; i < RNO_G_NUM_LT_BEAMS; i++) ds->lt_scalers.s_100Hz.servo_per_beam[i] = raw_scalers[87+i]; 
+      #define PHASED_SCALER_BASE 36
+      ds->lt_scalers.s_1Hz.trig_phased = raw_scalers[PHASED_SCALER_BASE];
+      for (int i = 0; i < RNO_G_NUM_LT_BEAMS; i++) ds->lt_scalers.s_1Hz.trig_per_beam[i] = raw_scalers[PHASED_SCALER_BASE+1+i]; 
+      ds->lt_scalers.s_1Hz.servo_phased = raw_scalers[PHASED_SCALER_BASE+1+RNO_G_NUM_LT_BEAMS];
+      for (int i = 0; i < RNO_G_NUM_LT_BEAMS; i++) ds->lt_scalers.s_1Hz.servo_per_beam[i] = raw_scalers[PHASED_SCALER_BASE+2+RNO_G_NUM_LT_BEAMS+i]; 
+      ds->lt_scalers.s_1Hz_gated.trig_phased = raw_scalers[PHASED_SCALER_BASE+2+2*RNO_G_NUM_LT_BEAMS];
+      for (int i = 0; i < RNO_G_NUM_LT_BEAMS; i++) ds->lt_scalers.s_1Hz_gated.trig_per_beam[i] = raw_scalers[PHASED_SCALER_BASE+3+2*RNO_G_NUM_LT_BEAMS+i]; 
+      ds->lt_scalers.s_1Hz_gated.servo_phased = raw_scalers[PHASED_SCALER_BASE+3+3*RNO_G_NUM_LT_BEAMS];
+      for (int i = 0; i < RNO_G_NUM_LT_BEAMS; i++) ds->lt_scalers.s_1Hz_gated.servo_per_beam[i] = raw_scalers[PHASED_SCALER_BASE+4+3*RNO_G_NUM_LT_BEAMS+i]; 
+      ds->lt_scalers.s_100Hz.trig_phased = raw_scalers[PHASED_SCALER_BASE+4+4*RNO_G_NUM_LT_BEAMS];
+      for (int i = 0; i < RNO_G_NUM_LT_BEAMS; i++) ds->lt_scalers.s_100Hz.trig_per_beam[i] = raw_scalers[PHASED_SCALER_BASE+5+4*RNO_G_NUM_LT_BEAMS+i]; 
+      ds->lt_scalers.s_100Hz.servo_phased = raw_scalers[PHASED_SCALER_BASE+5+5*RNO_G_NUM_LT_BEAMS];
+      for (int i = 0; i < RNO_G_NUM_LT_BEAMS; i++) ds->lt_scalers.s_100Hz.servo_per_beam[i] = raw_scalers[PHASED_SCALER_BASE+6+5*RNO_G_NUM_LT_BEAMS+i]; 
       
       ds->lt_scalers.scaler_counter_1Hz = raw_scalers[0]; 
 
@@ -875,7 +875,7 @@ int flower_equalize(flower_dev_t * dev, float target_rms, uint8_t * v_gain_codes
     {
       if (done & ( 1 << i) || !(mask & (1 << i))) continue;
 
-      rms[i] = getrms(256, data[i]);
+      rms[i] = getrms(512, data[i]);
 
       if (verbose) printf("ch: %d, gain_code: %d, rms: %f\n", i, gain_codes[i], rms[i]);
 

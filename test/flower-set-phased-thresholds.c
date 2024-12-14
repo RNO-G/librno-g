@@ -16,9 +16,9 @@ int main (int nargs, char ** args)
   //if (nargs > 3) 
   //  frac = atof(args[5]); 
 
-  uint16_t phased_trig_thresh[9]; 
-  uint16_t phased_servo_thresh[9]; 
-  for (int i = 0; i <9; i++) 
+  uint16_t phased_trig_thresh[12]; 
+  uint16_t phased_servo_thresh[12]; 
+  for (int i = 0; i <12; i++) 
   {
     phased_trig_thresh[i] = atoi(args[1]); 
     phased_servo_thresh[i] = frac * phased_trig_thresh[i]; 
