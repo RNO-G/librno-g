@@ -351,7 +351,7 @@ typedef struct rno_g_any
   rno_g_data_type_t what;
 
   int ok; //non-zero if ok
-
+          //any, are you ok? are you ok, any?
 } rno_g_any_t;
 
 inline const rno_g_waveform_t * rno_g_any_as_waveform(const rno_g_any_t * any)
