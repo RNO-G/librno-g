@@ -75,10 +75,9 @@ struct flower_dev
     struct
     {
       uint8_t addr;
+      uint8_t station;
       uint8_t major;
-      uint8_t reserved;
-      uint8_t rev : 4;
-      uint8_t minor : 4;
+      uint8_t minor;
     } ver;
     flower_word_t word;
   } fwver;
@@ -182,7 +181,7 @@ flower_dev_t * flower_open(const char * spi_device, int spi_en_gpio)
 
   flower_read_register(dev, FLWR_REG_FW_VER, &dev->fwver.word);
   flower_read_register(dev, FLWR_REG_FW_DATE, &dev->fwdate.word);
-  dev->fwver_int = 10000 * dev->fwver.ver.major + 100 * dev->fwver.ver.minor + dev->fwver.ver.rev;
+  dev->fwver_int = 1000 * dev->fwver.ver.major + dev->fwver.ver.minor;
   //have to finagle the date
   flower_word_t word = dev->fwdate.word;
   dev->fwdate.date.day = word.bytes[3];
@@ -570,7 +569,7 @@ int flower_dump(FILE * f, flower_dev_t *dev)
     return -1;
   }
   ret+= fprintf(f,"  FWVER:  %02d.%02d.%02d (0x%x, [0x%x,0x%x,0x%x,0x%x])\n",
-                dev->fwver.ver.major, dev->fwver.ver.minor, dev->fwver.ver.rev,
+                dev->fwver.ver.station, dev->fwver.ver.major, dev->fwver.ver.minor,
                 dev->fwver.word.word,
                 dev->fwver.word.bytes[0], dev->fwver.word.bytes[1],
                 dev->fwver.word.bytes[2], dev->fwver.word.bytes[3]);
@@ -896,15 +895,14 @@ int flower_equalize(flower_dev_t * dev, float target_rms, uint8_t * v_gain_codes
 }
 
 
-int flower_get_fwversion(flower_dev_t *dev, uint8_t *major, uint8_t *minor,
-                         uint8_t *rev, uint16_t *year, uint8_t *month, uint8_t *day)
+int flower_get_fwversion(flower_dev_t *dev, uint8_t *station, uint8_t *major, uint8_t *minor,
+                         uint16_t *year, uint8_t *month, uint8_t *day)
 {
 
   if (!dev) return -1;
-
+  if (station) *station = dev->fwver.ver.station;
   if (major) *major = dev->fwver.ver.major;
   if (minor) *minor = dev->fwver.ver.minor;
-  if (rev) *rev = dev->fwver.ver.rev;
   if (year) *year = dev->fwdate.date.year;
   if (month) *month = dev->fwdate.date.month;
   if (day) *day = dev->fwdate.date.day;
