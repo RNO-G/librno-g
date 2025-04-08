@@ -146,4 +146,5 @@ int flower_set_trigout_enables(flower_dev_t * dev, flower_trigout_enables_t enab
 
 int flower_get_fwversion(flower_dev_t *dev, uint8_t *major, uint8_t *minor, uint8_t *rev, uint16_t *year, uint8_t *month, uint8_t *day);
 
+int flower_get_fwversion_int(flower_dev_t *dev, int *version_int);
 #endif

@@ -910,6 +910,13 @@ int flower_get_fwversion(flower_dev_t *dev, uint8_t *station, uint8_t *major, ui
 
 }
 
+int flower_get_fwversion_int(flower_dev_t *dev, int *version_int)
+{
+  if (!dev) return -1;
+  if (version_int) *version_int = dev->fwver_int;
+  return 0;
+}
+
 int flower_set_delayed_pps_delay(flower_dev_t * dev, uint32_t delay)
 {
   if (!dev || (dev->fwver_int < 8)) return -1;
