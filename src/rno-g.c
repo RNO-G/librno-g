@@ -724,7 +724,7 @@ int rno_g_daqstatus_dump_radiant(FILE*f, const rno_g_daqstatus_t *ds)
   ret += fprintf(f,", recorded at %04d-%02d-%02d %02d:%02d:%02d.%09dZ\n", 
                  when_tm_radiant.tm_year + 1900, 1+when_tm_radiant.tm_mon, when_tm_radiant.tm_mday, when_tm_radiant.tm_hour, 
                  when_tm_radiant.tm_min, when_tm_radiant.tm_sec,  radiant_ns); 
-  ret+=fprintf(f,"Voltages: V1: %f, V1.8: %f, V2.5: %f, VLeftMon: %f, VRightMon: %f\n", 
+  ret+=fprintf(f,"Voltages: V1: %.4f, V1.8: %.4f, V2.5: %.4f, VLeftMon: %.4f, VRightMon: %.4f\n", 
       3.3*ds->radiant_voltages.V_1_0/65535, 
       3.3*ds->radiant_voltages.V_1_8/65535, 
       3.3*ds->radiant_voltages.V_2_5/65535, 
@@ -762,32 +762,35 @@ int rno_g_daqstatus_dump_flower(FILE  *f, const rno_g_daqstatus_t * ds)
                  when_tm_lt.tm_min, when_tm_lt.tm_sec,  lt_ns); 
   uint64_t ncycles = ds->lt_scalers.ncycles; 
   ret+=fprintf(f,  "  ncycles: %" PRIu64 " , delay cycle counter: %" PRIu64 ", counter: %hu\n", ncycles, ds->lt_scalers.cycle_counter, ds->lt_scalers.scaler_counter_1Hz); 
-  ret+=fprintf(f,  "==CH==SERVO_THR=TRIG_THR=SERVO_SCAL_1HZ==SERVO_SCAL_100HZ==SERVO_SCAL_GTE==TRIG_SCAL_1HZ==TRIG_SCAL_100Hz=TRIG_SCAL_GTE\n"); 
+  ret+=fprintf(f,  "---------------------------------------------------------------------------------\n");
+  ret+=fprintf(f,  " CH-BM| SERV | TRIG |SERV SCAL|SERV SCAL|SERV SCAL|TRIG SCAL|TRIG SCAL|TRIG SCAL|\n"); 
+  ret+=fprintf(f,  "      |THRESH|THRESH|  1Hz    |  100Hz  |  Gated  |  1Hz    |  100Hz  |  Gated  |\n");
+  ret+=fprintf(f,  "---------------------------------------------------------------------------------\n");
   for (int i = 0; i < RNO_G_NUM_LT_CHANNELS; i++)
   {
-    ret+=fprintf(f," %02d   | %03d     | %03d   |      %04d   |      %04d         |       %04d     |      %04d    |      %04d      |   %04d        \n",
+    ret+=fprintf(f," CH %02d|  %03d |  %03d |  %04d   |  %04d   |  %04d   |  %04d   |  %04d   |  %04d   |\n",
                      i, ds->lt_coinc_servo_thresholds[i], ds->lt_coinc_trigger_thresholds[i],
                      ds->lt_scalers.s_1Hz.servo_per_chan[i], ds->lt_scalers.s_100Hz.servo_per_chan[i],ds->lt_scalers.s_1Hz_gated.servo_per_chan[i],
                      ds->lt_scalers.s_1Hz.trig_per_chan[i], ds->lt_scalers.s_100Hz.trig_per_chan[i],ds->lt_scalers.s_1Hz_gated.trig_per_chan[i]);
   }
 
-  ret += fprintf(f,"coinc|         |       |      %04d   |      %04d         |       %04d     |      %04d    |      %04d      |   %04d        \n",
+  ret += fprintf(f," coinc|      |      |  %04d   |  %04d   |  %04d   |  %04d   |  %04d   |  %04d   |\n",
                      ds->lt_scalers.s_1Hz.servo_coinc, ds->lt_scalers.s_100Hz.servo_coinc,ds->lt_scalers.s_1Hz_gated.servo_coinc,
                      ds->lt_scalers.s_1Hz.trig_coinc, ds->lt_scalers.s_100Hz.trig_coinc,ds->lt_scalers.s_1Hz_gated.trig_coinc); 
 
-
+  ret += fprintf(f,"---------------------------------------------------------------------------------\n");
   for (int i = 0; i < RNO_G_NUM_LT_BEAMS; i++)
   {
-    ret+=fprintf(f," %02d   | %03d     | %03d   |      %04d   |      %04d         |       %04d     |      %04d    |      %04d      |   %04d        \n",
+    ret+=fprintf(f," BM %02d| %04d | %04d |  %04d   |  %04d   |  %04d   |  %04d   |  %04d   |  %04d   |\n",
                      i, ds->lt_phased_servo_thresholds[i], ds->lt_phased_trigger_thresholds[i],
                      ds->lt_scalers.s_1Hz.servo_per_beam[i], ds->lt_scalers.s_100Hz.servo_per_beam[i],ds->lt_scalers.s_1Hz_gated.servo_per_beam[i],
                      ds->lt_scalers.s_1Hz.trig_per_beam[i], ds->lt_scalers.s_100Hz.trig_per_beam[i],ds->lt_scalers.s_1Hz_gated.trig_per_beam[i]);
   }
 
-    ret += fprintf(f,"phased|         |       |      %04d   |      %04d         |       %04d     |      %04d    |      %04d      |   %04d        \n",
+    ret += fprintf(f,"phased|      |      |  %04d   |  %04d   |  %04d   |  %04d   |  %04d   |  %04d   |\n",
                      ds->lt_scalers.s_1Hz.servo_phased, ds->lt_scalers.s_100Hz.servo_phased,ds->lt_scalers.s_1Hz_gated.servo_phased,
                      ds->lt_scalers.s_1Hz.trig_phased, ds->lt_scalers.s_100Hz.trig_phased,ds->lt_scalers.s_1Hz_gated.trig_phased); 
-    
+    ret +=fprintf(f,"---------------------------------------------------------------------------------\n");
     ret+=fprintf(f,"phased threshold offset %d\n",ds->lt_phased_threshold_offset);
 
   return ret; 
