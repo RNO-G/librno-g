@@ -10,6 +10,7 @@
 #include <sys/types.h>
 #include <time.h>
 #include <math.h>
+#include <string.h>
 
 #define NUM_SCALER_REGS 2*(3+(RNO_G_NUM_LT_CHANNELS+1)*3+(RNO_G_NUM_LT_BEAMS+1)*3)
 
@@ -860,21 +861,34 @@ int flower_equalize(flower_dev_t * dev, float target_rms, uint8_t * v_gain_codes
   static uint8_t * data_ptrs[RNO_G_NUM_LT_CHANNELS] = { data[0], data[1], data[2], data[3] };
   uint8_t gain_codes[RNO_G_NUM_LT_CHANNELS] = {0};
   uint8_t done = 0;
+  uint8_t num_waveforms = 10;
 
   while (done != mask)
   {
+    memset(rms, 0, 4*sizeof(float));
     flower_set_gains(dev, gain_codes);
-    flower_buffer_clear(dev);
-    flower_force_trigger(dev);
     int avail = 0;
-    while (!avail) flower_buffer_check(dev,&avail);
 
-    flower_read_waveforms(dev, 1024, data_ptrs);
+    for(int w = 0; w < num_waveforms; w++)
+    {
+      flower_buffer_clear(dev);
+      flower_force_trigger(dev);
+      while (!avail) flower_buffer_check(dev,&avail);
+      flower_read_waveforms(dev, 1024, data_ptrs);
+
+      for (int i = 0; i < RNO_G_NUM_LT_CHANNELS; i++)
+      {
+        if (done & ( 1 << i) || !(mask & (1 << i))) continue;
+
+        rms[i] += getrms(1024, data[i])/num_waveforms;
+      }
+
+    }
+
     for (int i = 0; i < RNO_G_NUM_LT_CHANNELS; i++)
     {
-      if (done & ( 1 << i) || !(mask & (1 << i))) continue;
 
-      rms[i] = getrms(512, data[i]);
+      if (done & ( 1 << i) || !(mask & (1 << i))) continue;
 
       if (verbose) printf("ch: %d, gain_code: %d, rms: %f\n", i, gain_codes[i], rms[i]);
 
@@ -890,6 +904,8 @@ int flower_equalize(flower_dev_t * dev, float target_rms, uint8_t * v_gain_codes
       }
     }
   }
+
+  printf("Set gain codes: ch0 %i, ch1 %i, ch2 %i, ch3 %i\n",gain_codes[0],gain_codes[1],gain_codes[2],gain_codes[3]);
 
   return 0;
 }
