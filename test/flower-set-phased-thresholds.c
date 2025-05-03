@@ -7,14 +7,14 @@ int main (int nargs, char ** args)
 {
   if (nargs < 2) 
   {
-    printf("Usage: flower-set-phased-thresholds TH [servo_frac = 0.75]\n"); 
+    printf("Usage: flower-set-phased-thresholds TH [servo_frac = 0.6]\n"); 
     return 0; 
   }
 
-  
-  float frac = 0.75; 
-  //if (nargs > 3) 
-  //  frac = atof(args[5]); 
+
+  float frac = 0.6;
+  if (nargs > 2)
+    frac = atof(args[2]);
 
   uint16_t phased_trig_thresh[12]; 
   uint16_t phased_servo_thresh[12]; 
