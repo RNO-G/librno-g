@@ -905,7 +905,7 @@ int flower_equalize(flower_dev_t * dev, float target_rms, uint8_t * v_gain_codes
     }
   }
 
-  printf("Set gain codes: ch0 %i, ch1 %i, ch2 %i, ch3 %i\n",gain_codes[0],gain_codes[1],gain_codes[2],gain_codes[3]);
+  if (verbose) printf("Set gain codes: ch0 %i, ch1 %i, ch2 %i, ch3 %i\n",gain_codes[0],gain_codes[1],gain_codes[2],gain_codes[3]);
 
   return 0;
 }
