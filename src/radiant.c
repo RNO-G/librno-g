@@ -960,7 +960,7 @@ radiant_dev_t * radiant_open(const char *spi_device, const char * uart_device, i
   write(uart_fd,&zeros,sizeof(zeros));
 
 
-  dev = calloc(sizeof(radiant_dev_t),1);
+  dev = calloc(1,sizeof(radiant_dev_t));
   dev->spi_fd = spi_fd;
   dev->uart_fd = uart_fd;
   dev->read_timeout = 1;
