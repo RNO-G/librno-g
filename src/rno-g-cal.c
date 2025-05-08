@@ -160,12 +160,14 @@ int rno_g_cal_close(rno_g_cal_dev_t * dev)
 
 int rno_g_cal_enable(rno_g_cal_dev_t * dev) 
 {
+  if (!dev) return 1;
   dev->enabled = 1; 
   return (fprintf(dev->fgpiodir,"out\n") != sizeof("out\n")-1) || (fprintf(dev->fgpioval,"1\n") != sizeof("1\n")-1);
 }
 
 int rno_g_cal_disable(rno_g_cal_dev_t * dev) 
 {
+  if (!dev) return 1;
   dev->enabled = 0; 
   return (fprintf(dev->fgpioval,"0\n") != sizeof("0\n")-1) || (fprintf(dev->fgpiodir,"in\n") != sizeof("in\n")-1);
 }
@@ -198,6 +200,7 @@ int rno_g_cal_disable_no_handle(uint16_t gpio)
 static int do_write(rno_g_cal_dev_t * dev, uint8_t addr, uint8_t reg, uint8_t val) 
 {
 
+  if (!dev) return 1;
   uint8_t buf[2] = {reg, val}; 
   struct i2c_msg msg = 
   {
@@ -226,6 +229,7 @@ static int do_write(rno_g_cal_dev_t * dev, uint8_t addr, uint8_t reg, uint8_t va
 static int do_readv(rno_g_cal_dev_t * dev, uint8_t addr, uint8_t reg, int N, uint8_t* data)
 {
 
+  if (!dev) return 1;
   struct i2c_msg txn[2] = { 
     {.addr = addr, .flags = 0, .len = sizeof(reg), .buf = &reg},
     {.addr = addr, .flags = I2C_M_RD, .len = N, .buf = data} }; 
@@ -263,6 +267,7 @@ static int do_read(rno_g_cal_dev_t *dev, uint8_t addr, uint8_t reg, uint8_t * va
 
 int rno_g_cal_setup(rno_g_cal_dev_t* dev)
 {
+  if (!dev) return 1;
   if (do_write(dev, addr0, output_reg,0x00)) return -errno; 
   if (do_write(dev, addr0, config_reg,0x00)) return -errno; 
   if (do_write(dev, addr1, output_reg,0x00)) return -errno; 
@@ -278,6 +283,7 @@ int rno_g_cal_setup(rno_g_cal_dev_t* dev)
 int rno_g_cal_set_pulse_mode(rno_g_cal_dev_t *dev, rno_g_calpulser_mode_t type) 
 {
   uint8_t val; 
+  if (!dev) return 1;
 
   if (dev->setup && dev->mode == type) return 0; 
 
@@ -322,6 +328,7 @@ int rno_g_cal_set_pulse_mode(rno_g_cal_dev_t *dev, rno_g_calpulser_mode_t type)
 
 int rno_g_cal_select(rno_g_cal_dev_t * dev, rno_g_calpulser_out_t ch) 
 {
+  if (!dev) return 1;
   uint8_t val0; 
   uint8_t val1; 
 
@@ -389,7 +396,7 @@ int rno_g_cal_select(rno_g_cal_dev_t * dev, rno_g_calpulser_out_t ch)
 
 int rno_g_cal_set_atten(rno_g_cal_dev_t *dev, uint8_t atten) 
 {
-  if (!dev) return -1;
+  if (!dev) return 1;
   if (dev->setup && dev->atten == atten) return 0; 
   //read addr0
   uint8_t val;
@@ -426,6 +433,7 @@ int rno_g_cal_set_atten(rno_g_cal_dev_t *dev, uint8_t atten)
 
 int rno_g_cal_read_temp(rno_g_cal_dev_t *dev, float *Tout) 
 {
+  if (!dev) return 1;
   if (dev->rev == 'F') 
   {
     *Tout = -128;
@@ -450,13 +458,15 @@ int rno_g_cal_read_temp(rno_g_cal_dev_t *dev, float *Tout)
 
 void rno_g_cal_enable_dbg(rno_g_cal_dev_t * dev, int dbg) 
 {
-  dev->debug = dbg; 
+  if (dev)
+    dev->debug = dbg; 
 
 }
 
 int rno_g_cal_fill_info(rno_g_cal_dev_t * dev, rno_g_calpulser_info_t *info) 
 {
   
+  if (!dev) return 1;
   if (dev->enabled!=1 || !dev->setup) 
   {
    //just fill with 0's 
