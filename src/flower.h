@@ -26,7 +26,7 @@ int flower_dump(FILE* f, flower_dev_t *dev);
 
 int flower_fill_daqstatus(flower_dev_t *dev, rno_g_daqstatus_t * ds);
 
-int flower_configure_trigger(flower_dev_t* dev, rno_g_lt_simple_trigger_config_t  cfg, rno_g_lt_phased_trigger_config_t phased_cfg);
+int flower_configure_trigger(flower_dev_t* dev, rno_g_lt_trigger_config_t  simple_cfg, rno_g_lt_phased_trigger_config_t phased_cfg);
 
 int flower_set_coinc_thresholds(flower_dev_t *dev, const uint8_t * trigger_thresholds, const uint8_t * servo_thresholds, uint8_t mask);
 

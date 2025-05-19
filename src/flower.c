@@ -95,7 +95,7 @@ struct flower_dev
     flower_word_t word;
   } fwdate;
 
-  rno_g_lt_simple_trigger_config_t coinc_trig_cfg;
+  rno_g_lt_trigger_config_t coinc_trig_cfg;
   rno_g_lt_phased_trigger_config_t phased_trig_cfg;
   uint8_t coinc_trig_thresh[4];
   uint8_t coinc_servo_thresh[4];
@@ -320,17 +320,17 @@ int flower_set_coinc_thresholds(flower_dev_t *dev, const uint8_t * trigger_thres
   return write_words(dev, ii, words);
 }
 
-int flower_configure_trigger(flower_dev_t * dev, rno_g_lt_simple_trigger_config_t  cfg, rno_g_lt_phased_trigger_config_t phased_cfg)
+int flower_configure_trigger(flower_dev_t * dev, rno_g_lt_trigger_config_t  simple_cfg, rno_g_lt_phased_trigger_config_t phased_cfg)
 {
   if (!dev) return -1;
   int ret = 0;
   flower_word_t word = {0};
   word.bytes[0] = FLWR_REG_TRIG_PARAM;
-  word.bytes[1] = cfg.vpp_mode;
-  word.bytes[2] = cfg.window;
-  word.bytes[3] = cfg.num_coinc;
+  word.bytes[1] = simple_cfg.vpp_mode;
+  word.bytes[2] = simple_cfg.window;
+  word.bytes[3] = simple_cfg.num_coinc;
   ret = write_word(dev,&word);
-  if (!ret) dev->coinc_trig_cfg = cfg;
+  if (!ret) dev->coinc_trig_cfg = simple_cfg;
 
   /* not implemented yet but leaving software so commenting write/read
   if(dev->fwver_int>=10)
@@ -368,7 +368,7 @@ int flower_configure_trigger(flower_dev_t * dev, rno_g_lt_simple_trigger_config_
 int flower_fill_header(flower_dev_t * dev, rno_g_header_t * hd)
 {
   if (!dev) return -1;
-  hd->lt_simple_trigger_cfg = dev->coinc_trig_cfg;
+  hd->lt_trigger_cfg = dev->coinc_trig_cfg;
   hd->lt_phased_trigger_cfg = dev->phased_trig_cfg;
   return 0;
 }

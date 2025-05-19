@@ -104,20 +104,13 @@ typedef enum rno_g_flags
 }rno_g_flags_t;
 
 
-typedef struct rno_g_lt_simple_trigger_config_v0
-{
-  uint8_t window;
-  uint8_t num_coinc : 3; // require > number of coincidences
-  uint8_t vpp_mode : 1;
-} rno_g_lt_simple_trigger_config_v0_t;
-
-typedef struct rno_g_lt_simple_trigger_config
+typedef struct rno_g_lt_trigger_config
 {
   uint8_t window;
   uint8_t num_coinc : 3; // require > number of coincidences
   uint8_t vpp_mode : 1;
   uint8_t channel_mask: 4;
-} rno_g_lt_simple_trigger_config_t;
+} rno_g_lt_trigger_config_t;
 
 typedef struct rno_g_lt_phased_trigger_config
 {
@@ -179,7 +172,7 @@ typedef struct rno_g_header
   uint16_t radiant_nsamples; //!< Number of samples per channel in RADIANT board (could just keep this in waveform if we wanted)
   uint16_t lt_nsamples; //!< Number of samples per channel in low-threshold board  (could just keep this in waveform if we wanted)
 
-  rno_g_lt_simple_trigger_config_t lt_simple_trigger_cfg;
+  rno_g_lt_trigger_config_t lt_trigger_cfg;
   rno_g_radiant_trigger_config_t radiant_trigger_cfg[2];
   rno_g_lt_phased_trigger_config_t lt_phased_trigger_cfg;
 } rno_g_header_t;
