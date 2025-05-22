@@ -172,7 +172,7 @@ typedef struct rno_g_header
   uint16_t radiant_nsamples; //!< Number of samples per channel in RADIANT board (could just keep this in waveform if we wanted)
   uint16_t lt_nsamples; //!< Number of samples per channel in low-threshold board  (could just keep this in waveform if we wanted)
 
-  rno_g_lt_trigger_config_t lt_trigger_cfg;
+  rno_g_lt_trigger_config_t lt_simple_trigger_cfg;
   rno_g_radiant_trigger_config_t radiant_trigger_cfg[2];
   rno_g_lt_phased_trigger_config_t lt_phased_trigger_cfg;
 } rno_g_header_t;
@@ -307,8 +307,8 @@ typedef struct rno_g_daqstatus
   uint16_t radiant_scalers[RNO_G_NUM_RADIANT_CHANNELS];
   uint8_t radiant_prescalers[RNO_G_NUM_RADIANT_CHANNELS];
   float radiant_scaler_period;
-  uint8_t  lt_coinc_trigger_thresholds[RNO_G_NUM_LT_CHANNELS];
-  uint8_t  lt_coinc_servo_thresholds[RNO_G_NUM_LT_CHANNELS];
+  uint8_t  lt_trigger_thresholds[RNO_G_NUM_LT_CHANNELS];
+  uint8_t  lt_servo_thresholds[RNO_G_NUM_LT_CHANNELS];
   uint16_t lt_phased_trigger_thresholds[RNO_G_NUM_LT_BEAMS];
   uint16_t lt_phased_servo_thresholds[RNO_G_NUM_LT_BEAMS];
   uint16_t lt_phased_threshold_offset;
