@@ -776,7 +776,7 @@ int rno_g_daqstatus_dump_flower(FILE  *f, const rno_g_daqstatus_t * ds)
   for (int i = 0; i < RNO_G_NUM_LT_CHANNELS; i++)
   {
     ret+=fprintf(f," CH %02d|  %03d |  %03d |  %04d   |  %04d   |  %04d   |  %04d   |  %04d   |  %04d   |\n",
-                     i, ds->lt_coinc_servo_thresholds[i], ds->lt_coinc_trigger_thresholds[i],
+                     i, ds->lt_servo_thresholds[i], ds->lt_trigger_thresholds[i],
                      ds->lt_scalers.s_1Hz.servo_per_chan[i], ds->lt_scalers.s_100Hz.servo_per_chan[i],ds->lt_scalers.s_1Hz_gated.servo_per_chan[i],
                      ds->lt_scalers.s_1Hz.trig_per_chan[i], ds->lt_scalers.s_100Hz.trig_per_chan[i],ds->lt_scalers.s_1Hz_gated.trig_per_chan[i]);
   }
@@ -950,8 +950,8 @@ int rno_g_daqstatus_read(rno_g_file_handle_t h, rno_g_daqstatus_t *ds)
         memcpy(ds->radiant_scalers, dsv2.radiant_scalers, sizeof(ds->radiant_scalers));
         memcpy(ds->radiant_prescalers, dsv2.radiant_prescalers, sizeof(ds->radiant_prescalers));
         ds->radiant_scaler_period = dsv2.radiant_scaler_period;
-        memcpy(ds->lt_coinc_trigger_thresholds, dsv2.lt_trigger_thresholds, sizeof(ds->lt_coinc_trigger_thresholds));
-        memcpy(ds->lt_coinc_servo_thresholds, dsv2.lt_servo_thresholds, sizeof(ds->lt_coinc_servo_thresholds));
+        memcpy(ds->lt_trigger_thresholds, dsv2.lt_trigger_thresholds, sizeof(ds->lt_trigger_thresholds));
+        memcpy(ds->lt_servo_thresholds, dsv2.lt_servo_thresholds, sizeof(ds->lt_servo_thresholds));
         memcpy(&ds->lt_scalers, &dsv2.lt_scalers, sizeof(dsv2.lt_scalers));
         ds->station = dsv2.station;
         break;
@@ -967,8 +967,8 @@ int rno_g_daqstatus_read(rno_g_file_handle_t h, rno_g_daqstatus_t *ds)
         memcpy(ds->radiant_scalers, dsv3.radiant_scalers, sizeof(ds->radiant_scalers));
         memcpy(ds->radiant_prescalers, dsv3.radiant_prescalers, sizeof(ds->radiant_prescalers));
         ds->radiant_scaler_period = dsv3.radiant_scaler_period;
-        memcpy(ds->lt_coinc_trigger_thresholds, dsv3.lt_trigger_thresholds, sizeof(ds->lt_coinc_trigger_thresholds));
-        memcpy(ds->lt_coinc_servo_thresholds, dsv3.lt_servo_thresholds, sizeof(ds->lt_coinc_servo_thresholds));
+        memcpy(ds->lt_trigger_thresholds, dsv3.lt_trigger_thresholds, sizeof(ds->lt_trigger_thresholds));
+        memcpy(ds->lt_servo_thresholds, dsv3.lt_servo_thresholds, sizeof(ds->lt_servo_thresholds));
         memcpy(&ds->lt_scalers, &dsv3.lt_scalers, sizeof(dsv3.lt_scalers));
         ds->station = dsv3.station;
         break;
@@ -984,8 +984,8 @@ int rno_g_daqstatus_read(rno_g_file_handle_t h, rno_g_daqstatus_t *ds)
         memcpy(ds->radiant_scalers, dsv4.radiant_scalers, sizeof(ds->radiant_scalers));
         memcpy(ds->radiant_prescalers, dsv4.radiant_prescalers, sizeof(ds->radiant_prescalers));
         ds->radiant_scaler_period = dsv4.radiant_scaler_period;
-        memcpy(ds->lt_coinc_trigger_thresholds, dsv4.lt_trigger_thresholds, sizeof(ds->lt_coinc_trigger_thresholds));
-        memcpy(ds->lt_coinc_servo_thresholds, dsv4.lt_servo_thresholds, sizeof(ds->lt_coinc_servo_thresholds));
+        memcpy(ds->lt_trigger_thresholds, dsv4.lt_trigger_thresholds, sizeof(ds->lt_trigger_thresholds));
+        memcpy(ds->lt_servo_thresholds, dsv4.lt_servo_thresholds, sizeof(ds->lt_servo_thresholds));
         memcpy(&ds->lt_scalers, &dsv4.lt_scalers, sizeof(dsv4.lt_scalers));
         ds->radiant_voltages = dsv4.radiant_voltages;
         ds->cal = dsv4.cal;
@@ -1003,8 +1003,8 @@ int rno_g_daqstatus_read(rno_g_file_handle_t h, rno_g_daqstatus_t *ds)
         memcpy(ds->radiant_scalers, dsv5.radiant_scalers, sizeof(ds->radiant_scalers));
         memcpy(ds->radiant_prescalers, dsv5.radiant_prescalers, sizeof(ds->radiant_prescalers));
         ds->radiant_scaler_period = dsv5.radiant_scaler_period;
-        memcpy(ds->lt_coinc_trigger_thresholds, dsv5.lt_trigger_thresholds, sizeof(ds->lt_coinc_trigger_thresholds));
-        memcpy(ds->lt_coinc_servo_thresholds, dsv5.lt_servo_thresholds, sizeof(ds->lt_coinc_servo_thresholds));
+        memcpy(ds->lt_trigger_thresholds, dsv5.lt_trigger_thresholds, sizeof(ds->lt_trigger_thresholds));
+        memcpy(ds->lt_servo_thresholds, dsv5.lt_servo_thresholds, sizeof(ds->lt_servo_thresholds));
         memcpy(&ds->lt_scalers, &dsv5.lt_scalers, sizeof(dsv5.lt_scalers));
         ds->radiant_voltages = dsv5.radiant_voltages;
         ds->cal = dsv5.cal;
