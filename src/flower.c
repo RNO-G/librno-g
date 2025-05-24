@@ -822,8 +822,8 @@ int flower_set_gains(flower_dev_t *dev, const uint8_t * codes)
 
 int flower_set_fine_gains(flower_dev_t *dev, uint8_t * sub_numerators)
 {
-  flower_word_t word_low_channels = {.bytes = {FLWR_REG_PPS_DELAY, 0, sub_numerators[1] & 0x1f,  sub_numerators[0] & 0x1f}};
-  flower_word_t word_high_channels = {.bytes = {FLWR_REG_PPS_DELAY, 0, sub_numerators[3] & 0x1f,  sub_numerators[2] & 0x1f}};
+  flower_word_t word_low_channels = {.bytes = {140, 0, sub_numerators[1] & 0x1f,  sub_numerators[0] & 0x1f}};
+  flower_word_t word_high_channels = {.bytes = {141, 0, sub_numerators[3] & 0x1f,  sub_numerators[2] & 0x1f}};
 
   return write_word(dev,&word_low_channels) + write_word(dev,&word_high_channels);
 }
