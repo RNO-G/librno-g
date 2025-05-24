@@ -872,6 +872,9 @@ int flower_equalize(flower_dev_t * dev, float target_rms, uint8_t * v_gain_codes
   uint8_t num_waveforms = 10;
   uint8_t sub_numerators[RNO_G_NUM_LT_CHANNELS] = {0};
 
+  flower_set_gains(dev, gain_codes);
+  flower_set_fine_gains(dev, sub_numerators);
+
   while (done != mask)
   {
 
@@ -896,7 +899,7 @@ int flower_equalize(flower_dev_t * dev, float target_rms, uint8_t * v_gain_codes
       {
         if (done & ( 1 << i) || !(mask & (1 << i))) continue;
 
-        rms[i] += getrms(1024, data[i])/num_waveforms;
+        rms[i] += getrms(1024, data[i]) / num_waveforms;
       }
 
     }
@@ -925,20 +928,71 @@ int flower_equalize(flower_dev_t * dev, float target_rms, uint8_t * v_gain_codes
   {
     if (do_fine_gain_adjust)
     {
-      for(int ch = 0; ch<RNO_G_NUM_LT_CHANNELS; ch++)
+      done = 0;
+      num_waveforms = 5;
+
+      while (done != mask)
       {
-        gain_remainder[ch] = target_rms/rms[ch]*64;
+        for (int i = 0; i < RNO_G_NUM_LT_CHANNELS; i++)
+        {
+          if (done & ( 1 << i) || !(mask & (1 << i))) continue;
+    
+          rms[i] = 0;
+        }
 
-        if (gain_remainder[ch] > 64) gain_remainder[ch] = 64;
-        if (gain_remainder[ch] < 33) gain_remainder[ch] = 33;
+        int avail = 0;
 
-        sub_numerators[ch] = (int)(64-gain_remainder[ch]);
-        rms[ch] = rms[ch]*(64-sub_numerators[ch])/64;
-        if (v_fine_gain_number) v_fine_gain_number[ch] = sub_numerators[ch];
+        for(int w = 0; w < num_waveforms; w++)
+        {
+          flower_buffer_clear(dev);
+          flower_force_trigger(dev);
+          while (!avail) flower_buffer_check(dev,&avail);
+          flower_read_waveforms(dev, 1024, data_ptrs);
+    
+          for (int i = 0; i < RNO_G_NUM_LT_CHANNELS; i++)
+          {
+            rms[i] += getrms(1024, data[i]) / num_waveforms;
+          }
+    
+        }
+
+        for (int i = 0; i < RNO_G_NUM_LT_CHANNELS; i++)
+        {
+    
+          if (done & ( 1 << i) || !(mask & (1 << i))) continue;
+    
+          if (verbose) printf("ch: %d, fine_gain_number: %d, rms: %f\n", i, sub_numerators[i], rms[i]);
+    
+          if (rms[i] > target_rms && sub_numerators[i] < 31)
+          {
+            sub_numerators[i]++;
+          }
+          else
+          {
+            done |= (1 << i);
+            if (v_fine_gain_number) v_fine_gain_number[i] = sub_numerators[i];
+            if (verbose) printf("  ch %d done!\n", i);
+          }
+        }
+
+        /*
+        for(int ch = 0; ch<RNO_G_NUM_LT_CHANNELS; ch++)
+        {
+          gain_remainder[ch] = target_rms/rms[ch]*64;
+
+          if (gain_remainder[ch] > 64) gain_remainder[ch] = 64;
+          if (gain_remainder[ch] < 33) gain_remainder[ch] = 33;
+
+          sub_numerators[ch] = (int)(64-gain_remainder[ch]);
+          rms[ch] = rms[ch]*(64-sub_numerators[ch])/64;
+          if (v_fine_gain_number) v_fine_gain_number[ch] = sub_numerators[ch];
+        }
+        */
+       flower_set_fine_gains(dev, sub_numerators);
+
       }
-    }
 
-    flower_set_fine_gains(dev, sub_numerators);
+    }
   }
 
   if (verbose) 
