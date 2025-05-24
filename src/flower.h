@@ -95,7 +95,7 @@ enum
 } flower_gain_codes;
 
 int flower_set_gains(flower_dev_t * dev, const uint8_t * gain_codes);
-int flower_set_fine_gains(flower_dev_t *dev, uint8_t * sub_numerators)
+int flower_set_fine_gains(flower_dev_t *dev, uint8_t * sub_numerators);
 
 typedef union flower_word
 {
