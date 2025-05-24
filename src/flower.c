@@ -874,7 +874,14 @@ int flower_equalize(flower_dev_t * dev, float target_rms, uint8_t * v_gain_codes
 
   while (done != mask)
   {
-    memset(rms, 0, 4*sizeof(float));
+
+    for (int i = 0; i < RNO_G_NUM_LT_CHANNELS; i++)
+    {
+      if (done & ( 1 << i) || !(mask & (1 << i))) continue;
+
+      rms[i] = 0;
+    }
+
     flower_set_gains(dev, gain_codes);
     int avail = 0;
 
