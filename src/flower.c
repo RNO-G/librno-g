@@ -862,7 +862,6 @@ int flower_equalize(flower_dev_t * dev, float target_rms, uint8_t * v_gain_codes
   if (!dev) return -1;
 
   float rms[RNO_G_NUM_LT_CHANNELS] = {0};
-  float gain_remainder[RNO_G_NUM_LT_CHANNELS] = {0};
   uint8_t mask = (~(opts & 0xf)) & 0xf;
   int verbose = opts & 0x80000000;
   static uint8_t data[RNO_G_NUM_LT_CHANNELS][1024];
@@ -881,7 +880,6 @@ int flower_equalize(flower_dev_t * dev, float target_rms, uint8_t * v_gain_codes
     for (int i = 0; i < RNO_G_NUM_LT_CHANNELS; i++)
     {
       if (done & ( 1 << i) || !(mask & (1 << i))) continue;
-
       rms[i] = 0;
     }
 
@@ -901,14 +899,12 @@ int flower_equalize(flower_dev_t * dev, float target_rms, uint8_t * v_gain_codes
 
         rms[i] += getrms(1024, data[i]) / num_waveforms;
       }
-
     }
 
     for (int i = 0; i < RNO_G_NUM_LT_CHANNELS; i++)
     {
 
       if (done & ( 1 << i) || !(mask & (1 << i))) continue;
-
       if (verbose) printf("ch: %d, gain_code: %d, rms: %f\n", i, gain_codes[i], rms[i]);
 
       if (rms[i] < target_rms && gain_codes[i] < FLOWER_GAIN_50X)
@@ -929,42 +925,39 @@ int flower_equalize(flower_dev_t * dev, float target_rms, uint8_t * v_gain_codes
     if (do_fine_gain_adjust)
     {
       done = 0;
-      num_waveforms = 5;
+      num_waveforms = 10;
 
       while (done != mask)
       {
         for (int i = 0; i < RNO_G_NUM_LT_CHANNELS; i++)
         {
           if (done & ( 1 << i) || !(mask & (1 << i))) continue;
-    
           rms[i] = 0;
         }
 
         int avail = 0;
 
-        for(int w = 0; w < num_waveforms; w++)
+        for (int w = 0; w < num_waveforms; w++)
         {
           flower_buffer_clear(dev);
           flower_force_trigger(dev);
           while (!avail) flower_buffer_check(dev,&avail);
           flower_read_waveforms(dev, 1024, data_ptrs);
-    
+
           for (int i = 0; i < RNO_G_NUM_LT_CHANNELS; i++)
           {
             if (done & ( 1 << i) || !(mask & (1 << i))) continue;
             rms[i] += getrms(1024, data[i]) / num_waveforms;
           }
-
         }
 
         for (int i = 0; i < RNO_G_NUM_LT_CHANNELS; i++)
         {
 
           if (done & ( 1 << i) || !(mask & (1 << i))) continue;
-    
           if (verbose) printf("ch: %d, fine_gain_number: %d, rms: %f\n", i, sub_numerators[i], rms[i]);
 
-          if (rms[i] > target_rms && sub_numerators[i] < 31)
+          if (rms[i] > target_rms*1.02 && sub_numerators[i] < 31)
           {
             sub_numerators[i]++;
           }
@@ -977,22 +970,21 @@ int flower_equalize(flower_dev_t * dev, float target_rms, uint8_t * v_gain_codes
         }
 
         /*
+        Leaving this as a note to how the firmware works
         for(int ch = 0; ch<RNO_G_NUM_LT_CHANNELS; ch++)
         {
-          gain_remainder[ch] = target_rms/rms[ch]*64;
+          gain_remainder[ch] = target_rms/rms[ch]*64; //ratio to find multipler
+          if (gain_remainder[ch] > 64) gain_remainder[ch] = 64; //limits from 5 bit unsigned ints
+          if (gain_remainder[ch] < 33) gain_remainder[ch] = 33; //limits from 5 bit unsigned ints
 
-          if (gain_remainder[ch] > 64) gain_remainder[ch] = 64;
-          if (gain_remainder[ch] < 33) gain_remainder[ch] = 33;
-
-          sub_numerators[ch] = (int)(64-gain_remainder[ch]);
+          sub_numerators[ch] = (int)(64-gain_remainder[ch]); //tell the firmware what the fractional part is
           rms[ch] = rms[ch]*(64-sub_numerators[ch])/64;
           if (v_fine_gain_number) v_fine_gain_number[ch] = sub_numerators[ch];
         }
         */
+
        flower_set_fine_gains(dev, sub_numerators);
-
       }
-
     }
   }
 
