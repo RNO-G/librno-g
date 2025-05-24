@@ -918,7 +918,7 @@ int flower_equalize(flower_dev_t * dev, float target_rms, uint8_t * v_gain_codes
   {
     if(do_fine_gain_adjust)
     {
-      for(int ch = 0; ch<RNO_G_NUM_CHANNELS; ch++)
+      for(int ch = 0; ch<RNO_G_NUM_LT_CHANNELS; ch++)
       {
         gain_remainder[ch]=target_rms/rms[ch]*64;
         sub_numerators[ch]=64-(int)(gain_remainder[ch]);
