@@ -945,7 +945,7 @@ int flower_equalize(flower_dev_t * dev, float target_rms, uint8_t * v_gain_codes
   {
     printf("Ending RMS values: cho %f, ch1 %f, ch2 %f, ch3 %f\n",rms[0],rms[1],rms[2],rms[3]);
     printf("Set gain codes: ch0 %i, ch1 %i, ch2 %i, ch3 %i\n",gain_codes[0],gain_codes[1],gain_codes[2],gain_codes[3]);
-    printf("Set fine gain codes: ch0 %i, ch1 %i, ch2 %i, ch3 %i\n",gain_codes[0],gain_codes[1],gain_codes[2],gain_codes[3]);
+    printf("Set fine gain codes: ch0 %i, ch1 %i, ch2 %i, ch3 %i\n",sub_numerators[0],sub_numerators[1],sub_numerators[2],sub_numerators[3]);
   }
 
   return 0;
