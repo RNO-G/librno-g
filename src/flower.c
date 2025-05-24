@@ -951,18 +951,19 @@ int flower_equalize(flower_dev_t * dev, float target_rms, uint8_t * v_gain_codes
     
           for (int i = 0; i < RNO_G_NUM_LT_CHANNELS; i++)
           {
+            if (done & ( 1 << i) || !(mask & (1 << i))) continue;
             rms[i] += getrms(1024, data[i]) / num_waveforms;
           }
-    
+
         }
 
         for (int i = 0; i < RNO_G_NUM_LT_CHANNELS; i++)
         {
-    
+
           if (done & ( 1 << i) || !(mask & (1 << i))) continue;
     
           if (verbose) printf("ch: %d, fine_gain_number: %d, rms: %f\n", i, sub_numerators[i], rms[i]);
-    
+
           if (rms[i] > target_rms && sub_numerators[i] < 31)
           {
             sub_numerators[i]++;
