@@ -921,16 +921,20 @@ int flower_equalize(flower_dev_t * dev, float target_rms, uint8_t * v_gain_codes
     }
   }
 
-  if(dev->fwver_int>16)
+  if (dev->fwver_int>16)
   {
-    if(do_fine_gain_adjust)
+    if (do_fine_gain_adjust)
     {
       for(int ch = 0; ch<RNO_G_NUM_LT_CHANNELS; ch++)
       {
-        gain_remainder[ch]=target_rms/rms[ch]*64;
-        sub_numerators[ch]=64-(int)(gain_remainder[ch]);
-        rms[ch]=rms[ch]*(64-sub_numerators[ch])/64;
-        if (v_fine_gain_number) sub_numerators[ch] = v_fine_gain_number[ch];
+        gain_remainder[ch] = target_rms/rms[ch]*64;
+
+        if (gain_remainder[ch] > 64) gain_remainder[ch] = 64;
+        if (gain_remainder[ch] < 33) gain_remainder[ch] = 33;
+
+        sub_numerators[ch] = (int)(64-gain_remainder[ch]);
+        rms[ch] = rms[ch]*(64-sub_numerators[ch])/64;
+        if (v_fine_gain_number) v_fine_gain_number[ch] = sub_numerators[ch];
       }
     }
 
