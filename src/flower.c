@@ -820,6 +820,14 @@ int flower_set_gains(flower_dev_t *dev, const uint8_t * codes)
   return 0;
 }
 
+int flower_set_fine_gains(flower_dev_t *dev, uint8_t * sub_numerators)
+{
+  flower_word_t word_low_channels = {.bytes = {FLWR_REG_PPS_DELAY, 0, sub_numerators[1] & 0x1f,  sub_numerators[0] & 0x1f}};
+  flower_word_t word_high_channels = {.bytes = {FLWR_REG_PPS_DELAY, 0, sub_numerators[3] & 0x1f,  sub_numerators[2] & 0x1f}};
+
+  return write_word(dev,&word_low_channels) + write_word(dev,&word_high_channels);
+}
+
 static double getrms(int N, uint8_t* X)
 {
   double sum = 0;
@@ -849,12 +857,12 @@ int flower_set_trigout_enables(flower_dev_t * dev, flower_trigout_enables_t enab
   return write_word(dev, &word1) + write_word(dev, &word2);
 }
 
-int flower_equalize(flower_dev_t * dev, float target_rms, uint8_t * v_gain_codes, int opts)
+int flower_equalize(flower_dev_t * dev, float target_rms, uint8_t * v_gain_codes, int opts, int do_fine_gain_adjust, uint8_t * v_fine_gain_number)
 {
   if (!dev) return -1;
 
   float rms[RNO_G_NUM_LT_CHANNELS] = {0};
-
+  float gain_remainder[RNO_G_NUM_LT_CHANNELS] = {0};
   uint8_t mask = (~(opts & 0xf)) & 0xf;
   int verbose = opts & 0x80000000;
   static uint8_t data[RNO_G_NUM_LT_CHANNELS][1024];
@@ -862,6 +870,7 @@ int flower_equalize(flower_dev_t * dev, float target_rms, uint8_t * v_gain_codes
   uint8_t gain_codes[RNO_G_NUM_LT_CHANNELS] = {0};
   uint8_t done = 0;
   uint8_t num_waveforms = 10;
+  uint8_t sub_numerators[RNO_G_NUM_LT_CHANNELS] = {0};
 
   while (done != mask)
   {
@@ -892,7 +901,7 @@ int flower_equalize(flower_dev_t * dev, float target_rms, uint8_t * v_gain_codes
 
       if (verbose) printf("ch: %d, gain_code: %d, rms: %f\n", i, gain_codes[i], rms[i]);
 
-      if (rms[i] < target_rms && gain_codes[i] < FLOWER_GAIN_TOO_HIGH)
+      if (rms[i] < target_rms && gain_codes[i] < FLOWER_GAIN_50X)
       {
         gain_codes[i]++;
       }
@@ -905,7 +914,28 @@ int flower_equalize(flower_dev_t * dev, float target_rms, uint8_t * v_gain_codes
     }
   }
 
-  if (verbose) printf("Set gain codes: ch0 %i, ch1 %i, ch2 %i, ch3 %i\n",gain_codes[0],gain_codes[1],gain_codes[2],gain_codes[3]);
+  if(dev->fwver_int>16)
+  {
+    if(do_fine_gain_adjust)
+    {
+      for(int ch = 0; ch<RNO_G_NUM_CHANNELS; ch++)
+      {
+        gain_remainder[ch]=target_rms/rms[ch]*64;
+        sub_numerators[ch]=64-(int)(gain_remainder[ch]);
+        rms[ch]=rms[ch]*(64-sub_numerators[ch])/64;
+        if (v_fine_gain_number) sub_numerators[ch] = v_fine_gain_number[ch];
+      }
+    }
+
+    flower_set_fine_gains(dev, sub_numerators);
+  }
+
+  if (verbose) 
+  {
+    printf("Ending RMS values: cho %f, ch1 %f, ch2 %f, ch3%f\n",rms[0],rms[1],rms[2],rms[3]);
+    printf("Set gain codes: ch0 %i, ch1 %i, ch2 %i, ch3 %i\n",gain_codes[0],gain_codes[1],gain_codes[2],gain_codes[3]);
+    printf("Set fine gain codes: ch0 %i, ch1 %i, ch2 %i, ch3 %i\n",gain_codes[0],gain_codes[1],gain_codes[2],gain_codes[3]);
+  }
 
   return 0;
 }

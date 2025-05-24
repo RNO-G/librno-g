@@ -95,7 +95,7 @@ enum
 } flower_gain_codes;
 
 int flower_set_gains(flower_dev_t * dev, const uint8_t * gain_codes);
-
+int flower_set_fine_gains(flower_dev_t *dev, uint8_t * sub_numerators)
 
 typedef union flower_word
 {
@@ -115,7 +115,7 @@ enum
   FLOWER_EQUALIZE_VERBOSE = 0x80000000
 }e_flower_equalize_opts;
 
-int flower_equalize(flower_dev_t*dev, float target_rms, uint8_t * gain_codes, int opts);
+int flower_equalize(flower_dev_t*dev, float target_rms, uint8_t * gain_codes, int opts, int do_fine_gain_adjust, uint8_t * v_fine_gain_number);
 
 typedef struct  flower_trigger_enables
 {
