@@ -368,7 +368,7 @@ int flower_configure_trigger(flower_dev_t * dev, rno_g_lt_trigger_config_t  simp
 int flower_fill_header(flower_dev_t * dev, rno_g_header_t * hd)
 {
   if (!dev) return -1;
-  hd->lt_trigger_cfg = dev->coinc_trig_cfg;
+  hd->lt_simple_trigger_cfg = dev->coinc_trig_cfg;
   hd->lt_phased_trigger_cfg = dev->phased_trig_cfg;
   return 0;
 }
@@ -416,8 +416,8 @@ int flower_fill_daqstatus(flower_dev_t *dev, rno_g_daqstatus_t *ds)
 
   for (int i = 0; i < 4; i++)
   {
-    ds->lt_coinc_trigger_thresholds[i] = dev->coinc_trig_thresh[i];
-    ds->lt_coinc_servo_thresholds[i] = dev->coinc_servo_thresh[i];
+    ds->lt_trigger_thresholds[i] = dev->coinc_trig_thresh[i];
+    ds->lt_servo_thresholds[i] = dev->coinc_servo_thresh[i];
   }
 
   //these don't need version checking since it doesn't do the read (should be 0 in dev)
