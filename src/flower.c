@@ -857,7 +857,7 @@ int flower_set_trigout_enables(flower_dev_t * dev, flower_trigout_enables_t enab
   return write_word(dev, &word1) + write_word(dev, &word2);
 }
 
-int flower_equalize(flower_dev_t * dev, float target_rms, uint8_t * v_gain_codes, int opts, int do_fine_gain_adjust, uint8_t * v_fine_gain_number)
+int flower_equalize(flower_dev_t * dev, float target_rms, uint8_t * v_gain_codes, int opts, int do_fine_gain_adjust, uint8_t * v_fine_gain_number, float * final_rms)
 {
   if (!dev) return -1;
 
@@ -986,6 +986,11 @@ int flower_equalize(flower_dev_t * dev, float target_rms, uint8_t * v_gain_codes
        flower_set_fine_gains(dev, sub_numerators);
       }
     }
+  }
+
+  for (int i = 0; i< RNO_G_NUM_LT_CHANNELS; i++)
+  {
+    if (final_rms) final_rms[i]=rms[i];
   }
 
   if (verbose) 
