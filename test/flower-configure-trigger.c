@@ -10,7 +10,7 @@ int main(int nargs, char ** args)
     printf("Usage: flower-configure-trigger window ncoinc vpp_mode ch_mask beam_mask\n"); 
     return 0; 
   }
- rno_g_lt_simple_trigger_config_t cfg; 
+ rno_g_lt_trigger_config_t cfg; 
  rno_g_lt_phased_trigger_config_t phased_cfg; 
 
  cfg.window = atoi(args[1]); 
