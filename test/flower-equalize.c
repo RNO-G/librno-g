@@ -10,7 +10,7 @@ int main (int nargs, char ** args)
   if (!rms) rms =3; 
 
   flower_dev_t * flwr = flower_open("/dev/spidev1.0",-61); 
-  flower_equalize(flwr, rms, 0 , FLOWER_EQUALIZE_VERBOSE); 
+  flower_equalize(flwr, rms, 0 , FLOWER_EQUALIZE_VERBOSE, 0); 
   flower_close(flwr); 
   return 0; 
 }
