@@ -849,7 +849,7 @@ int flower_set_trigout_enables(flower_dev_t * dev, flower_trigout_enables_t enab
   return write_word(dev, &word1) + write_word(dev, &word2);
 }
 
-int flower_equalize(flower_dev_t * dev, float target_rms, uint8_t * v_gain_codes, int opts)
+int flower_equalize(flower_dev_t * dev, float target_rms, uint8_t * v_gain_codes, int opts, float * final_rms)
 {
   if (!dev) return -1;
 
@@ -865,7 +865,12 @@ int flower_equalize(flower_dev_t * dev, float target_rms, uint8_t * v_gain_codes
 
   while (done != mask)
   {
-    memset(rms, 0, 4*sizeof(float));
+    for (int i = 0; i < RNO_G_NUM_LT_CHANNELS; i++)
+    {
+      if (done & ( 1 << i) || !(mask & (1 << i))) continue;
+      rms[i] = 0;
+    }
+
     flower_set_gains(dev, gain_codes);
     int avail = 0;
 
@@ -879,8 +884,7 @@ int flower_equalize(flower_dev_t * dev, float target_rms, uint8_t * v_gain_codes
       for (int i = 0; i < RNO_G_NUM_LT_CHANNELS; i++)
       {
         if (done & ( 1 << i) || !(mask & (1 << i))) continue;
-
-        rms[i] += getrms(1024, data[i])/num_waveforms;
+        rms[i] += getrms(1024, data[i]) / num_waveforms;
       }
 
     }
@@ -892,7 +896,7 @@ int flower_equalize(flower_dev_t * dev, float target_rms, uint8_t * v_gain_codes
 
       if (verbose) printf("ch: %d, gain_code: %d, rms: %f\n", i, gain_codes[i], rms[i]);
 
-      if (rms[i] < target_rms && gain_codes[i] < FLOWER_GAIN_TOO_HIGH)
+      if (rms[i] < target_rms && gain_codes[i] < FLOWER_GAIN_50X)
       {
         gain_codes[i]++;
       }
@@ -905,7 +909,19 @@ int flower_equalize(flower_dev_t * dev, float target_rms, uint8_t * v_gain_codes
     }
   }
 
-  if (verbose) printf("Set gain codes: ch0 %i, ch1 %i, ch2 %i, ch3 %i\n",gain_codes[0],gain_codes[1],gain_codes[2],gain_codes[3]);
+  if (final_rms)
+  {
+    for (int i = 0; i< RNO_G_NUM_LT_CHANNELS; i++)
+    {
+      final_rms[i]=rms[i];
+    }
+  }
+
+  if (verbose) 
+  {
+    printf("Set gain codes: ch0 %i, ch1 %i, ch2 %i, ch3 %i\n",gain_codes[0],gain_codes[1],gain_codes[2],gain_codes[3]);
+    printf("Ending RMS values: ch0 %.2f, ch1 %.2f, ch2 %.2f, ch3 %.2f\n",rms[0],rms[1],rms[2],rms[3]);
+  }
 
   return 0;
 }

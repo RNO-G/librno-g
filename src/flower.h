@@ -115,7 +115,7 @@ enum
   FLOWER_EQUALIZE_VERBOSE = 0x80000000
 }e_flower_equalize_opts;
 
-int flower_equalize(flower_dev_t*dev, float target_rms, uint8_t * gain_codes, int opts);
+int flower_equalize(flower_dev_t*dev, float target_rms, uint8_t * gain_codes, int opts, float * final_rms);
 
 typedef struct  flower_trigger_enables
 {
