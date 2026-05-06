@@ -14,6 +14,11 @@
 #include <unistd.h>
 #include <fcntl.h>
 
+#ifdef USE_LIBGPIOS
+#include "libgpios.h"
+#endif
+
+
 struct rno_g_cal_dev
 {
   int fd;
@@ -26,8 +31,12 @@ struct rno_g_cal_dev
   uint8_t atten;
   int enabled;
   int setup;
+#ifdef USE_LIBGPIOS
+  gpios_line_t gpio;
+#else
   FILE * fgpiodir;
   FILE * fgpioval;
+#endif
 };
 
 const char valid_revs[] = "DEF";
@@ -39,8 +48,10 @@ const uint8_t output_reg = 0x01;
 const uint8_t config_reg = 0x03;
 const uint8_t tmp_reg = 0x05;
 
+#ifndef USE_LIBGPIOS
 const char gpio_dir_format[] = "/sys/class/gpio/gpio%hu/direction";
 const char gpio_val_format[] = "/sys/class/gpio/gpio%hu/value";
+#endif
 
 
 rno_g_cal_dev_t * rno_g_cal_open(uint8_t bus, uint16_t gpio, char rev)
@@ -62,6 +73,9 @@ rno_g_cal_dev_t * rno_g_cal_open(uint8_t bus, uint16_t gpio, char rev)
     return NULL;
   }
 
+
+
+#ifndef USE_LIBGPIOS
   // make sure we have the gpio exported
   char * gpio_dir = 0;
   asprintf(&gpio_dir,gpio_dir_format, gpio);
@@ -80,6 +94,18 @@ rno_g_cal_dev_t * rno_g_cal_open(uint8_t bus, uint16_t gpio, char rev)
     fclose(f);
     usleep(150000); // long enough?
   }
+
+#else
+  (void) gpio;
+  gpios_line_t line;
+  int ok = gpios_get_line_by_label("CAL_EN", &line, GPIOS_OUTPUT);
+  if (ok)
+  {
+    fprintf("Could not open GPIO CAL_EN\n",);
+    return NULL;
+  }
+
+#endif
   snprintf(fname,sizeof(fname)-1, "/dev/i2c-%hhu", bus);
 
   int fd = open(fname, O_RDWR);
@@ -103,6 +129,7 @@ rno_g_cal_dev_t * rno_g_cal_open(uint8_t bus, uint16_t gpio, char rev)
 
 
 
+#ifndef LIBGPIOS_H
   //open the gpio file
   FILE * fgpio = fopen(gpio_dir,"w");
   if (!fgpio)
@@ -137,6 +164,11 @@ rno_g_cal_dev_t * rno_g_cal_open(uint8_t bus, uint16_t gpio, char rev)
   setbuf(fval,0);
   dev->fgpiodir = fgpio;
   dev->fgpioval = fval;
+#else
+  memcpy(&dev->gpio,&line, sizeof(line);
+#endif
+
+
   dev->fd = fd;
   dev->rev = rev;
   dev->bus = bus;
@@ -151,8 +183,12 @@ rno_g_cal_dev_t * rno_g_cal_open(uint8_t bus, uint16_t gpio, char rev)
 int rno_g_cal_close(rno_g_cal_dev_t * dev)
 {
   if (!dev) return -1;
+#ifdef USE_LIBGPIOS
+  gpios_release(&dev->gpio);
+#else
   fclose(dev->fgpiodir);
   fclose(dev->fgpioval);
+#endif
   close(dev->fd);
   free(dev);
   return 0;
@@ -162,18 +198,35 @@ int rno_g_cal_enable(rno_g_cal_dev_t * dev)
 {
   if (!dev) return 1;
   dev->enabled = 1;
+#ifdef USE_LIBGPIOS
+  return gpios_set_value(&dev->gpio,true);
+#else
   return (fprintf(dev->fgpiodir,"out\n") != sizeof("out\n")-1) || (fprintf(dev->fgpioval,"1\n") != sizeof("1\n")-1);
+#endif
 }
 
 int rno_g_cal_disable(rno_g_cal_dev_t * dev)
 {
   if (!dev) return 1;
   dev->enabled = 0;
+
+#ifdef USE_LIBGPIOS
+  return gpios_set_value(&dev->gpio,false);
+#else
   return (fprintf(dev->fgpioval,"0\n") != sizeof("0\n")-1) || (fprintf(dev->fgpiodir,"in\n") != sizeof("in\n")-1);
+#endif
 }
+
 
 int rno_g_cal_disable_no_handle(uint16_t gpio)
 {
+#ifdef USE_LIBGPIOS
+  gpios_line_t line;
+  //open as an input, that will turn it off :)
+  int ok = gpios_get_line_by_label("CAL_EN", &line, 0); 
+  gpios_release(&line);
+  return ok;
+#else
   char gpio_dir[128];
   snprintf(gpio_dir,sizeof(gpio_dir), gpio_dir_format, gpio);
 
@@ -191,6 +244,7 @@ int rno_g_cal_disable_no_handle(uint16_t gpio)
   int ret = fprintf(f,"in\n") != sizeof("in\n"-1);
   fclose(f);
   return ret;
+#endif
 }
 
 

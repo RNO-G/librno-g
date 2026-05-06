@@ -11,17 +11,34 @@ CXXFLAGS+=-fPIC -Og -Wall -Wextra -g
 #CFLAGS+=-DRADIANT_SET_DBG
 
 ON_BBB?=no
+ON_AM62X?=no
 
 # are we (probably) on the BBB?
 ifeq ($(shell uname -m),armv7l)
 ON_BBB=yes
 endif
 
+
 ifeq ($(ON_BBB),yes)
 $(info We are on the DAQ)
 CFLAGS+=-mfpu=neon
 CFLAGS+=-DON_BBB
 endif
+
+#check if inside rno-g-revn yocto build
+ifneq (,$(filter ${MACHINE},rno-g-revn))
+ON_AM62X=yes
+endif
+
+
+ifeq ($(ON_AM62X),yes)
+	CFLAGS+=-mfpu=neon
+	CFLAGS+=-DON_AM62X
+	CFLAGS+=-DUSE_LIBGPIOS
+	LDFLAGS+=-lgpios
+endif
+
+
 
 LDFLAGS=-shared
 LIBS=-lz -pthread
