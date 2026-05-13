@@ -27,6 +27,13 @@ endif
 
 #check if inside rno-g-revn yocto build
 ifneq (,$(filter ${MACHINE},rno-g-revn))
+$(info We are inside yocto)
+ON_AM62X=yes
+endif
+
+#check if on revn board
+ifneq (,$(shell grep RevN /proc/device-tree/model 2> /dev/null))
+$(info We are on the RevN DAQ)
 ON_AM62X=yes
 endif
 
