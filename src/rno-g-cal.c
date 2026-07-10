@@ -43,7 +43,14 @@ const char valid_revs[] = "DEF";
 
 const uint8_t addr0 = 0x38;
 const uint8_t addr1 = 0x3f;
+#ifdef USE_LIBGPIOS
+const uint8_t addr2 = 0x19; //temp sensor
+const uint8_t addr_hum = 0x40; //humidity sensor
+#else
 const uint8_t addr2 = 0x18; //temp sensor
+#endif
+
+
 const uint8_t output_reg = 0x01;
 const uint8_t config_reg = 0x03;
 const uint8_t tmp_reg = 0x05;
@@ -67,9 +74,9 @@ rno_g_cal_dev_t * rno_g_cal_open(uint8_t bus, uint16_t gpio, char rev)
     rev = toupper(rev);
   }
 
-  if (!strchr(valid_revs,rev))
+  if (!strchr(valid_revs, rev))
   {
-    fprintf(stderr,"rev%c is not valid!\n", rev);
+    fprintf(stderr, "rev%c is not valid!\n", rev);
     return NULL;
   }
 
@@ -78,7 +85,7 @@ rno_g_cal_dev_t * rno_g_cal_open(uint8_t bus, uint16_t gpio, char rev)
 #ifndef USE_LIBGPIOS
   // make sure we have the gpio exported
   char * gpio_dir = 0;
-  asprintf(&gpio_dir,gpio_dir_format, gpio);
+  asprintf(&gpio_dir, gpio_dir_format, gpio);
 
 // lazy code
   if (access(gpio_dir, W_OK))
@@ -106,7 +113,7 @@ rno_g_cal_dev_t * rno_g_cal_open(uint8_t bus, uint16_t gpio, char rev)
   }
 
 #endif
-  snprintf(fname,sizeof(fname)-1, "/dev/i2c-%hhu", bus);
+  snprintf(fname, sizeof(fname)-1, "/dev/i2c-%hhu", bus);
 
   int fd = open(fname, O_RDWR);
 
@@ -117,7 +124,7 @@ rno_g_cal_dev_t * rno_g_cal_open(uint8_t bus, uint16_t gpio, char rev)
     return NULL;
   }
 
-  rno_g_cal_dev_t * dev = calloc(1,sizeof(rno_g_cal_dev_t));
+  rno_g_cal_dev_t * dev = calloc(1, sizeof(rno_g_cal_dev_t));
 
   if (!dev)
   {
@@ -125,9 +132,6 @@ rno_g_cal_dev_t * rno_g_cal_open(uint8_t bus, uint16_t gpio, char rev)
     close(fd);
     return NULL;
   }
-
-
-
 
 #ifndef LIBGPIOS_H
   //open the gpio file
@@ -167,7 +171,6 @@ rno_g_cal_dev_t * rno_g_cal_open(uint8_t bus, uint16_t gpio, char rev)
 #else
   memcpy(&dev->gpio,&line, sizeof(line);
 #endif
-
 
   dev->fd = fd;
   dev->rev = rev;
@@ -223,7 +226,7 @@ int rno_g_cal_disable_no_handle(uint16_t gpio)
 #ifdef USE_LIBGPIOS
   gpios_line_t line;
   //open as an input, that will turn it off :)
-  int ok = gpios_get_line_by_label("CAL_EN", &line, 0); 
+  int ok = gpios_get_line_by_label("CAL_EN", &line, 0);
   gpios_release(&line);
   return ok;
 #else
