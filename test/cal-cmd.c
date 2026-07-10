@@ -10,12 +10,21 @@
 void usage()
 {
   fprintf(stderr,"Usage: rno-g-cal-cmd [--bus=2] [--gpio=49] [--rev=D] CMD0 [VAL]  [ CMD1 ...] \n");
+#ifdef USE_LIBGPIOS
+  fprintf(stderr,"      CMD can be: off, on, setup, temp, select-rf0, select-rf1, select-rf2, select-rf3, atten val, pulse, vco, sleep N, wait\n");
+#else
   fprintf(stderr,"      CMD can be: off, on, setup, temp, select-coax, select-fiber0, select-fiber1, select-none , atten val, pulse, vco, sleep N, wait\n");
+#endif
   fprintf(stderr,"      Up to 1024 commands are supported\n");
 }
 
+#ifdef USE_LIBGPIOS
+const char * valid_cmds[] = {"off","on","setup","temp","select-rf0","select-rf1","select-rf2","select-rf3", "atten", "pulse", "vco","vco2", "sleep","wait"};
+enum { CMD_OFF, CMD_ON, CMD_SETUP, CMD_TEMP, CMD_RF0, CMD_RF1, CMD_RF2, CMD_RF3, CMD_ATTEN, CMD_PULSE, CMD_VCO, CMD_VCO2, CMD_SLEEP, CMD_WAIT} e_cmds;
+#else
 const char * valid_cmds[] = {"off","on","setup","temp","select-coax","select-fiber0","select-fiber1","select-none", "atten", "pulse", "vco","vco2", "sleep","wait"};
 enum { CMD_OFF, CMD_ON, CMD_SETUP, CMD_TEMP, CMD_COAX, CMD_FIB0, CMD_FIB1, CMD_NONE, CMD_ATTEN, CMD_PULSE, CMD_VCO, CMD_VCO2, CMD_SLEEP, CMD_WAIT} e_cmds;
+#endif
 
 int is_valid(const char * cmd)
 {
@@ -39,9 +48,9 @@ int main (int nargs, char ** args)
   }
 
 #ifdef USE_LIBGPIOS
-  uint8_t bus = 1; //refN
-else
-  uint8_t bus = 2; //refE
+  uint8_t bus = 1; //revN
+#else
+  uint8_t bus = 2; //revE
 #endif
   int dbg = 0;
   uint16_t gpio = 49;
@@ -118,6 +127,20 @@ else
         rno_g_cal_read_temp(dev,&T);
         printf("Temperature: %f\n", T);
         break;
+#ifdef USE_LIBGPIOS
+      case CMD_RF0:
+        rno_g_cal_select(dev, RNO_G_CAL_RF0);
+        break;
+      case CMD_RF1:
+        rno_g_cal_select(dev, RNO_G_CAL_RF1);
+        break;
+      case CMD_RF2:
+        rno_g_cal_select(dev, RNO_G_CAL_RF2);
+        break;
+      case CMD_RF3:
+        rno_g_cal_select(dev, RNO_G_CAL_RF3);
+        break;
+#else
       case CMD_COAX:
         rno_g_cal_select(dev, RNO_G_CAL_COAX);
         break;
@@ -130,6 +153,7 @@ else
      case CMD_NONE:
         rno_g_cal_select(dev, RNO_G_CAL_NO_OUTPUT);
         break;
+#endif
      case CMD_ATTEN:
         rno_g_cal_set_atten(dev, vals[i]);
         break;

@@ -266,7 +266,17 @@ typedef struct rno_g_radiant_voltages
   uint16_t V_RightMon;
 } rno_g_radiant_voltages_t;
 
+#ifdef USE_LIBGPIOS
+typedef enum
+{
+  RNO_G_CAL_RF0 = 0,
+  RNO_G_CAL_RF1,
+  RNO_G_CAL_RF2,
+  RNO_G_CAL_RF3
+} rno_g_calpulser_out_t;
 
+#define RNO_G_CALPULSER_OUT_STRS {"RF0", "RF1", "RF2", "RF3"}
+#else
 typedef enum
 {
   RNO_G_CAL_NO_OUTPUT = 0,
@@ -275,7 +285,20 @@ typedef enum
   RNO_G_CAL_FIB1
 } rno_g_calpulser_out_t;
 
-#define RNO_G_CALPULSER_OUT_STRS {"none","coax","fiber0", "fiber1"}
+#define RNO_G_CALPULSER_OUT_STRS {"none", "coax", "fiber0", "fiber1"}
+#endif
+
+
+#ifdef USE_LIBGPIOS
+typedef enum
+{
+  RNO_G_CAL_NO_SIGNAL = 0,
+  RNO_G_CAL_PULSER,
+  RNO_G_CAL_VCO,
+} rno_g_calpulser_mode_t;
+
+#define RNO_G_CALPULSER_MODE_STRS {"none", "pulser","vco"}
+#else
 
 typedef enum
 {
@@ -285,7 +308,8 @@ typedef enum
   RNO_G_CAL_VCO2
 } rno_g_calpulser_mode_t;
 
-#define RNO_G_CALPULSER_MODE_STRS {"none","pulser","vco", "vco2"}
+#define RNO_G_CALPULSER_MODE_STRS {"none", "pulser", "vco", "vco2"}
+#endif
 
 
 typedef struct rno_g_calpulser_info

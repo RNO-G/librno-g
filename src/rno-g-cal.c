@@ -16,6 +16,7 @@
 
 #ifdef USE_LIBGPIOS
 #include "libgpios.h"
+#include <stdbool.h>
 #endif
 
 
@@ -39,7 +40,7 @@ struct rno_g_cal_dev
 #endif
 };
 
-const char valid_revs[] = "DEF";
+const char valid_revs[] = "DEFN";
 
 const uint8_t addr0 = 0x38;
 const uint8_t addr1 = 0x3f;
@@ -74,13 +75,15 @@ rno_g_cal_dev_t * rno_g_cal_open(uint8_t bus, uint16_t gpio, char rev)
     rev = toupper(rev);
   }
 
+#ifdef USE_LIBGPIOS
+  rev = 'N'; // overwrite
+#endif
+
   if (!strchr(valid_revs, rev))
   {
     fprintf(stderr, "rev%c is not valid!\n", rev);
     return NULL;
   }
-
-
 
 #ifndef USE_LIBGPIOS
   // make sure we have the gpio exported
@@ -108,7 +111,7 @@ rno_g_cal_dev_t * rno_g_cal_open(uint8_t bus, uint16_t gpio, char rev)
   int ok = gpios_get_line_by_label("CAL_EN", &line, GPIOS_OUTPUT);
   if (ok)
   {
-    fprintf("Could not open GPIO CAL_EN\n",);
+    fprintf(stderr, "Could not open GPIO CAL_EN\n");
     return NULL;
   }
 
@@ -133,7 +136,7 @@ rno_g_cal_dev_t * rno_g_cal_open(uint8_t bus, uint16_t gpio, char rev)
     return NULL;
   }
 
-#ifndef LIBGPIOS_H
+#ifndef USE_LIBGPIOS
   //open the gpio file
   FILE * fgpio = fopen(gpio_dir,"w");
   if (!fgpio)
@@ -169,7 +172,7 @@ rno_g_cal_dev_t * rno_g_cal_open(uint8_t bus, uint16_t gpio, char rev)
   dev->fgpiodir = fgpio;
   dev->fgpioval = fval;
 #else
-  memcpy(&dev->gpio,&line, sizeof(line);
+  memcpy(&dev->gpio, &line, sizeof(line));
 #endif
 
   dev->fd = fd;
@@ -251,9 +254,6 @@ int rno_g_cal_disable_no_handle(uint16_t gpio)
 }
 
 
-
-
-
 static int do_write(rno_g_cal_dev_t * dev, uint8_t addr, uint8_t reg, uint8_t val)
 {
 
@@ -316,9 +316,10 @@ static int do_readv(rno_g_cal_dev_t * dev, uint8_t addr, uint8_t reg, int N, uin
   return 0;
 }
 
+
 static int do_read(rno_g_cal_dev_t *dev, uint8_t addr, uint8_t reg, uint8_t * val)
 {
-  return do_readv(dev,addr,reg,1, val);
+  return do_readv(dev, addr, reg, 1, val);
 }
 
 
@@ -329,7 +330,11 @@ int rno_g_cal_setup(rno_g_cal_dev_t* dev)
   if (do_write(dev, addr0, config_reg,0x00)) return -errno;
   if (do_write(dev, addr1, output_reg,0x00)) return -errno;
   if (do_write(dev, addr1, config_reg,0x00)) return -errno;
+#ifdef USE_LIBGPIOS
+  dev->ch = (rno_g_calpulser_out_t) -1; //nothing selected yet (no RF output maps to the all-zero register state)
+#else
   dev->ch = RNO_G_CAL_NO_OUTPUT;
+#endif
   dev->mode = RNO_G_CAL_NO_SIGNAL;
   dev->atten = 63; //max, I think
   dev->setup = 1;
@@ -349,6 +354,9 @@ int rno_g_cal_set_pulse_mode(rno_g_cal_dev_t *dev, rno_g_calpulser_mode_t type)
     return -errno;
   }
 
+  if (type == RNO_G_CAL_NO_SIGNAL)
+    return 0;  // Do nothing?
+
   if (type == RNO_G_CAL_PULSER)
   {
     val|=0x40; //turn on pulser
@@ -357,15 +365,25 @@ int rno_g_cal_set_pulse_mode(rno_g_cal_dev_t *dev, rno_g_calpulser_mode_t type)
     {
       val&=(~0x08); //turn off VCO?
     }
+    else if (dev->rev=='N') //only one VCO for revN
+    {
+      val&=(~0x02); //turn off VCO?
+    }
     else
     {
       val&=(~0x03); // turn off VCO for revE
     }
   }
+  // Has to be either RNO_G_CAL_VCO or RNO_G_CAL_VCO2
   else if (dev->rev=='D') //only one VCO for revD
   {
     val&=(~0x40); //turn off pulser?
     val|=0x08; //turn on VCO?
+  }
+  else if (dev->rev=='N') //only one VCO for revN
+  {
+    val&=(~0x40); //turn off pulser?
+    val|=0x02; //turn on VCO?
   }
   else
   {
@@ -389,20 +407,54 @@ int rno_g_cal_select(rno_g_cal_dev_t * dev, rno_g_calpulser_out_t ch)
   uint8_t val0;
   uint8_t val1;
 
-  if (dev->setup && dev->ch ==  ch) return 0;
+  if (dev->setup && dev->ch == ch) return 0;
   if (do_read(dev, addr0, output_reg, &val0))
     return -errno;
 
   if (do_read(dev, addr1, output_reg, &val1))
     return -errno;
 
-  if (dev->rev >= 'E')
-  {
+  if (dev->rev == 'E' || dev->rev == 'F')
+  { //biases are active low
     val1 |= 0xc;
     if (do_write(dev, addr1, output_reg, val1))
       return -errno;
   }
+  else if (dev->rev == 'N') { //biases are active high
+    val1 &= (~0x1d);
+    if (do_write(dev, addr1, output_reg, val1))
+      return -errno;
+  }
 
+#ifdef USE_LIBGPIOS
+  uint8_t bias_bit;
+  switch (ch)
+  {
+    case RNO_G_CAL_RF0:
+      val0 |= 0x02;  //set out switch 0 to 1
+      val1 |= 0x20;  //set out switch 1 to 1
+      bias_bit = 0x01; //en_bias0
+      break;
+    case RNO_G_CAL_RF1:
+      val0 |= 0x02;  //set out switch 0 to 1
+      val1 &= ~0x20; //set out switch 1 to 0
+      bias_bit = 0x04; //en_bias1
+      break;
+    case RNO_G_CAL_RF2:
+      val0 &= ~0x02; //set out switch 0 to 0
+      val1 |= 0x80;  //set out switch 2 to 1
+      bias_bit = 0x08; //en_bias2
+      break;
+    case RNO_G_CAL_RF3:
+      val0 &= ~0x02; //set out switch 0 to 0
+      val1 &= ~0x80; //set out switch 2 to 0
+      bias_bit = 0x10; //en_bias3
+      break;
+    default:
+      fprintf(stderr, "output %d is not a valid output, please select RF0-RF3\n", (int) ch);
+      return 1;
+  }
+#else
   if (ch == RNO_G_CAL_COAX)
   {
     val0 &= (~0x02);
@@ -443,10 +495,18 @@ int rno_g_cal_select(rno_g_cal_dev_t * dev, rno_g_calpulser_out_t ch)
     val1 &= (~0x80);
     val1 &= (~0x20);
   }
+#endif
 
 
   if (do_write(dev, addr0, output_reg, val0)) return -errno;
   if (do_write(dev, addr1, output_reg, val1)) return -errno;
+
+#ifdef USE_LIBGPIOS
+  //enable the bias for the selected output (matches Python reference: re-read + OR in the bias bit)
+  val1 |= bias_bit;
+  if (do_write(dev, addr1, output_reg, val1)) return -errno;
+#endif
+
   if (dev->setup) dev->ch = ch;
   return 0;
 }
