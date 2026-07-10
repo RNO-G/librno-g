@@ -347,15 +347,12 @@ int rno_g_cal_set_pulse_mode(rno_g_cal_dev_t *dev, rno_g_calpulser_mode_t type)
   uint8_t val;
   if (!dev) return 1;
 
-  if (dev->setup && dev->mode == type) return 0;
+  if (dev->setup && dev->mode == type) return 0;  // Also return if type == RNO_G_CAL_NO_SIGNAL
 
   if (do_read(dev, addr1, output_reg, &val))
   {
     return -errno;
   }
-
-  if (type == RNO_G_CAL_NO_SIGNAL)
-    return 0;  // Do nothing?
 
   if (type == RNO_G_CAL_PULSER)
   {
