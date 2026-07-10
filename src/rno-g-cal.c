@@ -46,11 +46,11 @@ const uint8_t addr0 = 0x38;
 const uint8_t addr1 = 0x3f;
 #ifdef USE_LIBGPIOS
 const uint8_t addr2 = 0x19; //temp sensor
-const uint8_t addr_hum = 0x40; //humidity sensor
 #else
 const uint8_t addr2 = 0x18; //temp sensor
 #endif
-
+const uint8_t addr_hum = 0x40; //humidity sensor for simplicity always defined, only used for revN == USE_LIBGPIOS
+const uint8_t TRIGGER_HUMIDITY_MEASURE_NO_HOLD = 0xF5;
 
 const uint8_t output_reg = 0x01;
 const uint8_t config_reg = 0x03;
@@ -322,6 +322,58 @@ static int do_read(rno_g_cal_dev_t *dev, uint8_t addr, uint8_t reg, uint8_t * va
   return do_readv(dev, addr, reg, 1, val);
 }
 
+// write a single raw command byte (no separate register byte), e.g. for the humidity sensor
+static int do_write_cmd(rno_g_cal_dev_t * dev, uint8_t addr, uint8_t cmd)
+{
+  if (!dev) return 1;
+  struct i2c_msg msg = { .addr = addr, .flags = 0, .len = sizeof(cmd), .buf = &cmd };
+
+  if (dev->debug)
+  {
+    printf("DBG: do_write_cmd(.addr=0x%02x, .cmd=0x%02x)\n", addr, cmd);
+  }
+
+  struct i2c_rdwr_ioctl_data i2c_data = {.msgs = &msg, .nmsgs = 1 };
+
+  if (ioctl(dev->fd, I2C_RDWR, &i2c_data) < 0 )
+  {
+    return -errno;
+  }
+
+  return 0;
+}
+
+// read N raw bytes with no register byte sent first (e.g. for the humidity sensor)
+static int do_readv_raw(rno_g_cal_dev_t * dev, uint8_t addr, int N, uint8_t * data)
+{
+  if (!dev) return 1;
+  struct i2c_msg msg = { .addr = addr, .flags = I2C_M_RD, .len = N, .buf = data };
+
+  if (dev->debug)
+  {
+    printf("DBG: do_readv_raw(.addr=0x%02x, .len=%d)\n", addr, N);
+  }
+
+  struct i2c_rdwr_ioctl_data i2c_data = {.msgs = &msg, .nmsgs = 1 };
+
+  if (ioctl(dev->fd, I2C_RDWR, &i2c_data) < 0 )
+  {
+    return -errno;
+  }
+
+  if (dev->debug)
+  {
+    printf("  read: ");
+    for (int i = 0; i < N; i++)
+    {
+      printf ("0x%02x ", data[i]);
+    }
+    printf("\n");
+  }
+
+  return 0;
+}
+
 
 int rno_g_cal_setup(rno_g_cal_dev_t* dev)
 {
@@ -569,6 +621,38 @@ int rno_g_cal_read_temp(rno_g_cal_dev_t *dev, float *Tout)
   return 0;
 
 }
+
+int rno_g_cal_read_humidity(rno_g_cal_dev_t *dev, float *humidity)
+{
+  if (!dev) return 1;
+  if (dev->rev < 'N')
+  {
+    if (humidity) *humidity = -1;
+    return 0;
+  }
+
+  // Send humidity measurement command (no-hold master mode)
+  if (do_write_cmd(dev, addr_hum, TRIGGER_HUMIDITY_MEASURE_NO_HOLD)) return -errno;
+
+  // Wait for conversion (~20ms typical)
+  usleep(50000);
+
+  uint8_t data[3];
+  if (do_readv_raw(dev, addr_hum, sizeof(data), data)) return -errno;
+
+  uint16_t raw = (data[0] << 8) | data[1];
+
+  // Clear status bits
+  raw &= 0xFFFC;
+
+  // Convert to %RH using datasheet formula
+  if (humidity)
+    *humidity = -6 + (125.0 * raw / 65536.0);
+
+  return 0;
+
+}
+
 
 void rno_g_cal_enable_dbg(rno_g_cal_dev_t * dev, int dbg)
 {

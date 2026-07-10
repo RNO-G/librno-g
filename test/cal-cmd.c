@@ -11,19 +11,19 @@ void usage()
 {
   fprintf(stderr,"Usage: rno-g-cal-cmd [--bus=2] [--gpio=49] [--rev=D] CMD0 [VAL]  [ CMD1 ...] \n");
 #ifdef USE_LIBGPIOS
-  fprintf(stderr,"      CMD can be: off, on, setup, temp, select-rf0, select-rf1, select-rf2, select-rf3, atten val, pulse, vco, sleep N, wait\n");
+  fprintf(stderr,"      CMD can be: off, on, setup, temp, humidity, select-rf0, select-rf1, select-rf2, select-rf3, atten val, pulse, vco, sleep N, wait\n");
 #else
-  fprintf(stderr,"      CMD can be: off, on, setup, temp, select-coax, select-fiber0, select-fiber1, select-none , atten val, pulse, vco, sleep N, wait\n");
+  fprintf(stderr,"      CMD can be: off, on, setup, temp, humidity, select-coax, select-fiber0, select-fiber1, select-none , atten val, pulse, vco, vco2, sleep N, wait\n");
 #endif
   fprintf(stderr,"      Up to 1024 commands are supported\n");
 }
 
 #ifdef USE_LIBGPIOS
-const char * valid_cmds[] = {"off","on","setup","temp","select-rf0","select-rf1","select-rf2","select-rf3", "atten", "pulse", "vco","vco2", "sleep","wait"};
-enum { CMD_OFF, CMD_ON, CMD_SETUP, CMD_TEMP, CMD_RF0, CMD_RF1, CMD_RF2, CMD_RF3, CMD_ATTEN, CMD_PULSE, CMD_VCO, CMD_VCO2, CMD_SLEEP, CMD_WAIT} e_cmds;
+const char * valid_cmds[] = {"off","on","setup","temp","humidity","select-rf0","select-rf1","select-rf2","select-rf3", "atten", "pulse", "vco", "sleep","wait"};
+enum { CMD_OFF, CMD_ON, CMD_SETUP, CMD_TEMP, CMD_HUMIDITY, CMD_RF0, CMD_RF1, CMD_RF2, CMD_RF3, CMD_ATTEN, CMD_PULSE, CMD_VCO, CMD_SLEEP, CMD_WAIT} e_cmds;
 #else
-const char * valid_cmds[] = {"off","on","setup","temp","select-coax","select-fiber0","select-fiber1","select-none", "atten", "pulse", "vco","vco2", "sleep","wait"};
-enum { CMD_OFF, CMD_ON, CMD_SETUP, CMD_TEMP, CMD_COAX, CMD_FIB0, CMD_FIB1, CMD_NONE, CMD_ATTEN, CMD_PULSE, CMD_VCO, CMD_VCO2, CMD_SLEEP, CMD_WAIT} e_cmds;
+const char * valid_cmds[] = {"off","on","setup","temp","humidity","select-coax","select-fiber0","select-fiber1","select-none", "atten", "pulse", "vco","vco2", "sleep","wait"};
+enum { CMD_OFF, CMD_ON, CMD_SETUP, CMD_TEMP, CMD_HUMIDITY, CMD_COAX, CMD_FIB0, CMD_FIB1, CMD_NONE, CMD_ATTEN, CMD_PULSE, CMD_VCO, CMD_VCO2, CMD_SLEEP, CMD_WAIT} e_cmds;
 #endif
 
 int is_valid(const char * cmd)
@@ -108,6 +108,7 @@ int main (int nargs, char ** args)
   for (int i = 0; i < ncmds; i++)
   {
     float T;
+    float H;
     switch (cmds[i])
     {
       case CMD_OFF:
@@ -126,6 +127,10 @@ int main (int nargs, char ** args)
       case CMD_TEMP:
         rno_g_cal_read_temp(dev,&T);
         printf("Temperature: %f\n", T);
+        break;
+      case CMD_HUMIDITY:
+        rno_g_cal_read_humidity(dev,&H);
+        printf("Humidity: %f\n", H);
         break;
 #ifdef USE_LIBGPIOS
       case CMD_RF0:
@@ -163,9 +168,11 @@ int main (int nargs, char ** args)
      case CMD_VCO:
         rno_g_cal_set_pulse_mode(dev, RNO_G_CAL_VCO);
         break;
+#ifndef USE_LIBGPIOS
      case CMD_VCO2:
         rno_g_cal_set_pulse_mode(dev, RNO_G_CAL_VCO2);
         break;
+#endif
      case CMD_SLEEP:
         sleep(vals[i]);
         break;
