@@ -192,6 +192,7 @@ for file in "$@"; do
       printf("%*s", (t == 0 ? 1 : pos - prevpos), lbl);
       prevpos = pos + length(lbl) - 1;
     }
-    printf("\n  [sample, %.1f samples/col]\n", axis_n / W);
+    printf(" [sample]");
+    printf("\n[%.1f samples/col]\n", axis_n / W);
   }'
 done
