@@ -67,12 +67,9 @@ if [ -z "$DUMP_WF" ]; then
     exit 1
   fi
 fi
-echo $DUMP_WF
 
 export LD_LIBRARY_PATH="${LD_LIBRARY_PATH:-}:$SCRIPT_DIR/build"
 export DYLD_LIBRARY_PATH="${DYLD_LIBRARY_PATH:-}:$SCRIPT_DIR/build"
-echo $LD_LIBRARY_PATH
-echo $DYLD_LIBRARY_PATH
 
 # expand channel spec (e.g. "0,2,4-7") into a comma list
 if [ -z "$CHANNELS" ]; then
