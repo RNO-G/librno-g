@@ -95,10 +95,28 @@ if [ "${NSAMPLES}" = "w" ]; then
   NSAMPLES=$WIDTH
 fi
 
+if [ $EVENT -ge 100 ]; then
+  echo "Only 100 events are read..."
+  exit 1
+fi
+
+
 for file in "$@"; do
   [ $# -gt 1 ] && echo "=== $file ==="
-  # awk stops reading once the requested event is done; tolerate the dump's SIGPIPE (141)
-  { "$DUMP_WF" "$file" || [ $? -eq 141 ]; } |
+  if [ ${file: -3} = ".gz" ]; then
+    # awk stops reading once the requested event is done; tolerate the dump's SIGPIPE (141)
+    dump=$({ "$DUMP_WF" "$file" || [ $? -eq 141 ]; })
+  elif [ ${file: -4} = ".zst" ]; then
+    if [ ! -f ${file:0:-4} ];then
+      unzstd "$file"
+    fi
+    # read the first 100 events, select only channel data, skip first 10 and last character
+    dump=$(head -n 3400 ${file:0:-4} | grep -E "^\sCH" | awk '{print substr($0, 10, length($0)-1)}')
+  else
+    echo "Unkown file extension: ${file}. Only extensions allowed: \".gz\" (radiant) and \".zst\" (didaq)"
+    exit 1
+  fi
+  echo "$dump" |
   awk -v event="$EVENT" -v chlist="$CHLIST" -v W="$WIDTH" -v H="$HEIGHT" \
       -v marker="$MARKER" -v start="$START" -v nsamp="$NSAMPLES" -v nch=24 '
   function torow(v) { return H - 1 - int((v - vmin) / span * (H - 1) + 0.5) }
