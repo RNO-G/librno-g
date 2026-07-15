@@ -29,7 +29,7 @@ INCLUDES=src/rno-g.h src/rno-g-nsample-diff-hist.h
 DAQ_INCLUDES=src/radiant.h src/cobs.h src/adf4350.h src/flower.h src/rno-g-cal.h
 PYBIND_INCLUDES=$(shell python3 -m pybind11 --includes)
 
-.PHONY: client daq clean install install-daq client-py daq-py cppcheck test daq-test-progs rno-g-utils
+.PHONY: client daq clean install install-daq install-rno-g-utils client-py daq-py cppcheck test daq-test-progs rno-g-utils
 
 client:  $(BUILD_DIR)/librno-g.so
 
@@ -93,6 +93,10 @@ ifeq ($(ON_BBB),yes)
 	chown rno-g:rno-g /data/test
 	ldconfig  # just put this here... doesn't seem to be needed on my laptop but mabye on BBB (Debian things?)
 endif
+
+install-rno-g-utils: rno-g-utils
+	mkdir -p $(PREFIX)/bin
+	install $(addprefix $(BUILD_DIR)/test/, rno-g-dump-ds rno-g-dump-hdr rno-g-dump-ped rno-g-dump-wf rno-g-wf-sample-diff-hists rno-g-wf-stats) $(PREFIX)/bin/
 
 clean:
 	@echo Nuking $(BUILD_DIR) from orbit
