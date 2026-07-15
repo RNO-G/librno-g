@@ -48,9 +48,9 @@ static int do_write(rno_g_file_handle_t h, int N, const void *data, uint32_t * s
   switch  (h.type)
   {
     case RNO_G_RAW:
-      return fwrite(data,N,1,h.handle.raw);
+      return fwrite(data, N, 1, h.handle.raw);
     case RNO_G_GZIP:
-      return gzwrite(h.handle.gz, data,N);
+      return gzwrite(h.handle.gz, data, N);
     default:
       return 0;
   }
@@ -264,12 +264,12 @@ int rno_g_waveform_write(rno_g_file_handle_t h, const rno_g_waveform_t *wf)
   for (int ichan = 0; ichan < RNO_G_NUM_RADIANT_CHANNELS; ichan++)
   {
     // 2 since 16-bit data
-    wr += do_write(h, 2*wf->radiant_nsamples, wf->radiant_waveforms[ichan],&sum);
+    wr += do_write(h, 2*wf->radiant_nsamples, wf->radiant_waveforms[ichan], &sum);
   }
 
   for (int ichan = 0; ichan < RNO_G_NUM_LT_CHANNELS; ichan++)
   {
-    wr += do_write(h, wf->lt_nsamples, wf->lt_waveforms[ichan],&sum);
+    wr += do_write(h, wf->lt_nsamples, wf->lt_waveforms[ichan], &sum);
   }
 
   wr += do_write(h, 2, &wf->radiant_sampling_rate, &sum);
@@ -282,7 +282,7 @@ int rno_g_waveform_write(rno_g_file_handle_t h, const rno_g_waveform_t *wf)
   wr += do_write(h, 1, &wf->station, &sum);
 
 
-  do_write(h, sizeof(sum),&sum,0);
+  do_write(h, sizeof(sum), &sum, 0);
 
   return wr;
 }
@@ -359,7 +359,7 @@ int rno_g_waveform_read(rno_g_file_handle_t h, rno_g_waveform_t *wf)
         }
          for (ichan = 0; ichan < RNO_G_NUM_LT_CHANNELS; ichan++)
         {
-          rd+= do_read(h,wf->lt_nsamples, wf->lt_waveforms[ichan], &sum);
+          rd+= do_read(h, wf->lt_nsamples, wf->lt_waveforms[ichan], &sum);
         }
 
         if (hd.version > 1)
@@ -1032,7 +1032,3 @@ int rno_g_daqstatus_read(rno_g_file_handle_t h, rno_g_daqstatus_t *ds)
 
   return rd;
 }
-
-
-
-
