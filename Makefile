@@ -39,7 +39,7 @@ daq-test-progs:  $(addprefix $(BUILD_DIR)/test/, flower-configure-trigger flower
 	                  flower-status flower-trigger-enables flower-trigout-enables flower-wave radiant-check-trigger radiant-dump\
 										radiant-scan radiant-threshold-scan radiant-try-daqstatus radiant-try-event radiant-try-ped cal-cmd)
 
-rno-g-utils:  $(addprefix $(BUILD_DIR)/test/, rno-g-dump-ds rno-g-dump-hdr rno-g-dump-ped rno-g-dump-wf rno-g-wf-sample-diff-hists rno-g-wf-stats)
+rno-g-utils: $(BUILD_DIR)/test $(addprefix $(BUILD_DIR)/test/, rno-g-dump-ds rno-g-dump-hdr rno-g-dump-ped rno-g-dump-wf rno-g-wf-sample-diff-hists rno-g-wf-stats)
 
 client-py: client $(BUILD_DIR)/rno_g.so
 daq-py: daq client-py $(BUILD_DIR)/radiant.so
@@ -104,6 +104,8 @@ clean:
 
 $(BUILD_DIR):
 	@ mkdir -p $(BUILD_DIR)
+
+$(BUILD_DIR)/test: $(BUILD_DIR)
 	@ mkdir -p $(BUILD_DIR)/test
 
 CLIENT_OBJS=rno-g.o rno-g-version.o rno-g-nsample-diff-hist.o
@@ -164,4 +166,3 @@ cppcheck:
 config.mk:
 	@echo "Creating a default config.mk"
 	@cat config.mk.default > $@
-
