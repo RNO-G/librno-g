@@ -80,19 +80,30 @@ PYBIND11_MODULE(rno_g,m)
   py::class_<rno_g_waveform_t>(m,"Waveform")
     FLD(event_number)
     FLD(run_number)
-    FLD(radiant_nsamples)
-    FLD(lt_nsamples)
+    FLD(nsamples)
+    FLD(bytes_per_sample)
+    FLD(sampling_rate)
     FLD(station)
    // .def_property_readonly("radiant_waveforms", []( rno_g_waveform_t & wf) { return reinterpret_cast<std::array<std::array<int16_t, RNO_G_MAX_RADIANT_NSAMPLES>, RNO_G_NUM_RADIANT_CHANNELS>&> (wf.radiant_waveforms);})
     .def_property_readonly("radiant_waveforms", []( rno_g_waveform_t & wf) {
-        int sz = sizeof(wf.radiant_waveforms[0][0]); 
+        int sz = sizeof(wf.radiant_waveforms[0][0]);
         return py::array(py::buffer_info(
-              wf.radiant_waveforms, 
-              sz, 
-              py::format_descriptor<int16_t>::value, 
-              2, 
-              { RNO_G_NUM_RADIANT_CHANNELS, RNO_G_MAX_RADIANT_NSAMPLES }, 
+              wf.radiant_waveforms,
+              sz,
+              py::format_descriptor<int16_t>::value,
+              2,
+              { RNO_G_NUM_RADIANT_CHANNELS, RNO_G_MAX_RADIANT_NSAMPLES },
               {sz * RNO_G_MAX_RADIANT_NSAMPLES,sz})); })
+    //valid when bytes_per_sample == 1 (aliases the same memory as radiant_waveforms)
+    .def_property_readonly("didaq_waveforms", []( rno_g_waveform_t & wf) {
+        int sz = sizeof(wf.didaq_waveforms[0][0]);
+        return py::array(py::buffer_info(
+              wf.didaq_waveforms,
+              sz,
+              py::format_descriptor<uint8_t>::value,
+              2,
+              { RNO_G_NUM_RADIANT_CHANNELS, RNO_G_MAX_DIDAQ_NSAMPLES },
+              {sz * RNO_G_MAX_DIDAQ_NSAMPLES,sz})); })
     .def("read", [](rno_g_waveform_t & waveform, py_rno_g_file_handle & handle) { return rno_g_waveform_read(handle.h, &waveform); } )
     .def("write", [](rno_g_waveform_t & waveform, py_rno_g_file_handle & handle) { return rno_g_waveform_write(handle.h, &waveform); } )
     .def("__init__",[](rno_g_waveform_t & wf) { memset(&wf,0,sizeof(wf)); })

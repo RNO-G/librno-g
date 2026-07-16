@@ -19,7 +19,7 @@ int rno_g_nsample_diff_hist_fill(rno_g_nsample_diff_hist_t * hist, const rno_g_w
   if (wf->station != hist->setup.station) return -1; 
   if (hist->setup.channel > RNO_G_NUM_RADIANT_CHANNELS) return -1; 
   int filled = 0; 
-  for (unsigned i = hist->setup.delta_nsamples; i < wf->radiant_nsamples; i+=hist->setup.delta_nsamples) 
+  for (unsigned i = hist->setup.delta_nsamples; i < wf->nsamples; i+=hist->setup.delta_nsamples) 
   {
     int16_t diff = wf->radiant_waveforms[hist->setup.channel][i] - wf->radiant_waveforms[hist->setup.channel][i-1]; 
     if (hist->setup.use_abs && diff < 0) diff = -diff; 
