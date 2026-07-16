@@ -199,16 +199,14 @@ typedef struct rno_g_waveform
 {
   uint32_t event_number; //!< For matching
   uint32_t run_number;   //!< For matching
-  uint16_t radiant_nsamples; //!< Number of samples per channel for RADIANT
-  uint16_t lt_nsamples; //!< Number of samples per channel for lowthresh
+  uint16_t nsamples; //!< Number of samples per channel
   uint8_t bytes_per_sample; //!< 2: 12-bit samples in radiant_waveforms, 1: 8-bit samples in didaq_waveforms. 0 is treated as 2 (writers predating this field).
   union
   {
     int16_t radiant_waveforms[RNO_G_NUM_RADIANT_CHANNELS][RNO_G_MAX_RADIANT_NSAMPLES]; //unrolled.
     uint8_t didaq_waveforms[RNO_G_NUM_RADIANT_CHANNELS][RNO_G_MAX_DIDAQ_NSAMPLES]; //!< 8-bit digitizer, same size as radiant_waveforms
   };
-  uint8_t lt_waveforms[RNO_G_NUM_LT_CHANNELS][RNO_G_MAX_LT_NSAMPLES]; // 8-bit digitizer
-  uint16_t radiant_sampling_rate;
+  uint16_t sampling_rate;
   uint8_t digitizer_readout_delay[RNO_G_NUM_RADIANT_CHANNELS];
   uint8_t station;
 

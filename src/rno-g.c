@@ -260,10 +260,10 @@ int rno_g_waveform_write(rno_g_file_handle_t h, const rno_g_waveform_t *wf)
   //writers predating bytes_per_sample leave it 0, which means 16-bit data
   uint8_t bytes_per_sample = wf->bytes_per_sample == 1 ? 1 : 2;
   uint16_t max_nsamples = bytes_per_sample == 1 ? RNO_G_MAX_DIDAQ_NSAMPLES : RNO_G_MAX_RADIANT_NSAMPLES;
-  if (wf->radiant_nsamples > max_nsamples)
+  if (wf->nsamples > max_nsamples)
   {
-    fprintf(stderr, "rno_g_waveform_write: radiant_nsamples %hu exceeds max %hu at %hhu bytes per sample\n",
-            wf->radiant_nsamples, max_nsamples, bytes_per_sample);
+    fprintf(stderr, "rno_g_waveform_write: nsamples %hu exceeds max %hu at %hhu bytes per sample\n",
+            wf->nsamples, max_nsamples, bytes_per_sample);
     return -1;
   }
 
@@ -276,18 +276,13 @@ int rno_g_waveform_write(rno_g_file_handle_t h, const rno_g_waveform_t *wf)
 
   for (int ichan = 0; ichan < RNO_G_NUM_RADIANT_CHANNELS; ichan++)
   {
-    wr += do_write(h, bytes_per_sample*wf->radiant_nsamples,
+    wr += do_write(h, bytes_per_sample*wf->nsamples,
                    bytes_per_sample == 1 ?
                    (const void*) wf->didaq_waveforms[ichan] :
                    (const void*) wf->radiant_waveforms[ichan], &sum);
   }
 
-  for (int ichan = 0; ichan < RNO_G_NUM_LT_CHANNELS; ichan++)
-  {
-    wr += do_write(h, wf->lt_nsamples, wf->lt_waveforms[ichan], &sum);
-  }
-
-  wr += do_write(h, 2, &wf->radiant_sampling_rate, &sum);
+  wr += do_write(h, 2, &wf->sampling_rate, &sum);
 
   for (int ichan = 0; ichan < RNO_G_NUM_RADIANT_CHANNELS; ichan++)
   {
@@ -330,8 +325,10 @@ typedef struct rno_g_waveform_v4
 
 } rno_g_waveform_v4_t;
 
-//pre-v5 layout: everything up to and including lt_nsamples (bytes_per_sample did not exist yet)
-#define N_BEFORE_DATA_V4  ( offsetof(rno_g_waveform_v4_t, lt_nsamples) + sizeof(((rno_g_waveform_v4_t*) 0)->lt_nsamples))
+//The pre-v5 on-disk prefix is event_number, run_number, nsamples (matching the first
+//offsetof(rno_g_waveform_t, bytes_per_sample) bytes of the current struct) followed by
+//lt_nsamples, which no longer exists in memory: readers of old versions read it into a
+//local and then read-and-discard the LT samples (they still go through the checksum).
 
 int rno_g_waveform_read(rno_g_file_handle_t h, rno_g_waveform_t *wf)
 {
@@ -358,16 +355,19 @@ int rno_g_waveform_read(rno_g_file_handle_t h, rno_g_waveform_t *wf)
     case 2:
     case 3: //these might need to be rewritten to make the cases useful - though it means repeated blocks of code
       {
-        rd = do_read(h, N_BEFORE_DATA_V4, wf, &sum);
+        //old prefix: event_number, run_number, nsamples (= first bytes of the current struct), then lt_nsamples
+        uint16_t lt_nsamples = 0;
+        rd = do_read(h, offsetof(rno_g_waveform_t, bytes_per_sample), wf, &sum);
+        rd += do_read(h, sizeof(lt_nsamples), &lt_nsamples, &sum);
         wf->bytes_per_sample = 2;
-        if (wf->radiant_nsamples > RNO_G_MAX_RADIANT_NSAMPLES || wf->lt_nsamples > RNO_G_MAX_LT_NSAMPLES)
+        if (wf->nsamples > RNO_G_MAX_RADIANT_NSAMPLES || lt_nsamples > RNO_G_MAX_LT_NSAMPLES)
         {
-          fprintf(stderr, "Invalid nsamples (radiant: %hu, lt: %hu)\n", wf->radiant_nsamples, wf->lt_nsamples);
+          fprintf(stderr, "Invalid nsamples (radiant: %hu, lt: %hu)\n", wf->nsamples, lt_nsamples);
           return -1;
         }
         for (ichan = 0; ichan < RNO_G_NUM_RADIANT_CHANNELS; ichan++)
         {
-          rd+= do_read(h,2*wf->radiant_nsamples, wf->radiant_waveforms[ichan], &sum);
+          rd += do_read(h, 2*wf->nsamples, wf->radiant_waveforms[ichan], &sum);
           if ( hd.version < 3)
           {
             //fix unwrapping bug
@@ -380,9 +380,11 @@ int rno_g_waveform_read(rno_g_file_handle_t h, rno_g_waveform_t *wf)
             memcpy(wf->radiant_waveforms[ichan]+2048-128,tmp,128*2);
           }
         }
-          for (ichan = 0; ichan < RNO_G_NUM_LT_CHANNELS; ichan++)
+        for (ichan = 0; ichan < RNO_G_NUM_LT_CHANNELS; ichan++)
         {
-          rd+= do_read(h, wf->lt_nsamples, wf->lt_waveforms[ichan], &sum);
+          //the current struct has no LT waveforms anymore, discard (but checksum) them
+          uint8_t lt_discard[RNO_G_MAX_LT_NSAMPLES];
+          rd += do_read(h, lt_nsamples, lt_discard, &sum);
         }
 
         if (hd.version > 1)
@@ -402,7 +404,7 @@ int rno_g_waveform_read(rno_g_file_handle_t h, rno_g_waveform_t *wf)
             wf->digitizer_readout_delay[ichan]=0;
           }
 
-          wf->radiant_sampling_rate=3200; //the change happened to new versions
+          wf->sampling_rate = 3200; //the change happened to new versions
         }
 
         rdsum = do_read(h, sizeof(wanted_sum),&wanted_sum,0);
@@ -417,16 +419,19 @@ int rno_g_waveform_read(rno_g_file_handle_t h, rno_g_waveform_t *wf)
       }
       case 4:
       {
-        rd = do_read(h, N_BEFORE_DATA_V4, wf, &sum);
+        //old prefix: event_number, run_number, nsamples (= first bytes of the current struct), then lt_nsamples
+        uint16_t lt_nsamples = 0;
+        rd = do_read(h, offsetof(rno_g_waveform_t, bytes_per_sample), wf, &sum);
+        rd += do_read(h, sizeof(lt_nsamples), &lt_nsamples, &sum);
         wf->bytes_per_sample = 2;
-        if (wf->radiant_nsamples > RNO_G_MAX_RADIANT_NSAMPLES || wf->lt_nsamples > RNO_G_MAX_LT_NSAMPLES)
+        if (wf->nsamples > RNO_G_MAX_RADIANT_NSAMPLES || lt_nsamples > RNO_G_MAX_LT_NSAMPLES)
         {
-          fprintf(stderr, "Invalid nsamples (radiant: %hu, lt: %hu)\n", wf->radiant_nsamples, wf->lt_nsamples);
+          fprintf(stderr, "Invalid nsamples (radiant: %hu, lt: %hu)\n", wf->nsamples, lt_nsamples);
           return -1;
         }
         for (ichan = 0; ichan < RNO_G_NUM_RADIANT_CHANNELS; ichan++)
         {
-          rd+= do_read(h,2*wf->radiant_nsamples, wf->radiant_waveforms[ichan], &sum);
+          rd += do_read(h, 2*wf->nsamples, wf->radiant_waveforms[ichan], &sum);
           if ( hd.version < 3)
           {
             //fix unwrapping bug
@@ -439,15 +444,17 @@ int rno_g_waveform_read(rno_g_file_handle_t h, rno_g_waveform_t *wf)
             memcpy(wf->radiant_waveforms[ichan]+2048-128,tmp,128*2);
           }
         }
-         for (ichan = 0; ichan < RNO_G_NUM_LT_CHANNELS; ichan++)
+        for (ichan = 0; ichan < RNO_G_NUM_LT_CHANNELS; ichan++)
         {
-          rd+= do_read(h,wf->lt_nsamples, wf->lt_waveforms[ichan], &sum);
+          //the current struct has no LT waveforms anymore, discard (but checksum) them
+          uint8_t lt_discard[RNO_G_MAX_LT_NSAMPLES];
+          rd += do_read(h, lt_nsamples, lt_discard, &sum);
         }
 
 
         if(hd.version>3)
         {
-          rd+= do_read(h,sizeof(wf->radiant_sampling_rate), &wf->radiant_sampling_rate,&sum);
+          rd += do_read(h, sizeof(wf->sampling_rate), &wf->sampling_rate, &sum);
 
           for(ichan=0;ichan<24;ichan++)
           {
@@ -462,7 +469,7 @@ int rno_g_waveform_read(rno_g_file_handle_t h, rno_g_waveform_t *wf)
             wf->digitizer_readout_delay[ichan]=0;
           }
 
-          wf->radiant_sampling_rate=3200;
+          wf->sampling_rate = 3200;
         }
 
         if (hd.version > 1)
@@ -492,24 +499,19 @@ int rno_g_waveform_read(rno_g_file_handle_t h, rno_g_waveform_t *wf)
           return -1;
         }
         uint16_t max_nsamples = wf->bytes_per_sample == 1 ? RNO_G_MAX_DIDAQ_NSAMPLES : RNO_G_MAX_RADIANT_NSAMPLES;
-        if (wf->radiant_nsamples > max_nsamples || wf->lt_nsamples > RNO_G_MAX_LT_NSAMPLES)
+        if (wf->nsamples > max_nsamples)
         {
-          fprintf(stderr, "Invalid nsamples (radiant: %hu, lt: %hu)\n", wf->radiant_nsamples, wf->lt_nsamples);
+          fprintf(stderr, "Invalid nsamples %hu (max %hu at %hhu bytes per sample)\n", wf->nsamples, max_nsamples, wf->bytes_per_sample);
           return -1;
         }
 
         for (ichan = 0; ichan < RNO_G_NUM_RADIANT_CHANNELS; ichan++)
         {
-          rd += do_read(h, wf->bytes_per_sample*wf->radiant_nsamples,
+          rd += do_read(h, wf->bytes_per_sample*wf->nsamples,
                         wf->bytes_per_sample == 1 ? (void*) wf->didaq_waveforms[ichan] : (void*) wf->radiant_waveforms[ichan], &sum);
         }
 
-        for (ichan = 0; ichan < RNO_G_NUM_LT_CHANNELS; ichan++)
-        {
-          rd += do_read(h, wf->lt_nsamples, wf->lt_waveforms[ichan], &sum);
-        }
-
-        rd += do_read(h, sizeof(wf->radiant_sampling_rate), &wf->radiant_sampling_rate, &sum);
+        rd += do_read(h, sizeof(wf->sampling_rate), &wf->sampling_rate, &sum);
 
         for (ichan = 0; ichan < RNO_G_NUM_RADIANT_CHANNELS; ichan++)
         {
@@ -593,9 +595,9 @@ int rno_g_waveform_dump(FILE * f, const rno_g_waveform_t * waveform)
 
   for (int i = 0; i < RNO_G_NUM_RADIANT_CHANNELS; i++)
   {
-    for (int j = 0; j < waveform->radiant_nsamples; j++)
+    for (int j = 0; j < waveform->nsamples; j++)
     {
-      char sep = j == waveform->radiant_nsamples-1?'\n':',';
+      char sep = j == waveform->nsamples-1?'\n':',';
       ret+= didaq ? fprintf(f, "%hhu%c", waveform->didaq_waveforms[i][j], sep)
                   : fprintf(f, "%hd%c", waveform->radiant_waveforms[i][j], sep);
     }

@@ -635,7 +635,7 @@ int radiant_read_event(radiant_dev_t * bd, rno_g_header_t * hd, rno_g_waveform_t
   struct fw_event_header fwhd;
 
 
-  uint16_t Ns[2+RNO_G_NUM_RADIANT_CHANNELS] = { 0};
+  uint16_t Ns[2+RNO_G_NUM_RADIANT_CHANNELS] = {0};
   uint8_t* bufs[2+RNO_G_NUM_RADIANT_CHANNELS] = {0};
 
   Ns[0] = sizeof(fwhd);
@@ -664,14 +664,14 @@ int radiant_read_event(radiant_dev_t * bd, rno_g_header_t * hd, rno_g_waveform_t
 
 
   //check magic
-  if (fwhd.magic!= EVENT_MAGIC )
+  if (fwhd.magic != EVENT_MAGIC )
   {
-    fprintf(stderr,"Bad magic :%x\n", fwhd.magic);
+    fprintf(stderr, "Bad magic :%x\n", fwhd.magic);
     return -1;
   }
 
 
-  memset(hd,0,sizeof(*hd));
+  memset(hd, 0, sizeof(*hd));
   hd->event_number = fwhd.count;
   hd->pps_count = fwhd.pps;
   hd->sys_clk = fwhd.sysclk;
@@ -687,17 +687,17 @@ int radiant_read_event(radiant_dev_t * bd, rno_g_header_t * hd, rno_g_waveform_t
   hd->raw_tinfo = fwhd.trig_info;
   hd->trigger_type = 0 ;
 
-  if (hd->raw_tinfo & RADIANT_TRIGGER_INT0 ) hd->trigger_type |= RNO_G_TRIGGER_RF_RADIANT0;
-  if (hd->raw_tinfo & RADIANT_TRIGGER_INT1 ) hd->trigger_type |= RNO_G_TRIGGER_RF_RADIANT1;
-  if (hd->raw_tinfo & RADIANT_TRIGGER_EXT ) hd->trigger_type  |= RNO_G_TRIGGER_RF_LT_SIMPLE;
-  if (hd->raw_tinfo & RADIANT_TRIGGER_SOFT ) hd->trigger_type |= RNO_G_TRIGGER_SOFT;
-  if (hd->raw_tinfo & RADIANT_TRIGGER_PPS ) hd->trigger_type  |= RNO_G_TRIGGER_PPS;
-  if (hd->raw_tinfo & RADIANT_TRIGGER_INTERNAL_COPY ) hd->trigger_type  |= RNO_G_TRIGGER_RF_RADIANTX;
+  if (hd->raw_tinfo & RADIANT_TRIGGER_INT0) hd->trigger_type |= RNO_G_TRIGGER_RF_RADIANT0;
+  if (hd->raw_tinfo & RADIANT_TRIGGER_INT1) hd->trigger_type |= RNO_G_TRIGGER_RF_RADIANT1;
+  if (hd->raw_tinfo & RADIANT_TRIGGER_EXT) hd->trigger_type  |= RNO_G_TRIGGER_RF_LT_SIMPLE;
+  if (hd->raw_tinfo & RADIANT_TRIGGER_SOFT) hd->trigger_type |= RNO_G_TRIGGER_SOFT;
+  if (hd->raw_tinfo & RADIANT_TRIGGER_PPS) hd->trigger_type  |= RNO_G_TRIGGER_PPS;
+  if (hd->raw_tinfo & RADIANT_TRIGGER_INTERNAL_COPY) hd->trigger_type  |= RNO_G_TRIGGER_RF_RADIANTX;
 
   wf->event_number = hd->event_number;
   wf->run_number = bd->run;
-  wf->radiant_nsamples = nsamples;
-  wf->radiant_sampling_rate=radiant_get_sample_rate(bd);
+  wf->nsamples = nsamples;
+  wf->sampling_rate = radiant_get_sample_rate(bd);
 
   for (int ichan = 0; ichan < RNO_G_NUM_RADIANT_CHANNELS; ichan++)
   {
