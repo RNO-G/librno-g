@@ -218,7 +218,6 @@ int rno_g_header_read(rno_g_file_handle_t h, rno_g_header_t *header)
       //I THINK we can just get away with zeroing and reading hdv0 amount
       memset(header,0, sizeof(*header));
       rd = do_read(h,sizeof(rno_g_header_v0_t),header, &sum);
-      memset(header,0, sizeof(*header));
       break;
     }
     case 1:
