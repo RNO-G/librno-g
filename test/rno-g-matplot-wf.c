@@ -117,9 +117,11 @@ int main(int nargs, char ** args)
     iplot++;
 
     fprintf(f,"axes[%d,%d].plot([", row,col);
-    for (int j = 0; j  < wf.radiant_nsamples; j++)
+    for (int j = 0; j  < wf.nsamples; j++)
     {
-      fprintf(f, "%hd%c", wf.radiant_waveforms[i][j], j == wf.radiant_nsamples-1 ? ']' : ',');
+      char sep = j == wf.nsamples-1 ? ']' : ',';
+      if (wf.bytes_per_sample == 1) fprintf(f, "%hhu%c", wf.didaq_waveforms[i][j], sep);
+      else fprintf(f, "%hd%c", wf.radiant_waveforms[i][j], sep);
     }
     fprintf(f,")\n");
     fprintf(f,"axes[%d,%d].set_title(\"CH %d\")\n\n",row,col, i);
