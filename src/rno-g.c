@@ -256,8 +256,22 @@ int rno_g_header_read(rno_g_file_handle_t h, rno_g_header_t *header)
     }
     case 1:
     {
-      memset(header, =0, sizeof(*header));
+      memset(header, 0, sizeof(*header));
       rd = do_read(h, sizeof(rno_g_header_v1_t), header, &sum);
+      break;
+    }
+    case 2:
+    {
+      //v2 still had radiant_nsamples/lt_nsamples: read into the frozen struct,
+      //then copy everything over (the fields before them are identical)
+      rno_g_header_v2_t v2;
+      rd = do_read(h, sizeof(v2), &v2, &sum);
+      memset(header, 0, sizeof(*header));
+      memcpy(header, &v2, offsetof(rno_g_header_v2_t, radiant_nsamples));
+      header->lt_simple_trigger_cfg = v2.lt_simple_trigger_cfg;
+      header->radiant_trigger_cfg[0] = v2.radiant_trigger_cfg[0];
+      header->radiant_trigger_cfg[1] = v2.radiant_trigger_cfg[1];
+      header->lt_phased_trigger_cfg = v2.lt_phased_trigger_cfg;
       break;
     }
     case HEADER_VER:
