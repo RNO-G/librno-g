@@ -35,6 +35,8 @@ client:  $(BUILD_DIR)/librno-g.so
 
 daq: client $(BUILD_DIR)/libradiant.so  $(BUILD_DIR)/libflower.so $(BUILD_DIR)/librno-g-cal.so
 
+didaq: client $(BUILD_DIR)/librno-g-didaq.so $(BUILD_DIR)/librno-g-cal.so
+
 daq-test-progs:  $(addprefix $(BUILD_DIR)/test/, flower-configure-trigger flower-dump flower-equalize flower-set-thresholds flower-set-phased-thresholds flower-set-pps-delay\
 	                  flower-status flower-trigger-enables flower-trigout-enables flower-wave radiant-check-trigger radiant-dump\
 										radiant-scan radiant-threshold-scan radiant-try-daqstatus radiant-try-event radiant-try-ped cal-cmd)
@@ -77,16 +79,22 @@ test: $(addprefix $(BUILD_DIR)/test/, $(TESTS) )
 
 
 install: client
-	mkdir -p $(PREFIX)/lib
-	mkdir -p $(PREFIX)/include
-	install $(BUILD_DIR)/librno-g.so $(PREFIX)/lib/
-	install $(INCLUDES) $(PREFIX)/include/
+	mkdir -p $(DESTDIR)$(PREFIX)/lib
+	mkdir -p $(DESTDIR)$(PREFIX)/include
+	install $(BUILD_DIR)/librno-g.so $(DESTDIR)$(PREFIX)/lib/
+	install $(INCLUDES) $(DESTDIR)$(PREFIX)/include/
 
 install-daq: install $(BUILD_DIR)/libradiant.so $(BUILD_DIR)/libflower.so $(BUILD_DIR)/librno-g-cal.so
-	install $(BUILD_DIR)/libradiant.so $(PREFIX)/lib/
-	install $(BUILD_DIR)/libflower.so $(PREFIX)/lib/
-	install $(BUILD_DIR)/librno-g-cal.so $(PREFIX)/lib/
-	install src/radiant.h src/flower.h src/rno-g-cal.h $(PREFIX)/include/
+	install $(BUILD_DIR)/libradiant.so $(DESTDIR)$(PREFIX)/lib/
+	install $(BUILD_DIR)/libflower.so $(DESTDIR)$(PREFIX)/lib/
+	install $(BUILD_DIR)/librno-g-cal.so $(DESTDIR)$(PREFIX)/lib/
+	install src/radiant.h src/flower.h src/rno-g-cal.h $(DESTDIR)$(PREFIX)/include/
+
+install-didaq: install $(BUILD_DIR)/librno-g-didaq.so  $(BUILD_DIR)/librno-g-cal.so
+	install $(BUILD_DIR)/librno-g-didaq.so $(DESTDIR)$(PREFIX)/lib/
+	install $(BUILD_DIR)/librno-g-cal.so $(DESTDIR)$(PREFIX)/lib/
+	install src/rno-g-didaq.h src/rno-g-cal.h $(DESTDIR)$(PREFIX)/include/
+
 
 ifeq ($(ON_BBB),yes)
 	mkdir -p /data/test
@@ -125,6 +133,12 @@ $(BUILD_DIR)/librno-g-cal.so: $(addprefix $(BUILD_DIR)/, $(CAL_OBJS))
 
 FLWR_OBJS=flower.o
 $(BUILD_DIR)/libflower.so: $(addprefix $(BUILD_DIR)/, $(FLWR_OBJS))
+	@echo Linking $@
+	@cc -o $@ $(LDFLAGS) $^  $(LIBS)
+
+
+RNOG_DIDAQ_OBJS=rno-g-didaq.o
+$(BUILD_DIR)/librno-g-didaq.so: $(addprefix $(BUILD_DIR)/, $(RNOG_DIDAQ_OBJS))
 	@echo Linking $@
 	@cc -o $@ $(LDFLAGS) $^  $(LIBS)
 
