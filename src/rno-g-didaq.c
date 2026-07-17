@@ -1,6 +1,6 @@
 
 #include "rno-g-didaq.h"
-
+#ifdef ON_DIDAQ
 
 int didaq_read_event(didaq_dev_t * bd, rno_g_header_t * hd, rno_g_waveform_t * wf)
 {
@@ -42,3 +42,4 @@ int didaq_poll_trigger_ready(didaq_dev_t * bd, int timeout_ms)
 }
 
 
+#endif

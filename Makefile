@@ -11,6 +11,7 @@ CXXFLAGS+=-fPIC -Og -Wall -Wextra -g
 #CFLAGS+=-DRADIANT_SET_DBG
 
 ON_BBB?=no
+ON_DIDAQ?=no
 
 # are we (probably) on the BBB?
 ifeq ($(shell uname -m),armv7l)
@@ -25,17 +26,17 @@ endif
 
 LDFLAGS=-shared
 LIBS=-lz -pthread
-INCLUDES=src/rno-g.h src/rno-g-nsample-diff-hist.h
+INCLUDES=src/rno-g.h src/rno-g-nsample-diff-hist.h src/rno-g-didaq.h
 DAQ_INCLUDES=src/radiant.h src/cobs.h src/adf4350.h src/flower.h src/rno-g-cal.h
 PYBIND_INCLUDES=$(shell python3 -m pybind11 --includes)
 
 .PHONY: client daq clean install install-daq install-rno-g-utils client-py daq-py cppcheck test daq-test-progs rno-g-utils
 
-client:  $(BUILD_DIR)/librno-g.so
+client:  $(BUILD_DIR)/librno-g.so $(BUILD_DIR)/librno-g-didaq.so
 
 daq: client $(BUILD_DIR)/libradiant.so  $(BUILD_DIR)/libflower.so $(BUILD_DIR)/librno-g-cal.so
 
-didaq: client $(BUILD_DIR)/librno-g-didaq.so $(BUILD_DIR)/librno-g-cal.so
+didaq: client $(BUILD_DIR)/librno-g-cal.so
 
 daq-test-progs:  $(addprefix $(BUILD_DIR)/test/, flower-configure-trigger flower-dump flower-equalize flower-set-thresholds flower-set-phased-thresholds flower-set-pps-delay\
 	                  flower-status flower-trigger-enables flower-trigout-enables flower-wave radiant-check-trigger radiant-dump\
