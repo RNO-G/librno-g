@@ -256,7 +256,7 @@ int rno_g_header_read(rno_g_file_handle_t h, rno_g_header_t *header)
     }
     case 1:
     {
-      memset(header, =0, sizeof(*header));
+      memset(header, 0, sizeof(*header));
       rd = do_read(h, sizeof(rno_g_header_v1_t), header, &sum);
       break;
     }
