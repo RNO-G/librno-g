@@ -299,6 +299,15 @@ typedef struct rno_g_calpulser_info
   char rev; //Rev of controller board (if 0, this means that we didn't fill this in)
 } rno_g_calpulser_info_t;
 
+/** Bits of rno_g_daqstatus.trigger_rate_cap_active: set for each RF trigger source whose readout
+ *  rate cap (see acq_config.radiant.readout.cap_trigger_rate) is currently skipping events. */
+typedef enum rno_g_rate_cap_source
+{
+  RNO_G_RATE_CAP_RADIANT0 = 1 << 0, /**< RADIANT's internal RF trigger 0 is currently rate-capped */
+  RNO_G_RATE_CAP_RADIANT1 = 1 << 1, /**< RADIANT's internal RF trigger 1 is currently rate-capped */
+  RNO_G_RATE_CAP_LT       = 1 << 2, /**< The LT board's trigger (coincidence or phased) is currently rate-capped */
+} rno_g_rate_cap_source_t;
+
 typedef struct rno_g_daqstatus
 {
   double when_radiant;
@@ -316,6 +325,7 @@ typedef struct rno_g_daqstatus
   rno_g_radiant_voltages_t radiant_voltages;
   rno_g_calpulser_info_t cal;
   uint8_t station;
+  uint8_t trigger_rate_cap_active; /**< bitmask of rno_g_rate_cap_source_t, see above */
 } rno_g_daqstatus_t;
 
 int rno_g_daqstatus_dump(FILE *f, const rno_g_daqstatus_t * ds);

@@ -16,7 +16,7 @@
 #define HEADER_VER 2
 #define WF_VER 4
 #define PED_VER 3
-#define DAQSTATUS_VER 6
+#define DAQSTATUS_VER 7
 
 #define HEADER_MAGIC 0xead1
 #define WAVEFORM_MAGIC 0xafd1
@@ -751,6 +751,11 @@ int rno_g_daqstatus_dump_radiant(FILE*f, const rno_g_daqstatus_t *ds)
     }
   }
 
+  ret+=fprintf(f,"Trigger rate cap active: RADIANT0=%d, RADIANT1=%d, LT=%d\n",
+      !!(ds->trigger_rate_cap_active & RNO_G_RATE_CAP_RADIANT0),
+      !!(ds->trigger_rate_cap_active & RNO_G_RATE_CAP_RADIANT1),
+      !!(ds->trigger_rate_cap_active & RNO_G_RATE_CAP_LT));
+
   return ret;
 }
 
@@ -902,6 +907,26 @@ typedef struct rno_g_daqstatus_v5
   uint8_t station;
 } rno_g_daqstatus_v5_t;
 
+// pre version 7, there was no trigger_rate_cap_active
+typedef struct rno_g_daqstatus_v6
+{
+  double when_radiant;
+  double when_lt;
+  uint32_t radiant_thresholds[RNO_G_NUM_RADIANT_CHANNELS];
+  uint16_t radiant_scalers[RNO_G_NUM_RADIANT_CHANNELS];
+  uint8_t radiant_prescalers[RNO_G_NUM_RADIANT_CHANNELS];
+  float radiant_scaler_period;
+  uint8_t  lt_trigger_thresholds[RNO_G_NUM_LT_CHANNELS];
+  uint8_t  lt_servo_thresholds[RNO_G_NUM_LT_CHANNELS];
+  uint16_t lt_phased_trigger_thresholds[RNO_G_NUM_LT_BEAMS];
+  uint16_t lt_phased_servo_thresholds[RNO_G_NUM_LT_BEAMS];
+  uint16_t lt_phased_threshold_offset;
+  rno_g_lt_scalers_t lt_scalers;
+  rno_g_radiant_voltages_t radiant_voltages;
+  rno_g_calpulser_info_t cal;
+  uint8_t station;
+} rno_g_daqstatus_v6_t;
+
 
 int rno_g_daqstatus_read(rno_g_file_handle_t h, rno_g_daqstatus_t *ds)
 {
@@ -1010,6 +1035,29 @@ int rno_g_daqstatus_read(rno_g_file_handle_t h, rno_g_daqstatus_t *ds)
         ds->station = dsv5.station;
         //something for lt_phased_thresholds
 
+        break;
+      }
+    case 6:
+      {
+        memset(ds,0,sizeof(*ds));
+        rno_g_daqstatus_v6_t dsv6;
+        rd = do_read(h, sizeof(dsv6), &dsv6, &sum);
+        ds->when_radiant = dsv6.when_radiant;
+        ds->when_lt = dsv6.when_lt;
+        memcpy(ds->radiant_thresholds, dsv6.radiant_thresholds, sizeof(ds->radiant_thresholds));
+        memcpy(ds->radiant_scalers, dsv6.radiant_scalers, sizeof(ds->radiant_scalers));
+        memcpy(ds->radiant_prescalers, dsv6.radiant_prescalers, sizeof(ds->radiant_prescalers));
+        ds->radiant_scaler_period = dsv6.radiant_scaler_period;
+        memcpy(ds->lt_trigger_thresholds, dsv6.lt_trigger_thresholds, sizeof(ds->lt_trigger_thresholds));
+        memcpy(ds->lt_servo_thresholds, dsv6.lt_servo_thresholds, sizeof(ds->lt_servo_thresholds));
+        memcpy(ds->lt_phased_trigger_thresholds, dsv6.lt_phased_trigger_thresholds, sizeof(ds->lt_phased_trigger_thresholds));
+        memcpy(ds->lt_phased_servo_thresholds, dsv6.lt_phased_servo_thresholds, sizeof(ds->lt_phased_servo_thresholds));
+        ds->lt_phased_threshold_offset = dsv6.lt_phased_threshold_offset;
+        memcpy(&ds->lt_scalers, &dsv6.lt_scalers, sizeof(dsv6.lt_scalers));
+        ds->radiant_voltages = dsv6.radiant_voltages;
+        ds->cal = dsv6.cal;
+        ds->station = dsv6.station;
+        // trigger_rate_cap_active left at 0: not present pre-v7
         break;
       }
     case DAQSTATUS_VER:
