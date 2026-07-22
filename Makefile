@@ -41,7 +41,7 @@ endif
 ifeq ($(ON_AM62X),yes)
 	CFLAGS+=-DON_AM62X
 	CFLAGS+=-DUSE_LIBGPIOS
-	LDFLAGS+=-lgpios
+	GPIO_LIBS=-lgpios
 endif
 
 
@@ -171,7 +171,7 @@ $(BUILD_DIR)/test/rno-g-%: test/rno-g-%.c $(INCLUDES) $(BUILD_DIR)/librno-g.so |
 
 $(BUILD_DIR)/test/%: test/%.c $(INCLUDES) $(DAQ_INCLUDES) $(BUILD_DIR)/librno-g.so $(BUILD_DIR)/libradiant.so $(BUILD_DIR)/libflower.so $(BUILD_DIR)/librno-g-cal.so | $(BUILD_DIR)
 	@echo Compiling $@
-	@cc  -o $@ $(CFLAGS) -Isrc/ $< -L$(BUILD_DIR) -lradiant -lrno-g -lflower -lrno-g-cal -lz -lm
+	@cc  -o $@ $(CFLAGS) -Isrc/ $< -L$(BUILD_DIR) -lradiant -lrno-g -lflower -lrno-g-cal -lz -lm $(GPIO_LIBS)
 
 $(BUILD_DIR)/test/%: test/%.py $(INCLUDES) $(DAQ_INCLUDES) $(BUILD_DIR)/librno-g.so  $(BUILD_DIR)/_rno_g.so $(BUILD_DIR)/libradiant.so | $(BUILD_DIR)
 	ln  $@ $<

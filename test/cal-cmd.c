@@ -19,8 +19,8 @@ void usage()
 }
 
 #ifdef USE_LIBGPIOS
-const char * valid_cmds[] = {"off","on","setup","temp","humidity","select-rf0","select-rf1","select-rf2","select-rf3", "atten", "pulse", "vco", "sleep","wait"};
-enum { CMD_OFF, CMD_ON, CMD_SETUP, CMD_TEMP, CMD_HUMIDITY, CMD_RF0, CMD_RF1, CMD_RF2, CMD_RF3, CMD_ATTEN, CMD_PULSE, CMD_VCO, CMD_SLEEP, CMD_WAIT} e_cmds;
+const char * valid_cmds[] = {"off","on","setup","temp","humidity","select-coax","select-fiber0","select-fiber1","select-none", "atten", "pulse", "vco", "sleep","wait"};
+enum { CMD_OFF, CMD_ON, CMD_SETUP, CMD_TEMP, CMD_HUMIDITY, CMD_COAX, CMD_FIB0, CMD_FIB1, CMD_NONE, CMD_ATTEN, CMD_PULSE, CMD_VCO, CMD_SLEEP, CMD_WAIT} e_cmds;
 #else
 const char * valid_cmds[] = {"off","on","setup","temp","humidity","select-coax","select-fiber0","select-fiber1","select-none", "atten", "pulse", "vco","vco2", "sleep","wait"};
 enum { CMD_OFF, CMD_ON, CMD_SETUP, CMD_TEMP, CMD_HUMIDITY, CMD_COAX, CMD_FIB0, CMD_FIB1, CMD_NONE, CMD_ATTEN, CMD_PULSE, CMD_VCO, CMD_VCO2, CMD_SLEEP, CMD_WAIT} e_cmds;
