@@ -38,10 +38,19 @@ CFLAGS+=-DON_BBB
 CFLAGS+=-DRADIANT_SPI_SPEED=$(RADIANT_SPI_SPEED_MHZ)
 endif
 
+#check if inside rno-g-revn yocto build
+ifneq (,$(filter ${MACHINE},rno-g-revn))
+$(info We are inside yocto)
+ON_DIDAQ=yes
+endif
+
 ifeq ($(ON_DIDAQ),yes)
 $(info We are on the DiDAQ)
 CFLAGS+= -I../libdidaq/src
-LIBS+=-ldidaq -L${PREFIX}/lib
+LIBS+=-ldidaq -L${PREFIX}/lib -lgpios
+CFLAGS+=-mfpu=neon
+# CFLAGS+=-DON_DIDAQ
+CFLAGS+=-DUSE_LIBGPIOS
 endif
 
 
@@ -218,7 +227,7 @@ $(BUILD_DIR)/%.so: $(BUILD_DIR)/%.so.$(VER_MAJOR)
 	ln -sf $(notdir $<) $@
 
 $(BUILD_DIR)/%.so.$(VER_MAJOR): $(BUILD_DIR)/%.so.$(VERSUFFIX)
-	ln -sf $(basename $<) $@
+	ln -sf $(notdir $<) $@
 
 cppcheck:
 	cppcheck --enable=portability --enable=performance --enable=information  src
