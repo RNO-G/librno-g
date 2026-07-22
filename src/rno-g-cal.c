@@ -476,25 +476,33 @@ int rno_g_cal_select(rno_g_cal_dev_t * dev, rno_g_calpulser_out_t ch)
   }
 
 #ifdef USE_LIBGPIOS
+  /* Internally the "channels" are labelled with RF[0..3].
+     But those channels can be mapped to the 3 channels of previous
+     generations:
+      * RF3 goes to string C
+      * RF2 goes to string B
+      * RF1 is disconnected
+      * RF0 goes to surface pulser
+  */
   uint8_t bias_bit;
   switch (ch)
   {
-    case RNO_G_CAL_RF0:
+    case RNO_G_CAL_COAX:
       val0 |= 0x02;  //set out switch 0 to 1
       val1 |= 0x20;  //set out switch 1 to 1
       bias_bit = 0x01; //en_bias0
       break;
-    case RNO_G_CAL_RF1:
+    case RNO_G_CAL_NO_OUTPUT:
       val0 |= 0x02;  //set out switch 0 to 1
       val1 &= ~0x20; //set out switch 1 to 0
       bias_bit = 0x04; //en_bias1
       break;
-    case RNO_G_CAL_RF2:
+    case RNO_G_CAL_FIB1:
       val0 &= ~0x02; //set out switch 0 to 0
       val1 |= 0x80;  //set out switch 2 to 1
       bias_bit = 0x08; //en_bias2
       break;
-    case RNO_G_CAL_RF3:
+    case RNO_G_CAL_FIB0:
       val0 &= ~0x02; //set out switch 0 to 0
       val1 &= ~0x80; //set out switch 2 to 0
       bias_bit = 0x10; //en_bias3
