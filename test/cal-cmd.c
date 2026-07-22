@@ -132,20 +132,6 @@ int main (int nargs, char ** args)
         rno_g_cal_read_humidity(dev,&H);
         printf("Humidity: %f\n", H);
         break;
-#ifdef USE_LIBGPIOS
-      case CMD_RF0:
-        rno_g_cal_select(dev, RNO_G_CAL_RF0);
-        break;
-      case CMD_RF1:
-        rno_g_cal_select(dev, RNO_G_CAL_RF1);
-        break;
-      case CMD_RF2:
-        rno_g_cal_select(dev, RNO_G_CAL_RF2);
-        break;
-      case CMD_RF3:
-        rno_g_cal_select(dev, RNO_G_CAL_RF3);
-        break;
-#else
       case CMD_COAX:
         rno_g_cal_select(dev, RNO_G_CAL_COAX);
         break;
@@ -158,7 +144,6 @@ int main (int nargs, char ** args)
      case CMD_NONE:
         rno_g_cal_select(dev, RNO_G_CAL_NO_OUTPUT);
         break;
-#endif
      case CMD_ATTEN:
         rno_g_cal_set_atten(dev, vals[i]);
         break;
