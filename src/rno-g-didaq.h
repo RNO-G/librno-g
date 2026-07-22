@@ -1,12 +1,8 @@
-#ifndef _RNO_G_D_DAQ_H
-#define _RNO_G_D_DAQ_H
+#ifndef _RNO_G_DIDAQ_H
+#define _RNO_G_DIDAQ_H
 
 #include "rno-g.h"
-#ifdef ON_DIDAQ
-#include "didaq.h"
-#else
 typedef struct didaq_dev didaq_dev_t;
-#endif
 
 /** RNO-G shims for libdidaq ,part of librno-g since needs to be kept in sync with data format.
  */
