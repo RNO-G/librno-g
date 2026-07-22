@@ -1,12 +1,24 @@
 BUILD_DIR=build
 RNO_G_INSTALL_DIR?=/rno-g/
 PREFIX?=$(RNO_G_INSTALL_DIR)
+CC?=gcc
+
+
+VER_MAJOR=1
+VER_MINOR=0
+VER_REV=0
+
+
+VERSUFFIX=$(VER_MAJOR).$(VER_MINOR).$(VER_REV)
+
+.SECONDARY:
 
 include config.mk
 
-CFLAGS=-fPIC -Og -Wall -Wextra -g -std=gnu11 -I./src -DRADIANT_SPI_SPEED=$(RADIANT_SPI_SPEED_MHZ)
+CFLAGS?=-Wall -Wextra -Og -g -std=gnu11 
+CFLAGS+= -I./src -DRADIANT_SPI_SPEED=$(RADIANT_SPI_SPEED_MHZ)
 CFLAGS+=$(EXTRA_CFLAGS)
-CXXFLAGS+=-fPIC -Og -Wall -Wextra -g
+CXXFLAGS?=-fPIC -Og -Wall -Wextra -g
 
 #CFLAGS+=-DRADIANT_SET_DBG
 
@@ -29,9 +41,9 @@ INCLUDES=src/rno-g.h src/rno-g-nsample-diff-hist.h
 DAQ_INCLUDES=src/radiant.h src/cobs.h src/adf4350.h src/flower.h src/rno-g-cal.h
 PYBIND_INCLUDES=$(shell python3 -m pybind11 --includes)
 
-.PHONY: client daq clean install install-daq install-rno-g-utils client-py daq-py cppcheck test daq-test-progs rno-g-utils
+.PHONY: client daq didaq clean install install-daq install-rno-g-utils install-didaq client-py daq-py cppcheck test daq-test-progs rno-g-utils
 
-client:  $(BUILD_DIR)/librno-g.so
+client:  $(BUILD_DIR)/librno-g.so $(BUILD_DIR)/rno-g-version.h
 
 daq: client $(BUILD_DIR)/libradiant.so  $(BUILD_DIR)/libflower.so $(BUILD_DIR)/librno-g-cal.so
 
@@ -82,17 +94,30 @@ install: client
 	mkdir -p $(DESTDIR)$(PREFIX)/lib
 	mkdir -p $(DESTDIR)$(PREFIX)/include
 	install $(BUILD_DIR)/librno-g.so $(DESTDIR)$(PREFIX)/lib/
-	install $(INCLUDES) $(DESTDIR)$(PREFIX)/include/
+	install $(BUILD_DIR)/librno-g.so.$(VER_MAJOR) $(DESTDIR)$(PREFIX)/lib/
+	install $(BUILD_DIR)/librno-g.so.$(VERSUFFIX) $(DESTDIR)$(PREFIX)/lib/
+	install $(INCLUDES) $(BUILD_DIR)/rno-g-version.h $(DESTDIR)$(PREFIX)/include/
 
 install-daq: install $(BUILD_DIR)/libradiant.so $(BUILD_DIR)/libflower.so $(BUILD_DIR)/librno-g-cal.so
 	install $(BUILD_DIR)/libradiant.so $(DESTDIR)$(PREFIX)/lib/
 	install $(BUILD_DIR)/libflower.so $(DESTDIR)$(PREFIX)/lib/
 	install $(BUILD_DIR)/librno-g-cal.so $(DESTDIR)$(PREFIX)/lib/
+	install $(BUILD_DIR)/libradiant.so.$(VER_MAJOR) $(DESTDIR)$(PREFIX)/lib/
+	install $(BUILD_DIR)/libflower.so.$(VER_MAJOR) $(DESTDIR)$(PREFIX)/lib/
+	install $(BUILD_DIR)/librno-g-cal.so.$(VER_MAJOR) $(DESTDIR)$(PREFIX)/lib/
+	install $(BUILD_DIR)/libradiant.so.$(VERSUFFIX) $(DESTDIR)$(PREFIX)/lib/
+	install $(BUILD_DIR)/libflower.so.$(VERSUFFIX) $(DESTDIR)$(PREFIX)/lib/
+	install $(BUILD_DIR)/librno-g-cal.so.$(VERSUFFIX) $(DESTDIR)$(PREFIX)/lib/
+
 	install src/radiant.h src/flower.h src/rno-g-cal.h $(DESTDIR)$(PREFIX)/include/
 
 install-didaq: install $(BUILD_DIR)/librno-g-didaq.so  $(BUILD_DIR)/librno-g-cal.so
 	install $(BUILD_DIR)/librno-g-didaq.so $(DESTDIR)$(PREFIX)/lib/
 	install $(BUILD_DIR)/librno-g-cal.so $(DESTDIR)$(PREFIX)/lib/
+	install $(BUILD_DIR)/librno-g-didaq.so.$(VER_MAJOR) $(DESTDIR)$(PREFIX)/lib/
+	install $(BUILD_DIR)/librno-g-cal.so.$(VER_MAJOR) $(DESTDIR)$(PREFIX)/lib/
+	install $(BUILD_DIR)/librno-g-didaq.so.$(VERSUFFIX) $(DESTDIR)$(PREFIX)/lib/
+	install $(BUILD_DIR)/librno-g-cal.so.$(VERSUFFIX) $(DESTDIR)$(PREFIX)/lib/
 	install src/rno-g-didaq.h src/rno-g-cal.h $(DESTDIR)$(PREFIX)/include/
 
 
@@ -117,28 +142,28 @@ $(BUILD_DIR)/test: $(BUILD_DIR)
 	@ mkdir -p $(BUILD_DIR)/test
 
 CLIENT_OBJS=rno-g.o rno-g-version.o rno-g-nsample-diff-hist.o
-$(BUILD_DIR)/librno-g.so: $(addprefix $(BUILD_DIR)/, $(CLIENT_OBJS))
+$(BUILD_DIR)/librno-g.so.$(VERSUFFIX): $(addprefix $(BUILD_DIR)/, $(CLIENT_OBJS))
 	@echo Linking $@
 	@cc -o $@ $(LDFLAGS) $^  $(LIBS)
 
 RAD_OBJS=radiant.o cobs.o adf4350.o
-$(BUILD_DIR)/libradiant.so: $(addprefix $(BUILD_DIR)/, $(RAD_OBJS))
+$(BUILD_DIR)/libradiant.so.$(VERSUFFIX): $(addprefix $(BUILD_DIR)/, $(RAD_OBJS))
 	@echo Linking $@
 	@cc -o $@ $(LDFLAGS) $^  $(LIBS)
 
 CAL_OBJS=rno-g-cal.o
-$(BUILD_DIR)/librno-g-cal.so: $(addprefix $(BUILD_DIR)/, $(CAL_OBJS))
+$(BUILD_DIR)/librno-g-cal.so.$(VERSUFFIX): $(addprefix $(BUILD_DIR)/, $(CAL_OBJS))
 	@echo Linking $@
 	@cc -o $@ $(LDFLAGS) $^  $(LIBS)
 
 FLWR_OBJS=flower.o
-$(BUILD_DIR)/libflower.so: $(addprefix $(BUILD_DIR)/, $(FLWR_OBJS))
+$(BUILD_DIR)/libflower.so.$(VERSUFFIX): $(addprefix $(BUILD_DIR)/, $(FLWR_OBJS))
 	@echo Linking $@
 	@cc -o $@ $(LDFLAGS) $^  $(LIBS)
 
 
 RNOG_DIDAQ_OBJS=rno-g-didaq.o
-$(BUILD_DIR)/librno-g-didaq.so: $(addprefix $(BUILD_DIR)/, $(RNOG_DIDAQ_OBJS))
+$(BUILD_DIR)/librno-g-didaq.so.$(VERSUFFIX): $(addprefix $(BUILD_DIR)/, $(RNOG_DIDAQ_OBJS))
 	@echo Linking $@
 	@cc -o $@ $(LDFLAGS) $^  $(LIBS)
 
@@ -146,7 +171,7 @@ $(BUILD_DIR)/librno-g-didaq.so: $(addprefix $(BUILD_DIR)/, $(RNOG_DIDAQ_OBJS))
 # non-DAQ objects begin with rno-.... haas to be rno- instead of rno-g so that rno-g.c works :)
 $(BUILD_DIR)/rno-%.o: src/rno-%.c $(INCLUDES) | $(BUILD_DIR)
 	@echo Compiling non-DAQ object $@
-	@cc -c -o $@ $(CFLAGS) $<
+	@cc -c -fPIC -o $@ $(CFLAGS) $<
 
 
 $(BUILD_DIR)/rno_g.so:  src/rno-g-pybind.cc  $(INCLUDES) $(BUILD_DIR)/librno-g.so | $(BUILD_DIR)
@@ -161,6 +186,14 @@ $(BUILD_DIR)/%.o: src/%.c $(DAQ_INCLUDES) | $(BUILD_DIR)
 	@echo Compiling $@
 	@cc -c -o $@ $(CFLAGS) $<
 
+$(BUILD_DIR)/rno-g-version.h: Makefile
+	@echo "Generating rno-g-version.h"
+	@echo "#ifndef _RNO_G_VERSION_H" > $@
+	@echo "#define _RNO_G_VERSION_H" >> $@
+	@echo "#define RNO_G_VER_MAJOR $(VER_MAJOR)" >> $@
+	@echo "#define RNO_G_VER_MINOR $(VER_MINOR)" >> $@
+	@echo "#define RNO_G_VER_REV $(VER_REV)" >> $@
+	@echo "#endif" >> $@
 
 $(BUILD_DIR)/test/rno-g-%: test/rno-g-%.c $(INCLUDES) $(BUILD_DIR)/librno-g.so | $(BUILD_DIR)
 	@echo Compiling $@
@@ -173,6 +206,11 @@ $(BUILD_DIR)/test/%: test/%.c $(INCLUDES) $(DAQ_INCLUDES) $(BUILD_DIR)/librno-g.
 $(BUILD_DIR)/test/%: test/%.py $(INCLUDES) $(DAQ_INCLUDES) $(BUILD_DIR)/librno-g.so  $(BUILD_DIR)/_rno_g.so $(BUILD_DIR)/libradiant.so | $(BUILD_DIR)
 	ln  $@ $<
 
+$(BUILD_DIR)/%.so: $(BUILD_DIR)/%.so.$(VER_MAJOR)
+	ln -sf $(notdir $<) $@
+
+$(BUILD_DIR)/%.so.$(VER_MAJOR): $(BUILD_DIR)/%.so.$(VERSUFFIX)
+	ln -sf $(basename $<) $@
 
 cppcheck:
 	cppcheck --enable=portability --enable=performance --enable=information  src
