@@ -38,17 +38,12 @@ CFLAGS+=-DON_BBB
 CFLAGS+=-DRADIANT_SPI_SPEED=$(RADIANT_SPI_SPEED_MHZ)
 endif
 
-#check if inside rno-g-revn yocto build
-ifneq (,$(filter ${MACHINE},rno-g-revn))
-$(info We are inside yocto)
-ON_DIDAQ=yes
-endif
-
-ifeq ($(ON_DIDAQ),yes)
+#check if on revn board
+ifneq (,$(shell grep RevN /proc/device-tree/model 2> /dev/null))
 $(info We are on the DiDAQ)
-CFLAGS+= -I../libdidaq/src
+ON_DIDAQ=yes
+CFLAGS+=-I../libdidaq/src
 LIBS+=-ldidaq -L${PREFIX}/lib -lgpios
-CFLAGS+=-mfpu=neon
 # CFLAGS+=-DON_DIDAQ
 CFLAGS+=-DUSE_LIBGPIOS
 endif
