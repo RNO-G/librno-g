@@ -16,11 +16,12 @@ VERSUFFIX=$(VER_MAJOR).$(VER_MINOR).$(VER_REV)
 include config.mk
 
 CFLAGS?=-Wall -Wextra -Og -g -std=gnu11
-CFLAGS+= -I./src -DRADIANT_SPI_SPEED=$(RADIANT_SPI_SPEED_MHZ)
+CFLAGS+= -I./src
 CFLAGS+=$(EXTRA_CFLAGS)
 CXXFLAGS?=-fPIC -Og -Wall -Wextra -g
 
-#CFLAGS+=-DRADIANT_SET_DBG
+LDFLAGS=-shared
+LIBS=-lz -pthread
 
 ON_BBB?=no
 ON_DIDAQ?=no
@@ -34,10 +35,16 @@ ifeq ($(ON_BBB),yes)
 $(info We are on the DAQ)
 CFLAGS+=-mfpu=neon
 CFLAGS+=-DON_BBB
+CFLAGS+=-DRADIANT_SPI_SPEED=$(RADIANT_SPI_SPEED_MHZ)
 endif
 
-LDFLAGS=-shared
-LIBS=-lz -pthread
+ifeq ($(ON_DIDAQ),yes)
+$(info We are on the DiDAQ)
+CFLAGS+= -I../libdidaq/src
+LIBS+=-ldidaq -L${PREFIX}/lib
+endif
+
+
 INCLUDES=src/rno-g.h src/rno-g-nsample-diff-hist.h src/rno-g-didaq.h
 DAQ_INCLUDES=src/radiant.h src/cobs.h src/adf4350.h src/flower.h src/rno-g-cal.h
 PYBIND_INCLUDES=$(shell python3 -m pybind11 --includes)
@@ -48,7 +55,7 @@ client:  $(BUILD_DIR)/librno-g.so $(BUILD_DIR)/rno-g-version.h
 
 daq: client $(BUILD_DIR)/libradiant.so  $(BUILD_DIR)/libflower.so $(BUILD_DIR)/librno-g-cal.so
 
-didaq: client $(BUILD_DIR)/librno-g-cal.so
+didaq: client $(BUILD_DIR)/librno-g-cal.so $(BUILD_DIR)/librno-g-didaq.so
 
 daq-test-progs:  $(addprefix $(BUILD_DIR)/test/, flower-configure-trigger flower-dump flower-equalize flower-set-thresholds flower-set-phased-thresholds flower-set-pps-delay\
 	                  flower-status flower-trigger-enables flower-trigout-enables flower-wave radiant-check-trigger radiant-dump\
