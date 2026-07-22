@@ -84,9 +84,15 @@ void quick_spectra(const char * file, int mask = 16777215, const char * save = N
   for (int iev = 0; iev < maxEv-ev0 ; iev++) 
   {
 
-    if (rno_g_waveform_read(h, &wf) <=0) break; 
+    if (rno_g_waveform_read(h, &wf) <=0) break;
 
-    Nev++; 
+    if (wf.bytes_per_sample == 1)
+    {
+      fprintf(stderr, "quick_spectra only supports 16-bit (RADIANT) waveforms, got bytes_per_sample=1\n");
+      break;
+    }
+
+    Nev++;
 
     double abs_max= -2048; 
     double abs_min= 2048; 
@@ -99,18 +105,18 @@ void quick_spectra(const char * file, int mask = 16777215, const char * save = N
 
       if (median_sub) 
       {
-        median_subtract_blocks(wf.radiant_nsamples, wf.radiant_waveforms[i], 128); 
+        median_subtract_blocks(wf.nsamples, wf.radiant_waveforms[i], 128); 
       }
 
       if (zero_sub) 
       {
-        sub = TMath::Mean(wf.radiant_nsamples, wf.radiant_waveforms[i]); 
+        sub = TMath::Mean(wf.nsamples, wf.radiant_waveforms[i]); 
       }
 
       float rate = wf.radiant_sampling_rate / 1000.f; 
 
-      TGraph * g = new TGraph(wf.radiant_nsamples); 
-      for (int j = 0; j < wf.radiant_nsamples; j++) 
+      TGraph * g = new TGraph(wf.nsamples); 
+      for (int j = 0; j < wf.nsamples; j++) 
       {
         g->SetPoint(j,j/rate, (wf.radiant_waveforms[i][j]-sub)*1250./2048); 
       

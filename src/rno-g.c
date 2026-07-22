@@ -13,10 +13,10 @@
  *
  */
 
-#define HEADER_VER 2
-#define WF_VER 4
+#define HEADER_VER 3
+#define WF_VER 5
 #define PED_VER 3
-#define DAQSTATUS_VER 6
+#define DAQSTATUS_VER 7
 
 #define HEADER_MAGIC 0xead1
 #define WAVEFORM_MAGIC 0xafd1
@@ -48,9 +48,9 @@ static int do_write(rno_g_file_handle_t h, int N, const void *data, uint32_t * s
   switch  (h.type)
   {
     case RNO_G_RAW:
-      return fwrite(data,N,1,h.handle.raw);
+      return fwrite(data, N, 1, h.handle.raw);
     case RNO_G_GZIP:
-      return gzwrite(h.handle.gz, data,N);
+      return gzwrite(h.handle.gz, data, N);
     default:
       return 0;
   }
@@ -61,13 +61,13 @@ static int do_write(rno_g_file_handle_t h, int N, const void *data, uint32_t * s
 static int do_read(rno_g_file_handle_t h, int N, void *data, uint32_t * sum)
 {
   int rd = 0;
-  switch  (h.type)
+  switch (h.type)
   {
     case RNO_G_RAW:
-      rd = fread(data,1,N,h.handle.raw);
+      rd = fread(data, 1, N, h.handle.raw);
       break;
     case RNO_G_GZIP:
-      rd = gzread(h.handle.gz, data,N);
+      rd = gzread(h.handle.gz, data, N);
       break;
     default:
       return 0;
@@ -84,10 +84,10 @@ int rno_g_header_write(rno_g_file_handle_t h, const rno_g_header_t*header)
 {
   int N = sizeof(*header);
   io_header_t hd  = { .magic = HEADER_MAGIC, .version = HEADER_VER} ;
-  do_write(h,sizeof(hd),&hd,0);
+  do_write(h, sizeof(hd), &hd, 0);
   uint32_t sum = init_cksum;
   int wr = do_write(h, N, header, &sum);
-  do_write(h,sizeof(sum), &sum,0);
+  do_write(h,sizeof(sum), &sum, 0);
   return wr;
 }
 
@@ -191,12 +191,46 @@ typedef struct rno_g_header_v1
 
 } rno_g_header_v1_t;
 
+typedef struct rno_g_header_v2
+{
+  uint32_t event_number;  //!< Event number (per run, 0-indexed)
+  uint32_t trigger_number;//!< Trigger  number (per run, 0-indexed), including triggers not read out due to deadtime
+  uint32_t run_number;    //!< Run number , assigned at startup
+
+  uint32_t trigger_mask;  //!< Which channels (or beams?) caused the trigger
+  uint32_t trigger_value; //!< Relevant for LT trigger only, probably. Something like the beam power?
+  uint32_t sys_clk;  //!< Trigger time tag  (number of clock cycles since start of run or since PPS? If since start of run, may need to be 64-bit)
+  uint32_t pps_count;     //!< Number of PPS's since start of run
+  uint32_t readout_time_secs; // !< readout START time in secondpart
+  uint32_t readout_time_nsecs; // !< readout START time, nanosecond part
+  uint32_t readout_elapsed_nsecs; // How long it took to do the readout syscall
+  uint32_t sysclk_last_pps;  //!< sysclk time at last PPS
+  uint32_t sysclk_last_last_pps; //!< sysclk time at last last PPS
+  uint32_t raw_tinfo;       //!< the raw trigger info. To  be figured out.
+  uint32_t raw_evstatus;    //!< the raw event status flags. To be figured out.
+
+  uint8_t station_number; //!< The station number.
+
+  /** Trigger type. See rno_g_trigger_type_t  Or-able */
+  uint8_t trigger_type;
+
+  /** Various flags for the event. See rno_g_flags_t orable */
+  uint8_t flags;
+  uint8_t pretrigger_windows; //!< Number of pretrigger windows?
+  uint8_t radiant_start_windows[RNO_G_NUM_RADIANT_CHANNELS][2]; //!<this encodes buffer number too. There are two of these because of 2048-sample readout works. The second one will be 0xff (255) if we are in 1024-mode.
+  uint16_t radiant_nsamples; //!< Number of samples per channel in RADIANT board (could just keep this in waveform if we wanted)
+  uint16_t lt_nsamples; //!< Number of samples per channel in low-threshold board  (could just keep this in waveform if we wanted)
+
+  rno_g_lt_trigger_config_t lt_simple_trigger_cfg;
+  rno_g_radiant_trigger_config_t radiant_trigger_cfg[2];
+  rno_g_lt_phased_trigger_config_t lt_phased_trigger_cfg;
+} rno_g_header_v2_t;
 
 
 int rno_g_header_read(rno_g_file_handle_t h, rno_g_header_t *header)
 {
   io_header_t hd;
-  int rd = do_read(h, sizeof(hd), &hd,0);
+  int rd = do_read(h, sizeof(hd), &hd, 0);
   if (!rd) return 0;
 
   if (hd.magic != HEADER_MAGIC)
@@ -217,26 +251,40 @@ int rno_g_header_read(rno_g_file_handle_t h, rno_g_header_t *header)
     {
       //I THINK we can just get away with zeroing and reading hdv0 amount
       memset(header,0, sizeof(*header));
-      rd = do_read(h,sizeof(rno_g_header_v0_t),header, &sum);
+      rd = do_read(h, sizeof(rno_g_header_v0_t), header, &sum);
       break;
     }
     case 1:
     {
-      memset(header,0, sizeof(*header));
-      rd = do_read(h,sizeof(rno_g_header_v1_t),header, &sum);
+      memset(header, 0, sizeof(*header));
+      rd = do_read(h, sizeof(rno_g_header_v1_t), header, &sum);
+      break;
+    }
+    case 2:
+    {
+      //v2 still had radiant_nsamples/lt_nsamples: read into the frozen struct,
+      //then copy everything over (the fields before them are identical)
+      rno_g_header_v2_t v2;
+      rd = do_read(h, sizeof(v2), &v2, &sum);
+      memset(header, 0, sizeof(*header));
+      memcpy(header, &v2, offsetof(rno_g_header_v2_t, radiant_nsamples));
+      header->lt_simple_trigger_cfg = v2.lt_simple_trigger_cfg;
+      header->radiant_trigger_cfg[0] = v2.radiant_trigger_cfg[0];
+      header->radiant_trigger_cfg[1] = v2.radiant_trigger_cfg[1];
+      header->lt_phased_trigger_cfg = v2.lt_phased_trigger_cfg;
       break;
     }
     case HEADER_VER:
     {
-      rd = do_read(h,sizeof(*header),header, &sum);
+      rd = do_read(h, sizeof(*header), header, &sum);
       break;
     }
     default:
-      fprintf(stderr,"Unknown header version %d\n", hd.version);
+      fprintf(stderr, "Unknown header version %d\n", hd.version);
       return 0;
   }
 
-  rdsum = do_read(h,sizeof(wanted_sum), &wanted_sum,0);
+  rdsum = do_read(h, sizeof(wanted_sum), &wanted_sum,0);
   if (!rdsum || sum!=wanted_sum)
   {
     fprintf(stderr,"Checksum error. Got %x, wnated %x\n", sum,wanted_sum);
@@ -248,30 +296,50 @@ int rno_g_header_read(rno_g_file_handle_t h, rno_g_header_t *header)
 
 
  //WARNING: watch out for this struct changing!
-#define N_BEFORE_DATA  ( offsetof(rno_g_waveform_t,lt_nsamples) + sizeof(((rno_g_waveform_t*) 0)->lt_nsamples))
+
+/** Size of the on-disk waveform prefix common to ALL versions: event_number (u32),
+ * run_number (u32), nsamples (u16). These are also the first bytes of the in-memory
+ * struct, so every reader case can read them directly into it. On disk, versions <= 4
+ * follow this with lt_nsamples (u16, handled locally in the legacy reader cases),
+ * v5 with bytes_per_sample (u8). */
+#define N_COMMON_PREFIX ( offsetof(rno_g_waveform_t, bytes_per_sample) )
+
+/** Everything before the per-channel sample data in a v5 packet:
+ * the common prefix plus bytes_per_sample (u8). */
+#define N_BEFORE_DATA  ( N_COMMON_PREFIX + sizeof(((rno_g_waveform_t*) 0)->bytes_per_sample))
 
 //magic, version, checksum, then we dump the struct
 int rno_g_waveform_write(rno_g_file_handle_t h, const rno_g_waveform_t *wf)
 {
   io_header_t hd  = { .magic = WAVEFORM_MAGIC, .version = WF_VER };
   uint32_t sum = init_cksum;
-  do_write(h,sizeof(hd),&hd,0);
+
+  //writers predating bytes_per_sample leave it 0, which means 16-bit data
+  uint8_t bytes_per_sample = wf->bytes_per_sample == 1 ? 1 : 2;
+  uint16_t max_nsamples = bytes_per_sample == 1 ? RNO_G_MAX_DIDAQ_NSAMPLES : RNO_G_MAX_RADIANT_NSAMPLES;
+  if (wf->nsamples > max_nsamples)
+  {
+    fprintf(stderr, "rno_g_waveform_write: nsamples %hu exceeds max %hu at %hhu bytes per sample\n",
+            wf->nsamples, max_nsamples, bytes_per_sample);
+    return -1;
+  }
+
+  do_write(h, sizeof(hd), &hd, 0);
   int wr = 0;
-  //write up to the waveforms
-  wr+=do_write(h, N_BEFORE_DATA, wf, &sum);
+  //write the prefix in two pieces (not N_BEFORE_DATA in one): the struct's own
+  //bytes_per_sample may be 0 (legacy caller), so emit the normalized local instead
+  wr+=do_write(h, N_COMMON_PREFIX, wf, &sum);
+  wr+=do_write(h, sizeof(bytes_per_sample), &bytes_per_sample, &sum);
 
   for (int ichan = 0; ichan < RNO_G_NUM_RADIANT_CHANNELS; ichan++)
   {
-    // 2 since 16-bit data
-    wr += do_write(h, 2*wf->radiant_nsamples, wf->radiant_waveforms[ichan],&sum);
+    wr += do_write(h, bytes_per_sample*wf->nsamples,
+                   bytes_per_sample == 1 ?
+                   (const void*) wf->didaq_waveforms[ichan] :
+                   (const void*) wf->radiant_waveforms[ichan], &sum);
   }
 
-  for (int ichan = 0; ichan < RNO_G_NUM_LT_CHANNELS; ichan++)
-  {
-    wr += do_write(h, wf->lt_nsamples, wf->lt_waveforms[ichan],&sum);
-  }
-
-  wr += do_write(h, 2, &wf->radiant_sampling_rate, &sum);
+  wr += do_write(h, 2, &wf->sampling_rate, &sum);
 
   for (int ichan = 0; ichan < RNO_G_NUM_RADIANT_CHANNELS; ichan++)
   {
@@ -281,7 +349,7 @@ int rno_g_waveform_write(rno_g_file_handle_t h, const rno_g_waveform_t *wf)
   wr += do_write(h, 1, &wf->station, &sum);
 
 
-  do_write(h, sizeof(sum),&sum,0);
+  do_write(h, sizeof(sum), &sum, 0);
 
   return wr;
 }
@@ -314,6 +382,10 @@ typedef struct rno_g_waveform_v4
 
 } rno_g_waveform_v4_t;
 
+//The pre-v5 on-disk prefix is event_number, run_number, nsamples (matching the first
+//offsetof(rno_g_waveform_t, bytes_per_sample) bytes of the current struct) followed by
+//lt_nsamples, which no longer exists in memory: readers of old versions read it into a
+//local and then read-and-discard the LT samples (they still go through the checksum).
 
 int rno_g_waveform_read(rno_g_file_handle_t h, rno_g_waveform_t *wf)
 {
@@ -328,135 +400,125 @@ int rno_g_waveform_read(rno_g_file_handle_t h, rno_g_waveform_t *wf)
     return -1;
   }
 
+  //without this guard a future version would be misparsed as the newest known layout
+  if (hd.version < 1 || hd.version > WF_VER)
+  {
+    fprintf(stderr, "Unknown waveform version %d\n", hd.version);
+    return 0;
+  }
+
   uint32_t sum = init_cksum;
   uint32_t wanted_sum = 0;
   int rdsum;
   int ichan = 0;
   rd = 0;
-  // here we handle converting to the newest kind of waveform
-  switch (hd.version)
+
+  //single sequential pass over the on-disk fields; the small version ifs below
+  //reproduce every historical layout: all versions share one field order, each
+  //field's presence depends only on the version, and fields that were deleted
+  //from the struct (LT waveforms in v5) are read and discarded
+  rd = do_read(h, N_COMMON_PREFIX, wf, &sum);
+
+  //the 4th prefix field differs: lt_nsamples (u16) before v5, bytes_per_sample (u8) since
+  uint16_t lt_nsamples = 0;
+  if (hd.version <= 4)
   {
-    case 1:
-    case 2:
-    case 3: //these might need to be rewritten to make the cases useful - though it means repeated blocks of code
-      {
-        rd = do_read(h,N_BEFORE_DATA,wf,&sum);
-        for (ichan = 0; ichan < RNO_G_NUM_RADIANT_CHANNELS; ichan++)
-        {
-          rd+= do_read(h,2*wf->radiant_nsamples, wf->radiant_waveforms[ichan], &sum);
-          if ( hd.version < 3)
-          {
-            //fix unwrapping bug
-            uint16_t tmp[128];
-            memcpy(tmp, wf->radiant_waveforms[ichan], 128*2);
-            memmove(wf->radiant_waveforms[ichan], wf->radiant_waveforms[ichan]+128, (1024-128)*2);
-            memcpy(wf->radiant_waveforms[ichan]+1024-128,tmp,128*2);
-            memcpy(tmp, wf->radiant_waveforms[ichan]+1024, 128*2);
-            memmove(wf->radiant_waveforms[ichan]+1024, wf->radiant_waveforms[ichan]+128+1024, (1024-128)*2);
-            memcpy(wf->radiant_waveforms[ichan]+2048-128,tmp,128*2);
-          }
-        }
-         for (ichan = 0; ichan < RNO_G_NUM_LT_CHANNELS; ichan++)
-        {
-          rd+= do_read(h,wf->lt_nsamples, wf->lt_waveforms[ichan], &sum);
-        }
+    rd += do_read(h, sizeof(lt_nsamples), &lt_nsamples, &sum);
+    wf->bytes_per_sample = 2;
 
-        if (hd.version > 1)
-        {
-          rd+= do_read(h,sizeof(wf->station), &wf->station,&sum);
-        }
-        else
-        {
-          wf->station =0;
-        }
-
-        if(hd.version<4)
-        {
-
-          for(ichan=0;ichan<24;ichan++)
-          {
-            wf->digitizer_readout_delay[ichan]=0;
-          }
-
-          wf->radiant_sampling_rate=3200; //the change happened to new versions
-        }
-
-        rdsum = do_read(h, sizeof(wanted_sum),&wanted_sum,0);
-
-
-        if (!rdsum || sum!=wanted_sum)
-        {
-          fprintf(stderr,"Checksum error. Got %x, wanted %x\n", sum,wanted_sum);
-          return -1;
-        }
-        return rd+rdsum;
-      }
-      case 4:
-      {
-        rd = do_read(h,N_BEFORE_DATA,wf,&sum);
-        for (ichan = 0; ichan < RNO_G_NUM_RADIANT_CHANNELS; ichan++)
-        {
-          rd+= do_read(h,2*wf->radiant_nsamples, wf->radiant_waveforms[ichan], &sum);
-          if ( hd.version < 3)
-          {
-            //fix unwrapping bug
-            uint16_t tmp[128];
-            memcpy(tmp, wf->radiant_waveforms[ichan], 128*2);
-            memmove(wf->radiant_waveforms[ichan], wf->radiant_waveforms[ichan]+128, (1024-128)*2);
-            memcpy(wf->radiant_waveforms[ichan]+1024-128,tmp,128*2);
-            memcpy(tmp, wf->radiant_waveforms[ichan]+1024, 128*2);
-            memmove(wf->radiant_waveforms[ichan]+1024, wf->radiant_waveforms[ichan]+128+1024, (1024-128)*2);
-            memcpy(wf->radiant_waveforms[ichan]+2048-128,tmp,128*2);
-          }
-        }
-         for (ichan = 0; ichan < RNO_G_NUM_LT_CHANNELS; ichan++)
-        {
-          rd+= do_read(h,wf->lt_nsamples, wf->lt_waveforms[ichan], &sum);
-        }
-
-
-        if(hd.version>3)
-        {
-          rd+= do_read(h,sizeof(wf->radiant_sampling_rate), &wf->radiant_sampling_rate,&sum);
-
-          for(ichan=0;ichan<24;ichan++)
-          {
-            rd+= do_read(h,sizeof(wf->digitizer_readout_delay[0]), &wf->digitizer_readout_delay[ichan],&sum);
-          }
-
-        }
-        else
-        {
-          for(ichan=0;ichan<24;ichan++)
-          {
-            wf->digitizer_readout_delay[ichan]=0;
-          }
-
-          wf->radiant_sampling_rate=3200;
-        }
-
-        if (hd.version > 1)
-        {
-          rd+= do_read(h,sizeof(wf->station), &wf->station,&sum);
-        }
-        else
-        {
-          wf->station =0;
-        }
-
-        rdsum = do_read(h, sizeof(wanted_sum),&wanted_sum,0);
-
-        if (!rdsum || sum!=wanted_sum)
-        {
-          fprintf(stderr,"Checksum error. Got %x, wanted %x\n", sum,wanted_sum);
-          return -1;
-        }
-        return rd+rdsum;
-      }
-    default:
-      fprintf(stderr,"Unknown waveform version %d\n", hd.version);
+    //lt_nsamples sizes the read into the fixed discard buffer below, so it must be bounded
+    if (wf->nsamples > RNO_G_MAX_RADIANT_NSAMPLES || lt_nsamples > RNO_G_MAX_LT_NSAMPLES)
+    {
+      fprintf(stderr, "Invalid nsamples (radiant: %hu, lt: %hu)\n", wf->nsamples, lt_nsamples);
+      return -1;
+    }
   }
-  return 0;
+  else
+  {
+    rd += do_read(h, sizeof(wf->bytes_per_sample), &wf->bytes_per_sample, &sum);
+    if (wf->bytes_per_sample != 1 && wf->bytes_per_sample != 2)
+    {
+      fprintf(stderr, "Invalid bytes_per_sample %hhu\n", wf->bytes_per_sample);
+      return -1;
+    }
+    uint16_t max_nsamples = wf->bytes_per_sample == 1 ? RNO_G_MAX_DIDAQ_NSAMPLES : RNO_G_MAX_RADIANT_NSAMPLES;
+    if (wf->nsamples > max_nsamples)
+    {
+      fprintf(stderr, "Invalid nsamples %hu (max %hu at %hhu bytes per sample)\n", wf->nsamples, max_nsamples, wf->bytes_per_sample);
+      return -1;
+    }
+  }
+
+  for (ichan = 0; ichan < RNO_G_NUM_RADIANT_CHANNELS; ichan++)
+  {
+    rd += do_read(h, wf->bytes_per_sample*wf->nsamples,
+                  wf->bytes_per_sample == 1 ?
+                  (void*) wf->didaq_waveforms[ichan] :
+                  (void*) wf->radiant_waveforms[ichan], &sum);
+    if (hd.version < 3)
+    {
+      //fix unwrapping bug
+      uint16_t tmp[128];
+      memcpy(tmp, wf->radiant_waveforms[ichan], 128*2);
+      memmove(wf->radiant_waveforms[ichan], wf->radiant_waveforms[ichan]+128, (1024-128)*2);
+      memcpy(wf->radiant_waveforms[ichan]+1024-128,tmp,128*2);
+      memcpy(tmp, wf->radiant_waveforms[ichan]+1024, 128*2);
+      memmove(wf->radiant_waveforms[ichan]+1024, wf->radiant_waveforms[ichan]+128+1024, (1024-128)*2);
+      memcpy(wf->radiant_waveforms[ichan]+2048-128,tmp,128*2);
+    }
+  }
+
+  //LT (FLOWER) samples exist on disk before v5, but the current struct no longer
+  //stores them: read them into a scratch buffer so the checksum still works out
+  if (hd.version <= 4)
+  {
+    for (ichan = 0; ichan < RNO_G_NUM_LT_CHANNELS; ichan++)
+    {
+      uint8_t lt_discard[RNO_G_MAX_LT_NSAMPLES];
+      rd += do_read(h, lt_nsamples, lt_discard, &sum);
+    }
+  }
+
+  //sampling_rate and the readout delays were appended in v4
+  if (hd.version >= 4)
+  {
+    rd += do_read(h, sizeof(wf->sampling_rate), &wf->sampling_rate, &sum);
+
+    for (ichan = 0; ichan < RNO_G_NUM_RADIANT_CHANNELS; ichan++)
+    {
+      rd += do_read(h, sizeof(wf->digitizer_readout_delay[0]), &wf->digitizer_readout_delay[ichan], &sum);
+    }
+  }
+  else
+  {
+    // Write default values for versions where this data does not exist.
+    for (ichan = 0; ichan < RNO_G_NUM_RADIANT_CHANNELS; ichan++)
+    {
+      wf->digitizer_readout_delay[ichan] = 0;
+    }
+
+    wf->sampling_rate = 3200; //the change happened to new versions
+  }
+
+  //station exists since v2
+  if (hd.version >= 2)
+  {
+    rd += do_read(h, sizeof(wf->station), &wf->station, &sum);
+  }
+  else
+  {
+    wf->station = 0;
+  }
+
+  rdsum = do_read(h, sizeof(wanted_sum), &wanted_sum, 0);
+
+  if (!rdsum || sum!=wanted_sum)
+  {
+    fprintf(stderr, "Checksum error. Got %x, wanted %x\n", sum, wanted_sum);
+    return -1;
+  }
+
+  return rd+rdsum;
 }
 
 
@@ -515,12 +577,15 @@ int rno_g_waveform_dump(FILE * f, const rno_g_waveform_t * waveform)
 {
   //TODO
   int ret=0;
+  int didaq = waveform->bytes_per_sample == 1;
 
   for (int i = 0; i < RNO_G_NUM_RADIANT_CHANNELS; i++)
   {
-    for (int j = 0; j < waveform->radiant_nsamples; j++)
+    for (int j = 0; j < waveform->nsamples; j++)
     {
-      ret+=fprintf(f, "%hd%c", waveform->radiant_waveforms[i][j], j == waveform->radiant_nsamples-1?'\n':',');
+      char sep = j == waveform->nsamples-1?'\n':',';
+      ret+= didaq ? fprintf(f, "%hhu%c", waveform->didaq_waveforms[i][j], sep)
+                  : fprintf(f, "%hd%c", waveform->radiant_waveforms[i][j], sep);
     }
   }
 
@@ -680,7 +745,11 @@ int rno_g_pedestal_read(rno_g_file_handle_t h, rno_g_pedestal_t * pd)
 
 int rno_g_daqstatus_dump(FILE *f, const rno_g_daqstatus_t* ds)
 {
-  return rno_g_daqstatus_dump_radiant(f,ds) + rno_g_daqstatus_dump_flower(f,ds) + rno_g_daqstatus_dump_calpulser(f,ds);
+#ifdef ON_DIDAQ
+  return rno_g_daqstatus_dump_didaq(f,ds) + rno_g_daqstatus_dump_calpulser(f,ds);
+#else
+  return rno_g_daqstatus_dump_radiant(f,ds) + rno_g_daqstatus_dump_flower(f,ds) + rno_g_daqstatus_dump_calpulser(f,ds)
+#endif
 }
 
 static const char * calpulse_mode_strings[] ={ "NONE", "PULSE","VCO","VCO2"};
@@ -802,6 +871,57 @@ int rno_g_daqstatus_dump_flower(FILE  *f, const rno_g_daqstatus_t * ds)
   return ret;
 }
 
+int rno_g_daqstatus_dump_didaq(FILE *f, const rno_g_daqstatus_t * ds)
+{
+  // no didaq data was actually filled in if this is 0
+  if (!ds->when_didaq)
+  {
+    return 0;
+  }
+
+  int ret = 0;
+  int when_didaq = ds->when_didaq;
+  int didaq_ns = (ds->when_didaq - when_didaq)*1e9;
+  struct tm when_tm_didaq;
+  gmtime_r((time_t*)&when_didaq, &when_tm_didaq);
+
+  ret+=fprintf(f,  "============DIDAQ=============\n");
+  ret += fprintf(f,", recorded at %04d-%02d-%02d %02d:%02d:%02d.%09dZ\n",
+                 when_tm_didaq.tm_year + 1900, 1+when_tm_didaq.tm_mon, when_tm_didaq.tm_mday, when_tm_didaq.tm_hour,
+                 when_tm_didaq.tm_min, when_tm_didaq.tm_sec,  didaq_ns);
+  ret+=fprintf(f,  "  clk_rate: %u Hz, num_pps: %hu\n", ds->didaq_scalers.clk_rate, ds->didaq_scalers.num_pps);
+  ret+=fprintf(f,  "-------------------------------------------------\n");
+  ret+=fprintf(f,  " CH|COIN THRESH|SINGLES 1Hz|SINGLES 1Hz GATED\n");
+  for (int i = 0; i < RNO_G_NUM_RADIANT_CHANNELS; i++)
+  {
+    ret+=fprintf(f," %02d|    %03d    |    %05hu   |    %05hu\n",
+                   i, ds->didaq_coin_thresholds[i],
+                   ds->didaq_scalers.coinc_singles_1Hz[i], ds->didaq_scalers.coinc_singles_1Hz_gated[i]);
+  }
+
+  ret+=fprintf(f,  "-------------------------------------------------\n");
+  for (int i = 0; i < RNO_G_NUM_DIDAQ_COINC; i++)
+  {
+    ret+=fprintf(f," coinc group %d| trig 100mHz: %05hu | gated: %05hu\n",
+                   i, ds->didaq_scalers.coinc_trig_100mHz[i], ds->didaq_scalers.coinc_trig_100mHz_gated[i]);
+  }
+
+  ret+=fprintf(f,  "-------------------------------------------------\n");
+  ret+=fprintf(f,  " BM|SERVO THRESH|TRIG THRESH|TRIG 100mHz|GATED|SERVO 1Hz\n");
+  for (int i = 0; i < RNO_G_NUM_DIDAQ_BEAMS; i++)
+  {
+    ret+=fprintf(f," %02d|    %04hu    |   %04hu    |   %05hu   |%05hu|  %05hu\n",
+                   i, ds->didaq_phased_servo_thresholds[i], ds->didaq_phased_trigger_thresholds[i],
+                   ds->didaq_scalers.beam_trig_100mHz[i], ds->didaq_scalers.beam_trig_100mHz_gated[i],
+                   ds->didaq_scalers.beam_servo_1Hz[i]);
+  }
+  ret+=fprintf(f,  "-------------------------------------------------\n");
+  ret+=fprintf(f,  "total beam trig 100mHz: %05hu, gated: %05hu, servo 1Hz: %05hu\n",
+                 ds->didaq_scalers.total_beam_100mHz, ds->didaq_scalers.total_beam_100mHz_gated, ds->didaq_scalers.total_beam_1Hz);
+
+  return ret;
+}
+
 int rno_g_daqstatus_write(rno_g_file_handle_t h, const rno_g_daqstatus_t * ds)
 {
   io_header_t hd = {.magic = DAQSTATUS_MAGIC, .version = DAQSTATUS_VER };
@@ -901,6 +1021,26 @@ typedef struct rno_g_daqstatus_v5
   rno_g_calpulser_info_t cal;
   uint8_t station;
 } rno_g_daqstatus_v5_t;
+
+// pre version 7, there was no didaq data
+typedef struct rno_g_daqstatus_v6
+{
+  double when_radiant;
+  double when_lt;
+  uint32_t radiant_thresholds[RNO_G_NUM_RADIANT_CHANNELS];
+  uint16_t radiant_scalers[RNO_G_NUM_RADIANT_CHANNELS];
+  uint8_t radiant_prescalers[RNO_G_NUM_RADIANT_CHANNELS];
+  float radiant_scaler_period;
+  uint8_t  lt_trigger_thresholds[RNO_G_NUM_LT_CHANNELS];
+  uint8_t  lt_servo_thresholds[RNO_G_NUM_LT_CHANNELS];
+  uint16_t lt_phased_trigger_thresholds[RNO_G_NUM_LT_BEAMS];
+  uint16_t lt_phased_servo_thresholds[RNO_G_NUM_LT_BEAMS];
+  uint16_t lt_phased_threshold_offset;
+  rno_g_lt_scalers_t lt_scalers;
+  rno_g_radiant_voltages_t radiant_voltages;
+  rno_g_calpulser_info_t cal;
+  uint8_t station;
+} rno_g_daqstatus_v6_t;
 
 
 int rno_g_daqstatus_read(rno_g_file_handle_t h, rno_g_daqstatus_t *ds)
@@ -1012,6 +1152,29 @@ int rno_g_daqstatus_read(rno_g_file_handle_t h, rno_g_daqstatus_t *ds)
 
         break;
       }
+    case 6:
+      {
+        memset(ds,0,sizeof(*ds));
+        rno_g_daqstatus_v6_t dsv6;
+        rd = do_read(h, sizeof(dsv6), &dsv6, &sum);
+        ds->when_radiant = dsv6.when_radiant;
+        ds->when_lt = dsv6.when_lt;
+        memcpy(ds->radiant_thresholds, dsv6.radiant_thresholds, sizeof(ds->radiant_thresholds));
+        memcpy(ds->radiant_scalers, dsv6.radiant_scalers, sizeof(ds->radiant_scalers));
+        memcpy(ds->radiant_prescalers, dsv6.radiant_prescalers, sizeof(ds->radiant_prescalers));
+        ds->radiant_scaler_period = dsv6.radiant_scaler_period;
+        memcpy(ds->lt_trigger_thresholds, dsv6.lt_trigger_thresholds, sizeof(ds->lt_trigger_thresholds));
+        memcpy(ds->lt_servo_thresholds, dsv6.lt_servo_thresholds, sizeof(ds->lt_servo_thresholds));
+        memcpy(ds->lt_phased_trigger_thresholds, dsv6.lt_phased_trigger_thresholds, sizeof(ds->lt_phased_trigger_thresholds));
+        memcpy(ds->lt_phased_servo_thresholds, dsv6.lt_phased_servo_thresholds, sizeof(ds->lt_phased_servo_thresholds));
+        ds->lt_phased_threshold_offset = dsv6.lt_phased_threshold_offset;
+        memcpy(&ds->lt_scalers, &dsv6.lt_scalers, sizeof(dsv6.lt_scalers));
+        ds->radiant_voltages = dsv6.radiant_voltages;
+        ds->cal = dsv6.cal;
+        ds->station = dsv6.station;
+        // no didaq_* fields pre-v7; left zeroed
+        break;
+      }
     case DAQSTATUS_VER:
       {
         rd = do_read(h,sizeof(*ds),ds, &sum);
@@ -1031,7 +1194,3 @@ int rno_g_daqstatus_read(rno_g_file_handle_t h, rno_g_daqstatus_t *ds)
 
   return rd;
 }
-
-
-
-

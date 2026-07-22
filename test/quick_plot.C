@@ -61,7 +61,13 @@ void quick_plot(const char * file, int ev = 0, int symmetric=1, int Nev = 1, con
   {
 
     if (rno_g_waveform_read(h, &wf)<=0)
-      break; 
+      break;
+
+    if (wf.bytes_per_sample == 1)
+    {
+      fprintf(stderr, "quick_plot only supports 16-bit (RADIANT) waveforms, got bytes_per_sample=1\n");
+      break;
+    }
 
     if (c) 
     {
@@ -106,7 +112,7 @@ void quick_plot(const char * file, int ev = 0, int symmetric=1, int Nev = 1, con
 
       if (! ( mask & (1 << i))) continue; 
 
-      TGraph * g = new TGraph(wf.radiant_nsamples); 
+      TGraph * g = new TGraph(wf.nsamples); 
       g->SetTitle(Form("R%d, E%d, CH%d", wf.run_number, wf.event_number, i)); 
       g->GetXaxis()->SetTitle("sample");
       g->GetYaxis()->SetTitle("ADC");
@@ -122,7 +128,7 @@ void quick_plot(const char * file, int ev = 0, int symmetric=1, int Nev = 1, con
       bool all_zeroes = true; 
 
       //check to make sure not all zeroes
-      for (int j = 0; j < wf.radiant_nsamples; j++) 
+      for (int j = 0; j < wf.nsamples; j++) 
       {
         if (wf.radiant_waveforms[i][j]) 
         {
@@ -135,15 +141,15 @@ void quick_plot(const char * file, int ev = 0, int symmetric=1, int Nev = 1, con
 
       if (median_sub) 
       {
-        median_subtract_blocks(wf.radiant_nsamples, wf.radiant_waveforms[i], 128); 
+        median_subtract_blocks(wf.nsamples, wf.radiant_waveforms[i], 128); 
       }
 
       if (zero_sub) 
       {
-        sub = TMath::Mean(wf.radiant_nsamples, wf.radiant_waveforms[i]); 
+        sub = TMath::Mean(wf.nsamples, wf.radiant_waveforms[i]); 
       }
 
-      for (int j = 0; j < wf.radiant_nsamples; j++) 
+      for (int j = 0; j < wf.nsamples; j++) 
       {
         g->SetPoint(j,j, wf.radiant_waveforms[i][j]-sub); 
       

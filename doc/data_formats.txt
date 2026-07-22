@@ -1,5 +1,5 @@
 -------------------------------------------------------------------------------
-   RNO-G DAQ Data Formats 
+   RNO-G DAQ Data Formats
 ------------------------------------------------------------------------------
 
 This document describes the RNO-G data formats as output by the acquisition
@@ -8,30 +8,30 @@ and out over the network as fast as possible. For analysis and monitoring,
 other things (like random access and columnar access) are important, so the
 data will typically be converted to some other format afterwards. Likewise, the
 on-hardware format is documented elsewhere as well, as it is not directly
-mirrored by the DAQ. 
+mirrored by the DAQ.
 
 The title of this document is "RNO-G DAQ Data Formats" because there are
 actually two formats: an on-disk and an in-memory format.  The in-memory format
 is what gets filled in in the DAQ and read out by the i/o library (librno-g).
 It is defined by the structs inside rno-g.h, and will not be further-described
-here (doxygen does a better job anyway). 
+here (doxygen does a better job anyway).
 
 You really shouldn't have to care about the on-disk format most of the time,
-but it is documented here just in case.  To first order, the on-disk format is
+but it is documented here just in case. To first order, the on-disk format is
 the same as the in-memory format with some extra metadata.  However, this is
 only true for the latest version of the software. Because we may update the
 data format but still have old data we care about lying around, the i/o
 libraries must know how to convert all previous versions of on-disk formats to
-the newest in-memory format.   Also, generally the on-disk format will be
-compressed, but the decompressed version will match this. 
+the newest in-memory format. Also, generally the on-disk format will be
+compressed, but the decompressed version will match this.
 
 The on-disk format is as follows:
 
- MAGIC  (2 bytes, different for each packet type) 
- VERSION  (2 bytes) 
- PAYLOAD  (variable, will likely be the in-memory struct of that version 
-           but not necessarily e.g. the waveform only outputs actual length) 
- CKSUM  (2 bytes, adler32 checksum of payload) 
+ MAGIC  (2 bytes, different for each packet type)
+ VERSION  (2 bytes)
+ PAYLOAD  (variable, will likely be the in-memory struct of that version
+           but not necessarily e.g. the waveform only outputs actual length)
+ CKSUM  (4 bytes, adler32 checksum of payload)
 
 Multiple packets will just be concatenated together. There is no index or
 anything like that (although one can of course use an out-of-band one if they
@@ -41,18 +41,52 @@ to things like platform endianness and integer sizes and compiler choices about
 padding. However, as long as we use fully-defined integer types (e.g. int32_t
 instead of int), and only use GCC on little-endian systems, it should be fine
 (although in practice, it will only get tested on ARMv7l and x86_64 Linux
-systems). Sorry.  We could use packed structs, but those will potentially incur
+systems). Sorry. We could use packed structs, but those will potentially incur
 a big memory penalty. We could write out every member individually (or use some
-fancy library to do that), but who has the patience for that? 
-
-
+fancy library to do that), but who has the patience for that?
 
 When updating the data format, we make a versioned, non-exported copy of the
 struct inside the implementation file (rno-g.c). Then, upon detecting the old
 version, we read into that struct (which could potentially be type-punned to
 the new one if it's compatible "enough") and convert it to the new format
-(probably zeroing in anything that makes no sense). 
+(probably zeroing in anything that makes no sense).
 
 Since everything is usually compressed, having a checksum is a bit overkill
 since the compression is checksummed anyway. It may be removed or modified in
-the future (but of course that will be encoded in the version somehow). 
+the future (but of course that will be encoded in the version somehow).
+
+-------------------------------------------------------------------------------
+   Waveform packets (MAGIC 0xafd1, version 5)
+-------------------------------------------------------------------------------
+
+The waveform packet is the one packet whose payload is NOT just the in-memory
+struct dumped out (i.e., unlike e.g. the header where we write the entire in-memory
+object with one do_write, the waveform objects are written member by member ): only
+the actual number of samples is written, and samples are written at their native width.
+The payload layout is:
+
+  event_number      uint32
+  run_number        uint32
+  nsamples          uint16   samples per channel (NOT bytes), <= 2048 for
+                             2 bytes/sample, <= 4096 for 1 byte/sample
+  bytes_per_sample  uint8    2 = 12-bit digitizer (RADIANT), int16 samples
+                             1 = 8-bit digitizer (DIDAQ), uint8 samples
+  24 x ( nsamples * bytes_per_sample bytes of samples )
+  sampling_rate            uint16
+  digitizer_readout_delay  24 x uint8
+  station                  uint8
+
+In memory, the 16-bit and 8-bit sample arrays are an anonymous union
+(int16_t[24][2048] and uint8_t[24][4096] -- the same 98304 bytes either way);
+bytes_per_sample says which member is valid. Writers that predate the
+bytes_per_sample field leave it 0 in the struct, which the writer treats
+as 2.
+
+Versions <= 4 had no bytes_per_sample field (samples were always int16) and
+additionally carried low-threshold (FLOWER) waveforms: an lt_nsamples uint16
+in the prefix (after nsamples) and 4 x lt_nsamples bytes of LT samples after
+the RADIANT samples. The current in-memory struct no longer stores LT
+waveforms, so readers of old versions read-and-discard the LT samples (they
+still count toward the checksum) and fill in bytes_per_sample = 2. The older
+versions also differ among themselves in bug fixes and trailing fields; see
+rno_g_waveform_read for the details.
