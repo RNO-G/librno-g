@@ -39,6 +39,11 @@ extern "C"
 #define RNO_G_NUM_LT_CHANNELS 4
 #define RNO_G_NUM_LT_BEAMS 12
 
+// DIDAQ replaces the digitizer role of RADIANT (same RNO_G_NUM_RADIANT_CHANNELS channels),
+// but its own coincidence/phased trigger channel and beam counts don't match FLOWER's.
+#define RNO_G_NUM_DIDAQ_COINC 2
+#define RNO_G_NUM_DIDAQ_BEAMS 10
+
 
 /** Forward declarations of file backends, because some may be conditionally compiled in the future */
 typedef struct gzFile_s * gzFile;
@@ -262,6 +267,23 @@ typedef struct rno_g_lt_scalers
 } rno_g_lt_scalers_t;
 
 
+typedef struct rno_g_didaq_scalers
+{
+  uint16_t coinc_singles_1Hz[RNO_G_NUM_RADIANT_CHANNELS];
+  uint16_t coinc_singles_1Hz_gated[RNO_G_NUM_RADIANT_CHANNELS];
+  uint16_t coinc_trig_100mHz[RNO_G_NUM_DIDAQ_COINC];
+  uint16_t coinc_trig_100mHz_gated[RNO_G_NUM_DIDAQ_COINC];
+  uint16_t beam_trig_100mHz[RNO_G_NUM_DIDAQ_BEAMS];
+  uint16_t beam_trig_100mHz_gated[RNO_G_NUM_DIDAQ_BEAMS];
+  uint16_t beam_servo_1Hz[RNO_G_NUM_DIDAQ_BEAMS];
+  uint16_t total_beam_100mHz;
+  uint16_t total_beam_100mHz_gated;
+  uint16_t total_beam_1Hz;
+  uint16_t num_pps;
+  uint32_t clk_rate;
+} rno_g_didaq_scalers_t;
+
+
 // these are all 16-bit relative to 3.3 V rail
 typedef struct rno_g_radiant_voltages
 {
@@ -309,6 +331,7 @@ typedef struct rno_g_daqstatus
 {
   double when_radiant;
   double when_lt;
+  double when_didaq;
   uint32_t radiant_thresholds[RNO_G_NUM_RADIANT_CHANNELS];
   uint16_t radiant_scalers[RNO_G_NUM_RADIANT_CHANNELS];
   uint8_t radiant_prescalers[RNO_G_NUM_RADIANT_CHANNELS];
@@ -321,6 +344,12 @@ typedef struct rno_g_daqstatus
   rno_g_lt_scalers_t lt_scalers;
   rno_g_radiant_voltages_t radiant_voltages;
   rno_g_calpulser_info_t cal;
+  // DIDAQ, when present, is a drop-in replacement for RADIANT+FLOWER; it fills these
+  // instead of the radiant_*/lt_* fields above (see RNO_G_NUM_DIDAQ_COINC/BEAMS)
+  uint8_t  didaq_coin_thresholds[RNO_G_NUM_RADIANT_CHANNELS]; // one threshold per channel, no separate trigger/servo (mirrors didaq_coin_thresholds_t)
+  uint16_t didaq_phased_trigger_thresholds[RNO_G_NUM_DIDAQ_BEAMS];
+  uint16_t didaq_phased_servo_thresholds[RNO_G_NUM_DIDAQ_BEAMS];
+  rno_g_didaq_scalers_t didaq_scalers;
   uint8_t station;
 } rno_g_daqstatus_t;
 
@@ -328,6 +357,7 @@ int rno_g_daqstatus_dump(FILE *f, const rno_g_daqstatus_t * ds);
 int rno_g_daqstatus_dump_flower(FILE *f, const rno_g_daqstatus_t * ds);
 int rno_g_daqstatus_dump_radiant(FILE *f, const rno_g_daqstatus_t * ds);
 int rno_g_daqstatus_dump_calpulser(FILE *f, const rno_g_daqstatus_t * ds);
+int rno_g_daqstatus_dump_didaq(FILE *f, const rno_g_daqstatus_t * ds);
 int rno_g_daqstatus_write(rno_g_file_handle_t handle, const rno_g_daqstatus_t * ds);
 int rno_g_daqstatus_read(rno_g_file_handle_t handle, rno_g_daqstatus_t * ds);
 

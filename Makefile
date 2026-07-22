@@ -44,7 +44,7 @@ $(info We are on the DiDAQ)
 ON_DIDAQ=yes
 CFLAGS+=-I../libdidaq/src
 LIBS+=-ldidaq -L${PREFIX}/lib -lgpios
-# CFLAGS+=-DON_DIDAQ
+CFLAGS+=-DON_DIDAQ
 CFLAGS+=-DUSE_LIBGPIOS
 endif
 

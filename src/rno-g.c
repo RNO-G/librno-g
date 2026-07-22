@@ -16,7 +16,7 @@
 #define HEADER_VER 3
 #define WF_VER 5
 #define PED_VER 3
-#define DAQSTATUS_VER 6
+#define DAQSTATUS_VER 7
 
 #define HEADER_MAGIC 0xead1
 #define WAVEFORM_MAGIC 0xafd1
@@ -745,7 +745,11 @@ int rno_g_pedestal_read(rno_g_file_handle_t h, rno_g_pedestal_t * pd)
 
 int rno_g_daqstatus_dump(FILE *f, const rno_g_daqstatus_t* ds)
 {
-  return rno_g_daqstatus_dump_radiant(f,ds) + rno_g_daqstatus_dump_flower(f,ds) + rno_g_daqstatus_dump_calpulser(f,ds);
+#ifdef ON_DIDAQ
+  return rno_g_daqstatus_dump_didaq(f,ds) + rno_g_daqstatus_dump_calpulser(f,ds);
+#else
+  return rno_g_daqstatus_dump_radiant(f,ds) + rno_g_daqstatus_dump_flower(f,ds) + rno_g_daqstatus_dump_calpulser(f,ds)
+#endif
 }
 
 static const char * calpulse_mode_strings[] ={ "NONE", "PULSE","VCO","VCO2"};
@@ -867,6 +871,57 @@ int rno_g_daqstatus_dump_flower(FILE  *f, const rno_g_daqstatus_t * ds)
   return ret;
 }
 
+int rno_g_daqstatus_dump_didaq(FILE *f, const rno_g_daqstatus_t * ds)
+{
+  // no didaq data was actually filled in if this is 0
+  if (!ds->when_didaq)
+  {
+    return 0;
+  }
+
+  int ret = 0;
+  int when_didaq = ds->when_didaq;
+  int didaq_ns = (ds->when_didaq - when_didaq)*1e9;
+  struct tm when_tm_didaq;
+  gmtime_r((time_t*)&when_didaq, &when_tm_didaq);
+
+  ret+=fprintf(f,  "============DIDAQ=============\n");
+  ret += fprintf(f,", recorded at %04d-%02d-%02d %02d:%02d:%02d.%09dZ\n",
+                 when_tm_didaq.tm_year + 1900, 1+when_tm_didaq.tm_mon, when_tm_didaq.tm_mday, when_tm_didaq.tm_hour,
+                 when_tm_didaq.tm_min, when_tm_didaq.tm_sec,  didaq_ns);
+  ret+=fprintf(f,  "  clk_rate: %u Hz, num_pps: %hu\n", ds->didaq_scalers.clk_rate, ds->didaq_scalers.num_pps);
+  ret+=fprintf(f,  "-------------------------------------------------\n");
+  ret+=fprintf(f,  " CH|COIN THRESH|SINGLES 1Hz|SINGLES 1Hz GATED\n");
+  for (int i = 0; i < RNO_G_NUM_RADIANT_CHANNELS; i++)
+  {
+    ret+=fprintf(f," %02d|    %03d    |    %05hu   |    %05hu\n",
+                   i, ds->didaq_coin_thresholds[i],
+                   ds->didaq_scalers.coinc_singles_1Hz[i], ds->didaq_scalers.coinc_singles_1Hz_gated[i]);
+  }
+
+  ret+=fprintf(f,  "-------------------------------------------------\n");
+  for (int i = 0; i < RNO_G_NUM_DIDAQ_COINC; i++)
+  {
+    ret+=fprintf(f," coinc group %d| trig 100mHz: %05hu | gated: %05hu\n",
+                   i, ds->didaq_scalers.coinc_trig_100mHz[i], ds->didaq_scalers.coinc_trig_100mHz_gated[i]);
+  }
+
+  ret+=fprintf(f,  "-------------------------------------------------\n");
+  ret+=fprintf(f,  " BM|SERVO THRESH|TRIG THRESH|TRIG 100mHz|GATED|SERVO 1Hz\n");
+  for (int i = 0; i < RNO_G_NUM_DIDAQ_BEAMS; i++)
+  {
+    ret+=fprintf(f," %02d|    %04hu    |   %04hu    |   %05hu   |%05hu|  %05hu\n",
+                   i, ds->didaq_phased_servo_thresholds[i], ds->didaq_phased_trigger_thresholds[i],
+                   ds->didaq_scalers.beam_trig_100mHz[i], ds->didaq_scalers.beam_trig_100mHz_gated[i],
+                   ds->didaq_scalers.beam_servo_1Hz[i]);
+  }
+  ret+=fprintf(f,  "-------------------------------------------------\n");
+  ret+=fprintf(f,  "total beam trig 100mHz: %05hu, gated: %05hu, servo 1Hz: %05hu\n",
+                 ds->didaq_scalers.total_beam_100mHz, ds->didaq_scalers.total_beam_100mHz_gated, ds->didaq_scalers.total_beam_1Hz);
+
+  return ret;
+}
+
 int rno_g_daqstatus_write(rno_g_file_handle_t h, const rno_g_daqstatus_t * ds)
 {
   io_header_t hd = {.magic = DAQSTATUS_MAGIC, .version = DAQSTATUS_VER };
@@ -966,6 +1021,26 @@ typedef struct rno_g_daqstatus_v5
   rno_g_calpulser_info_t cal;
   uint8_t station;
 } rno_g_daqstatus_v5_t;
+
+// pre version 7, there was no didaq data
+typedef struct rno_g_daqstatus_v6
+{
+  double when_radiant;
+  double when_lt;
+  uint32_t radiant_thresholds[RNO_G_NUM_RADIANT_CHANNELS];
+  uint16_t radiant_scalers[RNO_G_NUM_RADIANT_CHANNELS];
+  uint8_t radiant_prescalers[RNO_G_NUM_RADIANT_CHANNELS];
+  float radiant_scaler_period;
+  uint8_t  lt_trigger_thresholds[RNO_G_NUM_LT_CHANNELS];
+  uint8_t  lt_servo_thresholds[RNO_G_NUM_LT_CHANNELS];
+  uint16_t lt_phased_trigger_thresholds[RNO_G_NUM_LT_BEAMS];
+  uint16_t lt_phased_servo_thresholds[RNO_G_NUM_LT_BEAMS];
+  uint16_t lt_phased_threshold_offset;
+  rno_g_lt_scalers_t lt_scalers;
+  rno_g_radiant_voltages_t radiant_voltages;
+  rno_g_calpulser_info_t cal;
+  uint8_t station;
+} rno_g_daqstatus_v6_t;
 
 
 int rno_g_daqstatus_read(rno_g_file_handle_t h, rno_g_daqstatus_t *ds)
@@ -1075,6 +1150,29 @@ int rno_g_daqstatus_read(rno_g_file_handle_t h, rno_g_daqstatus_t *ds)
         ds->station = dsv5.station;
         //something for lt_phased_thresholds
 
+        break;
+      }
+    case 6:
+      {
+        memset(ds,0,sizeof(*ds));
+        rno_g_daqstatus_v6_t dsv6;
+        rd = do_read(h, sizeof(dsv6), &dsv6, &sum);
+        ds->when_radiant = dsv6.when_radiant;
+        ds->when_lt = dsv6.when_lt;
+        memcpy(ds->radiant_thresholds, dsv6.radiant_thresholds, sizeof(ds->radiant_thresholds));
+        memcpy(ds->radiant_scalers, dsv6.radiant_scalers, sizeof(ds->radiant_scalers));
+        memcpy(ds->radiant_prescalers, dsv6.radiant_prescalers, sizeof(ds->radiant_prescalers));
+        ds->radiant_scaler_period = dsv6.radiant_scaler_period;
+        memcpy(ds->lt_trigger_thresholds, dsv6.lt_trigger_thresholds, sizeof(ds->lt_trigger_thresholds));
+        memcpy(ds->lt_servo_thresholds, dsv6.lt_servo_thresholds, sizeof(ds->lt_servo_thresholds));
+        memcpy(ds->lt_phased_trigger_thresholds, dsv6.lt_phased_trigger_thresholds, sizeof(ds->lt_phased_trigger_thresholds));
+        memcpy(ds->lt_phased_servo_thresholds, dsv6.lt_phased_servo_thresholds, sizeof(ds->lt_phased_servo_thresholds));
+        ds->lt_phased_threshold_offset = dsv6.lt_phased_threshold_offset;
+        memcpy(&ds->lt_scalers, &dsv6.lt_scalers, sizeof(dsv6.lt_scalers));
+        ds->radiant_voltages = dsv6.radiant_voltages;
+        ds->cal = dsv6.cal;
+        ds->station = dsv6.station;
+        // no didaq_* fields pre-v7; left zeroed
         break;
       }
     case DAQSTATUS_VER:
