@@ -39,7 +39,6 @@ endif
 
 
 ifeq ($(ON_AM62X),yes)
-	CFLAGS+=-mfpu=neon
 	CFLAGS+=-DON_AM62X
 	CFLAGS+=-DUSE_LIBGPIOS
 	LDFLAGS+=-lgpios
