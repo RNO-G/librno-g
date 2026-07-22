@@ -84,6 +84,3 @@ int didaq_get_fw_version(const didaq_dev_t * bd,
 {
   return 0;
 }
-
-
-#endif
