@@ -108,7 +108,7 @@ rno_g_cal_dev_t * rno_g_cal_open(uint8_t bus, uint16_t gpio, char rev)
 #else
   (void) gpio;
   gpios_line_t line;
-  int ok = gpios_get_line_by_label("CAL_EN", &line, GPIOS_OUTPUT);
+  int ok = gpios_get_line_by_label("CAL_EN", &line, GPIOS_OUTPUT | GPIOS_KEEP);
   if (ok)
   {
     fprintf(stderr, "Could not open GPIO CAL_EN\n");
