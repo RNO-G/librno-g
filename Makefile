@@ -3,11 +3,9 @@ RNO_G_INSTALL_DIR?=/rno-g/
 PREFIX?=$(RNO_G_INSTALL_DIR)
 CC?=gcc
 
-
 VER_MAJOR=1
 VER_MINOR=0
 VER_REV=0
-
 
 VERSUFFIX=$(VER_MAJOR).$(VER_MINOR).$(VER_REV)
 
@@ -31,7 +29,6 @@ ifeq ($(shell uname -m),armv7l)
 ON_BBB=yes
 endif
 
-
 ifeq ($(ON_BBB),yes)
 $(info We are on the DAQ)
 CFLAGS+=-mfpu=neon
@@ -45,11 +42,10 @@ ifneq (,$(shell grep RevN /proc/device-tree/model 2> /dev/null))
 $(info We are on the DiDAQ)
 ON_DIDAQ=yes
 CFLAGS+=-I../libdidaq/src -DON_DIDAQ -DON_AM62X -DUSE_LIBGPIOS -ON_DIDAQ
-LIBS+=-ldidaq -L${PREFIX}/lib 
+LIBS+=-ldidaq -L${PREFIX}/lib
 GPIO_LIBS=-lgpios
-DIDAQ_INCLUDES=src/rno-g-didaq.h src/rno-g-cal.h
+DAQ_INCLUDES=src/rno-g-didaq.h src/rno-g-cal.h
 endif
-
 
 INCLUDES=src/rno-g.h src/rno-g-nsample-diff-hist.h
 
@@ -71,7 +67,6 @@ rno-g-utils: $(BUILD_DIR)/test $(addprefix $(BUILD_DIR)/test/, rno-g-dump-ds rno
 
 client-py: client $(BUILD_DIR)/rno_g.so
 daq-py: daq client-py $(BUILD_DIR)/radiant.so
-
 
 BLUE=\e[1;34m
 RED=\e[1;31m
