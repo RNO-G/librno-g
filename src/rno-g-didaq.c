@@ -62,8 +62,32 @@ int didaq_read_event(didaq_dev_t * bd, rno_g_header_t * hd, rno_g_waveform_t * w
 }
 
 
-int didaq_read_daqstatus(didaq_dev_t * bd, rno_g_daqstatus_t)
+int didaq_read_daqstatus(didaq_dev_t * bd, rno_g_daqstatus_t * ds)
 {
+  if (!bd || !ds) return -1;
+
+  didaq_scalers_t scal;
+  int ret = didaq_read_scalers(bd, &scal);
+  if (ret) return ret;
+
+  memcpy(ds->didaq_scalers.coinc_singles_1Hz, scal.coinc_singles_1Hz, sizeof(scal.coinc_singles_1Hz));
+  memcpy(ds->didaq_scalers.coinc_singles_1Hz_gated, scal.coinc_singles_1Hz_gated, sizeof(scal.coinc_singles_1Hz_gated));
+  memcpy(ds->didaq_scalers.coinc_trig_100mHz, scal.coinc_trig_100mHz, sizeof(scal.coinc_trig_100mHz));
+  memcpy(ds->didaq_scalers.coinc_trig_100mHz_gated, scal.coinc_trig_100mHz_gated, sizeof(scal.coinc_trig_100mHz_gated));
+  memcpy(ds->didaq_scalers.beam_trig_100mHz, scal.beam_trig_100mHz, sizeof(scal.beam_trig_100mHz));
+  memcpy(ds->didaq_scalers.beam_trig_100mHz_gated, scal.beam_trig_100mHz_gated, sizeof(scal.beam_trig_100mHz_gated));
+  memcpy(ds->didaq_scalers.beam_servo_1Hz, scal.beam_servo_1Hz, sizeof(scal.beam_servo_1Hz));
+  ds->didaq_scalers.total_beam_100mHz = scal.total_beam_100mHz;
+  ds->didaq_scalers.total_beam_100mHz_gated = scal.total_beam_100mHz_gated;
+  ds->didaq_scalers.total_beam_1Hz = scal.total_beam_1Hz;
+  ds->didaq_scalers.num_pps = scal.num_pps;
+  ds->didaq_scalers.clk_rate = scal.clk_rate;
+
+  ds->when_didaq = scal.readout_time.tv_sec + 1e-9 * scal.readout_time.tv_nsec;
+
+  // note: firmware doesn't currently support threshold readback, so
+  // didaq_coin_thresholds/didaq_phased_*_thresholds are left untouched here
+  // (caller should track what it last set via didaq_set_thresholds)
 
   return 0;
 }
