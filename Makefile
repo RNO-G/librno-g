@@ -16,6 +16,7 @@ include config.mk
 CFLAGS?=-Wall -Wextra -Og -g -std=gnu11
 CFLAGS+= -I./src
 CFLAGS+=$(EXTRA_CFLAGS)
+CFLAGS+=-DRADIANT_SPI_SPEED=$(RADIANT_SPI_SPEED_MHZ)
 CXXFLAGS?=-fPIC -Og -Wall -Wextra -g
 
 LDFLAGS=-shared
@@ -33,7 +34,6 @@ ifeq ($(ON_BBB),yes)
 $(info We are on the DAQ)
 CFLAGS+=-mfpu=neon
 CFLAGS+=-DON_BBB
-CFLAGS+=-DRADIANT_SPI_SPEED=$(RADIANT_SPI_SPEED_MHZ)
 DAQ_INCLUDES=src/radiant.h src/cobs.h src/adf4350.h src/flower.h src/rno-g-cal.h
 endif
 
@@ -193,7 +193,7 @@ $(BUILD_DIR)/radiant.so:  src/radiant-pybind.cc  $(INCLUDES) $(BUILD_DIR)/librno
 
 $(BUILD_DIR)/%.o: src/%.c $(DAQ_INCLUDES) | $(BUILD_DIR)
 	@echo Compiling $@
-	@cc -c -o $@ $(CFLAGS) $<
+	@cc -c -fPIC -o $@ $(CFLAGS) $<
 
 $(BUILD_DIR)/rno-g-version.h: Makefile
 	@echo "Generating rno-g-version.h"
