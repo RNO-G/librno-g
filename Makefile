@@ -41,7 +41,7 @@ endif
 ifneq (,$(shell grep RevN /proc/device-tree/model 2> /dev/null))
 $(info We are on the DiDAQ)
 ON_DIDAQ=yes
-CFLAGS+=-I../libdidaq/src -DON_DIDAQ -DON_AM62X -DUSE_LIBGPIOS -ON_DIDAQ
+CFLAGS+=-I../libdidaq/src -DON_DIDAQ -DON_AM62X -DUSE_LIBGPIOS -DON_DIDAQ -I/usr/include
 LIBS+=-ldidaq -L${PREFIX}/lib
 GPIO_LIBS=-lgpios
 DAQ_INCLUDES=src/rno-g-didaq.h src/rno-g-cal.h
