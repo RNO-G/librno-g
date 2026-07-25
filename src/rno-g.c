@@ -747,7 +747,6 @@ int rno_g_daqstatus_dump(FILE *f, const rno_g_daqstatus_t* ds)
 {
 #ifdef ON_DIDAQ
   return rno_g_daqstatus_dump_didaq(f, ds) +
-    didaq_dump_scalers(ds->didaq_scalers, f) +
     rno_g_daqstatus_dump_calpulser(f, ds);
 #else
   return rno_g_daqstatus_dump_radiant(f, ds) +
