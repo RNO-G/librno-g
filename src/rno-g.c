@@ -751,7 +751,7 @@ int rno_g_daqstatus_dump(FILE *f, const rno_g_daqstatus_t* ds)
 #else
   return rno_g_daqstatus_dump_radiant(f, ds) +
     rno_g_daqstatus_dump_flower(f, ds) +
-    rno_g_daqstatus_dump_calpulser(f, ds)
+    rno_g_daqstatus_dump_calpulser(f, ds);
 #endif
 }
 
