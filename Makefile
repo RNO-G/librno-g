@@ -31,26 +31,28 @@ ifeq ($(shell uname -m),armv7l)
 ON_BBB=yes
 endif
 
+
 ifeq ($(ON_BBB),yes)
 $(info We are on the DAQ)
 CFLAGS+=-mfpu=neon
 CFLAGS+=-DON_BBB
 CFLAGS+=-DRADIANT_SPI_SPEED=$(RADIANT_SPI_SPEED_MHZ)
+DAQ_INCLUDES=src/radiant.h src/cobs.h src/adf4350.h src/flower.h src/rno-g-cal.h
 endif
 
 #check if on revn board
 ifneq (,$(shell grep RevN /proc/device-tree/model 2> /dev/null))
 $(info We are on the DiDAQ)
 ON_DIDAQ=yes
-CFLAGS+=-I../libdidaq/src
-LIBS+=-ldidaq -L${PREFIX}/lib -lgpios
-CFLAGS+=-DON_DIDAQ
-CFLAGS+=-DUSE_LIBGPIOS
+CFLAGS+=-I../libdidaq/src -DON_DIDAQ -DON_AM62X -DUSE_LIBGPIOS -ON_DIDAQ
+LIBS+=-ldidaq -L${PREFIX}/lib 
+GPIO_LIBS=-lgpios
+DIDAQ_INCLUDES=src/rno-g-didaq.h src/rno-g-cal.h
 endif
 
 
-INCLUDES=src/rno-g.h src/rno-g-nsample-diff-hist.h src/rno-g-didaq.h
-DAQ_INCLUDES=src/radiant.h src/cobs.h src/adf4350.h src/flower.h src/rno-g-cal.h
+INCLUDES=src/rno-g.h src/rno-g-nsample-diff-hist.h
+
 PYBIND_INCLUDES=$(shell python3 -m pybind11 --includes)
 
 .PHONY: client daq didaq clean install install-daq install-rno-g-utils install-didaq client-py daq-py cppcheck test daq-test-progs rno-g-utils
@@ -213,7 +215,7 @@ $(BUILD_DIR)/test/rno-g-%: test/rno-g-%.c $(INCLUDES) $(BUILD_DIR)/librno-g.so |
 
 $(BUILD_DIR)/test/%: test/%.c $(INCLUDES) $(DAQ_INCLUDES) $(BUILD_DIR)/librno-g.so $(BUILD_DIR)/libradiant.so $(BUILD_DIR)/libflower.so $(BUILD_DIR)/librno-g-cal.so | $(BUILD_DIR)
 	@echo Compiling $@
-	@cc  -o $@ $(CFLAGS) -Isrc/ $< -L$(BUILD_DIR) -lradiant -lrno-g -lflower -lrno-g-cal -lz -lm
+	@cc  -o $@ $(CFLAGS) -Isrc/ $< -L$(BUILD_DIR) -lradiant -lrno-g -lflower -lrno-g-cal -lz -lm $(GPIO_LIBS)
 
 $(BUILD_DIR)/test/%: test/%.py $(INCLUDES) $(DAQ_INCLUDES) $(BUILD_DIR)/librno-g.so  $(BUILD_DIR)/_rno_g.so $(BUILD_DIR)/libradiant.so | $(BUILD_DIR)
 	ln  $@ $<
