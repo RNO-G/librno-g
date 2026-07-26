@@ -12,11 +12,12 @@ int didaq_read_event(didaq_dev_t * bd, rno_g_header_t * hd, rno_g_waveform_t * w
     rdout.wfs[i] = wf->didaq_waveforms[i];
   }
 
+  memset(hd, 0, sizeof(*hd));
+  memset(wf, 0, sizeof(*wf));
+
   int ret = didaq_event_readout(bd, &rdout);
   if (ret) return ret;
 
-  memset(hd, 0, sizeof(*hd));
-  memset(wf, 0, sizeof(*wf));
 
   //note right now only trig_counter is populated...
   wf->event_number = rdout.meta.trig_counter;
