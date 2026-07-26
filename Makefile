@@ -42,7 +42,7 @@ ifneq (,$(shell grep RevN /proc/device-tree/model 2> /dev/null))
 $(info We are on the DiDAQ)
 ON_DIDAQ=yes
 CFLAGS+= -DON_DIDAQ -DON_AM62X -DUSE_LIBGPIOS -DON_DIDAQ -I/usr/include -I${PREFIX}/include
-LIBS+=-ldidaq -L${PREFIX}/lib
+LDFLAGS+=-L${PREFIX}/lib
 GPIO_LIBS=-lgpios
 DAQ_INCLUDES=src/rno-g-didaq.h src/rno-g-cal.h
 endif
@@ -174,7 +174,7 @@ $(BUILD_DIR)/libflower.so.$(VERSUFFIX): $(addprefix $(BUILD_DIR)/, $(FLWR_OBJS))
 RNOG_DIDAQ_OBJS=rno-g-didaq.o
 $(BUILD_DIR)/librno-g-didaq.so.$(VERSUFFIX): $(addprefix $(BUILD_DIR)/, $(RNOG_DIDAQ_OBJS))
 	@echo Linking $@
-	@cc -o $@ $(LDFLAGS) $^  $(LIBS)
+	@cc -o $@ $(LDFLAGS) $^  $(LIBS) -ldidaq
 
 
 # non-DAQ objects begin with rno-.... haas to be rno- instead of rno-g so that rno-g.c works :)
