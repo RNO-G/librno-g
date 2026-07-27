@@ -110,9 +110,9 @@ uint16_t didaq_get_sample_rate(const didaq_dev_t * bd)
   return 1000;  // MHz
 }
 
-int didaq_get_fw_version(const didaq_dev_t * bd,
-    uint8_t * major, uint8_t *minor, uint8_t* rev,
-    uint8_t * year_minus_2000, uint8_t *month, uint8_t * day)
-{
-  return 0;
-}
+// int didaq_get_fw_version(const didaq_dev_t * bd,
+//     uint8_t * major, uint8_t *minor, uint8_t* rev,
+//     uint8_t * year_minus_2000, uint8_t *month, uint8_t * day)
+// {
+//   return 0;
+// }
