@@ -71,6 +71,13 @@ int didaq_read_daqstatus(didaq_dev_t * bd, rno_g_daqstatus_t * ds)
   int ret = didaq_read_scalers(bd, &scal);
   if (ret) return ret;
 
+  didaq_phased_thresholds_t thresh_phased = {0};
+  didaq_coin_thresholds_t thresh_coin = {0};
+
+  ret = didaq_get_thresholds(bd, &thresh_phased, &thresh_coin, false);
+  if (ret) return ret;
+
+
   memcpy(ds->didaq_scalers.coinc_singles_1Hz, scal.coinc_singles_1Hz, sizeof(scal.coinc_singles_1Hz));
   memcpy(ds->didaq_scalers.coinc_singles_1Hz_gated, scal.coinc_singles_1Hz_gated, sizeof(scal.coinc_singles_1Hz_gated));
   memcpy(ds->didaq_scalers.coinc_trig_100mHz, scal.coinc_trig_100mHz, sizeof(scal.coinc_trig_100mHz));
@@ -84,11 +91,14 @@ int didaq_read_daqstatus(didaq_dev_t * bd, rno_g_daqstatus_t * ds)
   ds->didaq_scalers.num_pps = scal.num_pps;
   ds->didaq_scalers.clk_rate = scal.clk_rate;
 
+  memcpy(ds->didaq_coin_thresholds, thresh_coin.coin_thresholds, sizeof(ds->didaq_coin_thresholds));
+  memcpy(ds->didaq_phased_trigger_thresholds, thresh_phased.beam_trig_thresholds, sizeof(ds->didaq_phased_trigger_thresholds));
+  memcpy(ds->didaq_phased_servo_thresholds, thresh_phased.beam_servo_thresholds, sizeof(ds->didaq_phased_servo_thresholds));
+
+
   ds->when_didaq = scal.readout_time.tv_sec + 1e-9 * scal.readout_time.tv_nsec;
 
-  // note: firmware doesn't currently support threshold readback, so
-  // didaq_coin_thresholds/didaq_phased_*_thresholds are left untouched here
-  // (caller should track what it last set via didaq_set_thresholds)
+
 
   return 0;
 }
