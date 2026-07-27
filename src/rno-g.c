@@ -894,12 +894,13 @@ int rno_g_daqstatus_dump_didaq(FILE *f, const rno_g_daqstatus_t * ds)
                  when_tm_didaq.tm_min, when_tm_didaq.tm_sec,  didaq_ns);
   ret+=fprintf(f,  "  clk_rate: %u Hz, num_pps: %hu\n", ds->didaq_scalers.clk_rate, ds->didaq_scalers.num_pps);
   ret+=fprintf(f,  "-------------------------------------------------\n");
-  ret+=fprintf(f,  " CH|COIN THRESH|SINGLES 1Hz|SINGLES 1Hz GATED\n");
+  ret+=fprintf(f,  " CH |THRES|SCALAR 1Hz (GATED)\n");
   for (int i = 0; i < RNO_G_NUM_RADIANT_CHANNELS; i++)
   {
-    ret+=fprintf(f," %02d|    %03d    |    %05hu   |    %05hu\n",
-                   i, ds->didaq_coin_thresholds[i],
-                   ds->didaq_scalers.coinc_singles_1Hz[i], ds->didaq_scalers.coinc_singles_1Hz_gated[i]);
+    ret+=fprintf(f, " %02d | %03d |  %05hu (%05hu)  \n",
+      i, ds->didaq_coin_thresholds[i],
+      ds->didaq_scalers.coinc_singles_1Hz[i],
+      ds->didaq_scalers.coinc_singles_1Hz_gated[i]);
   }
 
   ret+=fprintf(f,  "-------------------------------------------------\n");
@@ -910,10 +911,10 @@ int rno_g_daqstatus_dump_didaq(FILE *f, const rno_g_daqstatus_t * ds)
   }
 
   ret+=fprintf(f,  "-------------------------------------------------\n");
-  ret+=fprintf(f,  " BM|SERVO THRESH|TRIG THRESH|TRIG 100mHz|GATED|SERVO 1Hz\n");
+  ret+=fprintf(f,  " BM |SERVO 1Hz|SERVO TR|TRIG TR|TRIG 100mHz (GATED)\n");
   for (int i = 0; i < RNO_G_NUM_DIDAQ_BEAMS; i++)
   {
-    ret+=fprintf(f," %02d|    %04hu    |   %04hu    |   %05hu   |%05hu|  %05hu\n",
+    ret+=fprintf(f," %02d |  %05hu  |  %04hu  |  %04hu |    %05hu (%05hu) \n",
                    i, ds->didaq_phased_servo_thresholds[i], ds->didaq_phased_trigger_thresholds[i],
                    ds->didaq_scalers.beam_trig_100mHz[i], ds->didaq_scalers.beam_trig_100mHz_gated[i],
                    ds->didaq_scalers.beam_servo_1Hz[i]);

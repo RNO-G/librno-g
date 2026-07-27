@@ -77,7 +77,6 @@ int didaq_read_daqstatus(didaq_dev_t * bd, rno_g_daqstatus_t * ds)
   ret = didaq_get_thresholds(bd, &thresh_phased, &thresh_coin, false);
   if (ret) return ret;
 
-
   memcpy(ds->didaq_scalers.coinc_singles_1Hz, scal.coinc_singles_1Hz, sizeof(scal.coinc_singles_1Hz));
   memcpy(ds->didaq_scalers.coinc_singles_1Hz_gated, scal.coinc_singles_1Hz_gated, sizeof(scal.coinc_singles_1Hz_gated));
   memcpy(ds->didaq_scalers.coinc_trig_100mHz, scal.coinc_trig_100mHz, sizeof(scal.coinc_trig_100mHz));
@@ -95,10 +94,7 @@ int didaq_read_daqstatus(didaq_dev_t * bd, rno_g_daqstatus_t * ds)
   memcpy(ds->didaq_phased_trigger_thresholds, thresh_phased.beam_trig_thresholds, sizeof(ds->didaq_phased_trigger_thresholds));
   memcpy(ds->didaq_phased_servo_thresholds, thresh_phased.beam_servo_thresholds, sizeof(ds->didaq_phased_servo_thresholds));
 
-
   ds->when_didaq = scal.readout_time.tv_sec + 1e-9 * scal.readout_time.tv_nsec;
-
-
 
   return 0;
 }
@@ -110,7 +106,8 @@ int didaq_poll_trigger_ready(didaq_dev_t * bd, int timeout_ms)
 
 uint16_t didaq_get_sample_rate(const didaq_dev_t * bd)
 {
-  return 1000;
+  (void) bd;  // Silent unused variable warning
+  return 1000;  // MHz
 }
 
 int didaq_get_fw_version(const didaq_dev_t * bd,
