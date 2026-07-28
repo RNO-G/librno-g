@@ -894,13 +894,13 @@ int rno_g_daqstatus_dump_didaq(FILE *f, const rno_g_daqstatus_t * ds)
                  when_tm_didaq.tm_min, when_tm_didaq.tm_sec,  didaq_ns);
   ret+=fprintf(f,  "  clk_rate: %u Hz, num_pps: %hu\n", ds->didaq_scalers.clk_rate, ds->didaq_scalers.num_pps);
   ret+=fprintf(f,  "-------------------------------------------------\n");
-  ret+=fprintf(f,  " CH |THRES|SCALAR 1Hz (GATED)\n");
-  for (int i = 0; i < RNO_G_NUM_RADIANT_CHANNELS; i++)
+  ret+=fprintf(f,  "   CH   |   THRES   |        SCALAR 1Hz (GATED)\n");
+  for (int i = 0; i < RNO_G_NUM_RADIANT_CHANNELS / 2; i++)
   {
-    ret+=fprintf(f, " %02d | %03d |  %05hu (%05hu)  \n",
-      i, ds->didaq_coin_thresholds[i],
-      ds->didaq_scalers.coinc_singles_1Hz[i],
-      ds->didaq_scalers.coinc_singles_1Hz_gated[i]);
+    ret+=fprintf(f, " %02d - %02d | %03d - %03d |  %05hu (%05hu) - %05hu (%05hu)  \n",
+      i, i + 12, ds->didaq_coin_thresholds[i], ds->didaq_coin_thresholds[i + 12],
+      ds->didaq_scalers.coinc_singles_1Hz[i], ds->didaq_scalers.coinc_singles_1Hz[i + 12],
+      ds->didaq_scalers.coinc_singles_1Hz_gated[i], ds->didaq_scalers.coinc_singles_1Hz_gated[i + 12]);
   }
 
   ret+=fprintf(f,  "-------------------------------------------------\n");

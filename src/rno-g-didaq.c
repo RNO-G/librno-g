@@ -18,21 +18,19 @@ int didaq_read_event(didaq_dev_t * bd, rno_g_header_t * hd, rno_g_waveform_t * w
   int ret = didaq_event_readout(bd, &rdout);
   if (ret) return ret;
 
-
   //note right now only trig_counter is populated...
   wf->event_number = rdout.meta.trig_counter;
   wf->nsamples = rdout.in.len;
   wf->bytes_per_sample = 1;
   wf->sampling_rate = 1000;
 
-
   hd->event_number = rdout.meta.trig_counter;
   hd->trigger_number = rdout.meta.trig_counter;
 
+  // based on trigger type set mask (beam mask or channel mask)
   hd->trigger_mask = (rdout.meta.trig_type & DIDAQ_TRIGGER_PHASED)  ?  rdout.meta.last_beam_pattern  :
                      (rdout.meta.trig_type & (DIDAQ_TRIGGER_COINC0 | DIDAQ_TRIGGER_COINC1)) ? rdout.meta.last_coinc_pattern :
                       0;
-
 
   hd->pps_count = rdout.meta.pps_counter;
   hd->sys_clk = rdout.meta.clk_cycles;
@@ -59,7 +57,7 @@ int didaq_read_event(didaq_dev_t * bd, rno_g_header_t * hd, rno_g_waveform_t * w
   }
 
 
- return 0;
+  return 0;
 }
 
 
