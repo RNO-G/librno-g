@@ -105,11 +105,14 @@ int rno_g_header_dump(FILE *f, const rno_g_header_t *header)
     fprintf(f," %u/%u ", header->radiant_start_windows[i][0], header->radiant_start_windows[i][1]);
   }
   ret+=fprintf(f, "\n");
-  ret+=fprintf(f, " TRIGTYPE: %s %s %s %s %s %s %s | RAWTRIGINFO: 0x%x| RAWSTATUS: 0x%x\n",
+  ret+=fprintf(f, " TRIGTYPE: %s %s %s %s %s %s %s %s %s %s | RAWTRIGINFO: 0x%x| RAWSTATUS: 0x%x\n",
       header->trigger_type & RNO_G_TRIGGER_SOFT ? "SOFT":"",
       header->trigger_type & RNO_G_TRIGGER_PPS ? "PPS":"",
       header->trigger_type & RNO_G_TRIGGER_RF_LT_SIMPLE ? "RFLT":"",
       header->trigger_type & RNO_G_TRIGGER_RF_LT_PHASED ? "RFLT_PHASED":"",
+      header->trigger_type & RNO_G_TRIGGER_RF_DIDAQ_PHASED ? "RFDIDAQ_PHASED":"",
+      header->trigger_type & RNO_G_TRIGGER_RF_DIDAQ_COINC0 ? "RFDIDAQ_COINC0":"",
+      header->trigger_type & RNO_G_TRIGGER_RF_DIDAQ_COINC1 ? "RFDIDAQ_COINC1":"",
       (header->trigger_type & (RNO_G_TRIGGER_RF_RADIANT0 | RNO_G_TRIGGER_RF_RADIANTX)) == (RNO_G_TRIGGER_RF_RADIANT0 | RNO_G_TRIGGER_RF_RADIANTX)? "RFRAD0":"",
       (header->trigger_type & (RNO_G_TRIGGER_RF_RADIANT1 | RNO_G_TRIGGER_RF_RADIANTX)) == (RNO_G_TRIGGER_RF_RADIANT1 | RNO_G_TRIGGER_RF_RADIANTX)? "RFRAD1":"",
       (header->trigger_type & (RNO_G_TRIGGER_RF_RADIANTX  | RNO_G_TRIGGER_RF_RADIANT0 | RNO_G_TRIGGER_RF_RADIANT1)) == (RNO_G_TRIGGER_RF_RADIANTX ) ? "RFRAD?":"",
@@ -252,12 +255,14 @@ int rno_g_header_read(rno_g_file_handle_t h, rno_g_header_t *header)
       //I THINK we can just get away with zeroing and reading hdv0 amount
       memset(header,0, sizeof(*header));
       rd = do_read(h, sizeof(rno_g_header_v0_t), header, &sum);
+      header->trigger_type &= 0xff; //0 out second 8 bits if they're not empty
       break;
     }
     case 1:
     {
       memset(header, 0, sizeof(*header));
       rd = do_read(h, sizeof(rno_g_header_v1_t), header, &sum);
+      header->trigger_type &= 0xff; //0 out second 8 bits if they're not empty
       break;
     }
     case 2:
@@ -267,6 +272,7 @@ int rno_g_header_read(rno_g_file_handle_t h, rno_g_header_t *header)
       rno_g_header_v2_t v2;
       rd = do_read(h, sizeof(v2), &v2, &sum);
       memset(header, 0, sizeof(*header));
+      v2.flags = 0; //0 out flags in case it was filled
       memcpy(header, &v2, offsetof(rno_g_header_v2_t, radiant_nsamples));
       header->lt_simple_trigger_cfg = v2.lt_simple_trigger_cfg;
       header->radiant_trigger_cfg[0] = v2.radiant_trigger_cfg[0];

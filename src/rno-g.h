@@ -97,17 +97,17 @@ typedef enum rno_g_trigger_type
     RNO_G_TRIGGER_RF_RADIANT0  = 1 << 4,  /**< This was an RF trigger from the RADIANT's trigger 0*/
     RNO_G_TRIGGER_RF_RADIANT1  = 1 << 5,  /**< This was an RF trigger from the RADIANT's trigger 1*/
     RNO_G_TRIGGER_RF_RADIANTX  = 1 << 6,  /**< This was a RF trigger from the RADIANT. The reason this is exists is that due to unreliable bits, we don't know if it was 0 or 1 */
-    RNO_G_TRIGGER_PPS          = 1 << 7   /**< This was a PPS trigger*/
+    RNO_G_TRIGGER_PPS          = 1 << 7,   /**< This was a PPS trigger*/
+
+    RNO_G_TRIGGER_DIDAQ        = 1 << 8,   /** DIDAQ BIT */
+    RNO_G_TRIGGER_DIDAQ_SOFT   = RNO_G_TRIGGER_DIDAQ | RNO_G_TRIGGER_SOFT,   /* same low bit as legacy soft trigger, but with DIDAQ bit set */
+    RNO_G_TRIGGER_DIDAQ_EXT    = RNO_G_TRIGGER_DIDAQ | RNO_G_TRIGGER_EXT,    /** Same low bit as legacy ext trigger, but with DIDAQ bit set */
+    RNO_G_TRIGGER_RF_DIDAQ_PHASED = RNO_G_TRIGGER_DIDAQ | RNO_G_TRIGGER_RF_LT_PHASED,
+    RNO_G_TRIGGER_RF_DIDAQ_COINC0 = RNO_G_TRIGGER_DIDAQ | RNO_G_TRIGGER_RF_RADIANT0,
+    RNO_G_TRIGGER_RF_DIDAQ_COINC1 = RNO_G_TRIGGER_DIDAQ | RNO_G_TRIGGER_RF_RADIANT1,
+    RNO_G_TRIGGER_DIDAQ_PPS    = RNO_G_TRIGGER_DIDAQ | RNO_G_TRIGGER_PPS
+
 } rno_g_trigger_type_t ;
-
-
-
-typedef enum rno_g_flags
-{
-    RNO_G_FLAG_GATE           =  1 << 0, /**< This occured during PPS gate */
-    RNO_G_READOUT_ERROR       =  1 << 1, /**< There was some kind of readout error*/
-    //this will be stored as a uint8_t, so can fit a few more
-}rno_g_flags_t;
 
 
 typedef struct rno_g_lt_trigger_config
@@ -166,14 +166,13 @@ typedef struct rno_g_header
   uint32_t raw_tinfo;       //!< the raw trigger info. To  be figured out.
   uint32_t raw_evstatus;    //!< the raw event status flags. To be figured out.
 
-  uint8_t station_number; //!< The station number.
+  // using bitfield for alignment here.
+  uint32_t station_number : 8; //!< The station number.
 
   /** Trigger type. See rno_g_trigger_type_t  Or-able */
-  uint8_t trigger_type;
+  uint32_t trigger_type : 16;
 
-  /** Various flags for the event. See rno_g_flags_t orable */
-  uint8_t flags;
-  uint8_t pretrigger_windows; //!< Number of pretrigger windows?
+  uint32_t pretrigger_windows : 8; //!< Number of pretrigger windows?
   union
   {
     uint8_t radiant_start_windows[RNO_G_NUM_RADIANT_CHANNELS][2]; //!<this encodes buffer number too. There are two of these because of 2048-sample readout works. The second one will be 0xff (255) if we are in 1024-mode.
