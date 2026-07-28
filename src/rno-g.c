@@ -890,38 +890,36 @@ int rno_g_daqstatus_dump_didaq(FILE *f, const rno_g_daqstatus_t * ds)
 
   ret+=fprintf(f,  "============DIDAQ=============\n");
   ret += fprintf(f,", recorded at %04d-%02d-%02d %02d:%02d:%02d.%09dZ\n",
-                 when_tm_didaq.tm_year + 1900, 1+when_tm_didaq.tm_mon, when_tm_didaq.tm_mday, when_tm_didaq.tm_hour,
-                 when_tm_didaq.tm_min, when_tm_didaq.tm_sec,  didaq_ns);
+    when_tm_didaq.tm_year + 1900, 1+when_tm_didaq.tm_mon, when_tm_didaq.tm_mday, when_tm_didaq.tm_hour,
+    when_tm_didaq.tm_min, when_tm_didaq.tm_sec,  didaq_ns);
   ret+=fprintf(f,  "  clk_rate: %u Hz, num_pps: %hu\n", ds->didaq_scalers.clk_rate, ds->didaq_scalers.num_pps);
-  ret+=fprintf(f,  "-------------------------------------------------\n");
+  ret+=fprintf(f,  "-----------------------------------------------------\n");
   ret+=fprintf(f,  "   CH   |   THRES   |        SCALAR 1Hz (GATED)\n");
   for (int i = 0; i < RNO_G_NUM_RADIANT_CHANNELS / 2; i++)
   {
-    ret+=fprintf(f, " %02d - %02d | %03d - %03d |  %05hu (%05hu) - %05hu (%05hu)  \n",
+    ret+=fprintf(f, " %02d - %02d  | %03d - %03d |  %05hu (%05hu) - %05hu (%05hu)  \n",
       i, i + 12, ds->didaq_coin_thresholds[i], ds->didaq_coin_thresholds[i + 12],
       ds->didaq_scalers.coinc_singles_1Hz[i], ds->didaq_scalers.coinc_singles_1Hz[i + 12],
       ds->didaq_scalers.coinc_singles_1Hz_gated[i], ds->didaq_scalers.coinc_singles_1Hz_gated[i + 12]);
   }
 
-  ret+=fprintf(f,  "-------------------------------------------------\n");
-  for (int i = 0; i < RNO_G_NUM_DIDAQ_COINC; i++)
-  {
-    ret+=fprintf(f," coinc group %d| trig 100mHz: %05hu | gated: %05hu\n",
-                   i, ds->didaq_scalers.coinc_trig_100mHz[i], ds->didaq_scalers.coinc_trig_100mHz_gated[i]);
-  }
+  ret+=fprintf(f,  "-----------------------------------------------------\n");
+  ret+=fprintf(f," coinc group (%d | %d); trig 100mHz: (%05hu | %05hu); gated: (%05hu | %06hu)\n",
+    0, 1, ds->didaq_scalers.coinc_trig_100mHz[0], ds->didaq_scalers.coinc_trig_100mHz[1],
+    ds->didaq_scalers.coinc_trig_100mHz_gated[0], ds->didaq_scalers.coinc_trig_100mHz_gated[1]);
 
-  ret+=fprintf(f,  "-------------------------------------------------\n");
+
+  ret+=fprintf(f,  "-----------------------------------------------------\n");
   ret+=fprintf(f,  " BM |SERVO 1Hz|SERVO TR|TRIG TR|TRIG 100mHz (GATED)\n");
   for (int i = 0; i < RNO_G_NUM_DIDAQ_BEAMS; i++)
   {
-    ret+=fprintf(f," %02d |  %05hu  |  %04hu  |  %04hu |    %05hu (%05hu) \n",
-                   i, ds->didaq_phased_servo_thresholds[i], ds->didaq_phased_trigger_thresholds[i],
-                   ds->didaq_scalers.beam_trig_100mHz[i], ds->didaq_scalers.beam_trig_100mHz_gated[i],
-                   ds->didaq_scalers.beam_servo_1Hz[i]);
+    ret+=fprintf(f," %02d |  %05hu  |  %04hu  |  %04hu |  %05hu (%05hu) \n",
+      i, ds->didaq_scalers.beam_servo_1Hz[i], ds->didaq_phased_servo_thresholds[i], ds->didaq_phased_trigger_thresholds[i],
+      ds->didaq_scalers.beam_trig_100mHz[i], ds->didaq_scalers.beam_trig_100mHz_gated[i]);
   }
-  ret+=fprintf(f,  "-------------------------------------------------\n");
+  ret+=fprintf(f,  "-----------------------------------------------------\n");
   ret+=fprintf(f,  "total beam trig 100mHz: %05hu, gated: %05hu, servo 1Hz: %05hu\n",
-                 ds->didaq_scalers.total_beam_100mHz, ds->didaq_scalers.total_beam_100mHz_gated, ds->didaq_scalers.total_beam_1Hz);
+    ds->didaq_scalers.total_beam_100mHz, ds->didaq_scalers.total_beam_100mHz_gated, ds->didaq_scalers.total_beam_1Hz);
 
   return ret;
 }
