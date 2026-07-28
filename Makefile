@@ -22,6 +22,13 @@ CXXFLAGS?=-fPIC -Og -Wall -Wextra -g
 LDFLAGS=-shared
 LIBS=-lz -pthread
 
+# macOS dylibs bake in their own load path (install name); without this it
+# defaults to the relative build path (e.g. "build/librno-g.so.1.0.0"), which
+# breaks dyld for any binary loading the library from outside that build dir.
+ifeq ($(shell uname -s),Darwin)
+LDFLAGS+=-install_name $(PREFIX)/lib/$(notdir $@)
+endif
+
 ON_BBB?=no
 ON_DIDAQ?=no
 
