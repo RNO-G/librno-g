@@ -39,7 +39,7 @@ int didaq_read_event(didaq_dev_t * bd, rno_g_header_t * hd, rno_g_waveform_t * w
                       0;
 
   if (rdout.meta.trig_type & DIDAQ_TRIGGER_PHASED) {
-    printf("Read out phased-array triggered event with the following beam mask:\n");
+    printf("Read out phased-array triggered event with the following beam mask: (%x)\n", rdout.meta.last_beam_pattern);
     print_bits(rdout.meta.last_beam_pattern, DIDAQ_NUM_BEAMS);
   }
 
