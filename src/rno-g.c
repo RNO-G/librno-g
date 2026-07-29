@@ -110,7 +110,7 @@ int rno_g_header_dump(FILE *f, const rno_g_header_t *header)
       header->trigger_type & RNO_G_TRIGGER_PPS ? "PPS":"",
       header->trigger_type & RNO_G_TRIGGER_RF_LT_SIMPLE ? "RFLT":"",
       header->trigger_type & RNO_G_TRIGGER_RF_LT_PHASED ? "RFLT_PHASED":"",
-      header->trigger_type & RNO_G_TRIGGER_RF_DIDAQ_PHASED ? "RFDIDAQ_PHASED":"",
+      header->trigger_type & RNO_G_TRIGGER_RF_DIDAQ_DEEP_PHASED ? "RFDIDAQ_PHASED":"",
       header->trigger_type & RNO_G_TRIGGER_RF_DIDAQ_COINC0 ? "RFDIDAQ_COINC0":"",
       header->trigger_type & RNO_G_TRIGGER_RF_DIDAQ_COINC1 ? "RFDIDAQ_COINC1":"",
       (header->trigger_type & (RNO_G_TRIGGER_RF_RADIANT0 | RNO_G_TRIGGER_RF_RADIANTX)) == (RNO_G_TRIGGER_RF_RADIANT0 | RNO_G_TRIGGER_RF_RADIANTX)? "RFRAD0":"",

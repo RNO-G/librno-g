@@ -3,6 +3,12 @@
 #include <string.h>
 #include "didaq.h"
 
+void print_bits(uint32_t val, int nbits) {
+    for (int i = nbits - 1; i >= 0; i--)
+        putchar((val >> i) & 1 ? '1' : '0');
+    putchar('\n');
+}
+
 int didaq_read_event(didaq_dev_t * bd, rno_g_header_t * hd, rno_g_waveform_t * wf)
 {
 
@@ -32,6 +38,16 @@ int didaq_read_event(didaq_dev_t * bd, rno_g_header_t * hd, rno_g_waveform_t * w
                      (rdout.meta.trig_type & (DIDAQ_TRIGGER_COINC0 | DIDAQ_TRIGGER_COINC1)) ? rdout.meta.last_coinc_pattern :
                       0;
 
+  if (rdout.meta.trig_type & DIDAQ_TRIGGER_PHASED) {
+    printf("Read out phased-array triggered event with the following beam mask:\n");
+    print_bits(last_beam_pattern, RNO_G_NUM_RADIANT_CHANNELS);
+  }
+
+  if (rdout.meta.trig_type & (DIDAQ_TRIGGER_COINC0 | DIDAQ_TRIGGER_COINC1)) {
+    printf("Read out coinc%d trigger with the following channel mask:\n", rdout.meta.trig_type & DIDAQ_TRIGGER_COINC0 ? 0 : 1;
+    print_bits(last_coinc_pattern, DIDAQ_NUM_);
+  }
+
   hd->pps_count = rdout.meta.pps_counter;
   hd->sys_clk = rdout.meta.clk_cycles;
   hd->sysclk_last_pps = 0; // didaq sysclk is 0 at each pps
@@ -49,7 +65,7 @@ int didaq_read_event(didaq_dev_t * bd, rno_g_header_t * hd, rno_g_waveform_t * w
   if (rdout.meta.trig_type & DIDAQ_TRIGGER_SOFT) hd->trigger_type |= RNO_G_TRIGGER_DIDAQ_SOFT;
   if (rdout.meta.trig_type & DIDAQ_TRIGGER_EXT) hd->trigger_type |= RNO_G_TRIGGER_DIDAQ_EXT;
   if (rdout.meta.trig_type & DIDAQ_TRIGGER_PPS) hd->trigger_type |= RNO_G_TRIGGER_DIDAQ_PPS;
-  if (rdout.meta.trig_type & DIDAQ_TRIGGER_PHASED) hd->trigger_type |= RNO_G_TRIGGER_RF_DIDAQ_PHASED;
+  if (rdout.meta.trig_type & DIDAQ_TRIGGER_PHASED) hd->trigger_type |= RNO_G_TRIGGER_RF_DIDAQ_DEEP_PHASED;
   if (rdout.meta.trig_type & DIDAQ_TRIGGER_COINC0) hd->trigger_type |= RNO_G_TRIGGER_RF_DIDAQ_COINC0;
   if (rdout.meta.trig_type & DIDAQ_TRIGGER_COINC1) hd->trigger_type |= RNO_G_TRIGGER_RF_DIDAQ_COINC1;
 
