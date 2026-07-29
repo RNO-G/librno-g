@@ -40,6 +40,8 @@ int didaq_read_event(didaq_dev_t * bd, rno_g_header_t * hd, rno_g_waveform_t * w
   hd->readout_time_secs = rdout.meta.readout_time.tv_sec;
   hd->readout_time_nsecs = rdout.meta.readout_time.tv_nsec;
   hd->readout_elapsed_nsecs =  rdout.meta.readout_time.tv_nsec - rdout.meta.ready_time.tv_nsec + 1e9 * (rdout.meta.readout_time.tv_sec - rdout.meta.ready_time.tv_nsec);
+
+  //these are RADIANT things, maybe we can come up with some use for them?
   hd->raw_tinfo  = 0;
   hd->raw_evstatus  = 0;
 
