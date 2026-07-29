@@ -40,12 +40,12 @@ int didaq_read_event(didaq_dev_t * bd, rno_g_header_t * hd, rno_g_waveform_t * w
 
   if (rdout.meta.trig_type & DIDAQ_TRIGGER_PHASED) {
     printf("Read out phased-array triggered event with the following beam mask:\n");
-    print_bits(last_beam_pattern, RNO_G_NUM_RADIANT_CHANNELS);
+    print_bits(rdout.meta.last_beam_pattern, DIDAQ_NUM_BEAMS);
   }
 
   if (rdout.meta.trig_type & (DIDAQ_TRIGGER_COINC0 | DIDAQ_TRIGGER_COINC1)) {
-    printf("Read out coinc%d trigger with the following channel mask:\n", rdout.meta.trig_type & DIDAQ_TRIGGER_COINC0 ? 0 : 1;
-    print_bits(last_coinc_pattern, DIDAQ_NUM_);
+    printf("Read out coinc%d trigger with the following channel mask:\n", rdout.meta.trig_type & DIDAQ_TRIGGER_COINC0 ? 0 : 1);
+    print_bits(rdout.meta.last_coinc_pattern, RNO_G_NUM_RADIANT_CHANNELS);
   }
 
   hd->pps_count = rdout.meta.pps_counter;
@@ -73,7 +73,6 @@ int didaq_read_event(didaq_dev_t * bd, rno_g_header_t * hd, rno_g_waveform_t * w
   {
     hd->didaq_start_offsets[i] = rdout.in.start;
   }
-
 
   return 0;
 }
