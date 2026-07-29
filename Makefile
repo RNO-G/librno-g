@@ -174,34 +174,34 @@ $(BUILD_DIR)/test: $(BUILD_DIR)
 CLIENT_OBJS=rno-g.o rno-g-version.o rno-g-nsample-diff-hist.o
 $(BUILD_DIR)/librno-g.so.$(VERSUFFIX): $(addprefix $(BUILD_DIR)/, $(CLIENT_OBJS))
 	@echo Linking $@
-	@cc -o $@ $(LDFLAGS) $^  $(LIBS)
+	@$(CC) -o $@ $(LDFLAGS) $^  $(LIBS)
 
 RAD_OBJS=radiant.o cobs.o adf4350.o
 $(BUILD_DIR)/libradiant.so.$(VERSUFFIX): $(addprefix $(BUILD_DIR)/, $(RAD_OBJS))
 	@echo Linking $@
-	@cc -o $@ $(LDFLAGS) $^  $(LIBS)
+	@$(CC) -o $@ $(LDFLAGS) $^  $(LIBS)
 
 CAL_OBJS=rno-g-cal.o
 $(BUILD_DIR)/librno-g-cal.so.$(VERSUFFIX): $(addprefix $(BUILD_DIR)/, $(CAL_OBJS))
 	@echo Linking $@
-	@cc -o $@ $(LDFLAGS) $^  $(LIBS)
+	@$(CC) -o $@ $(LDFLAGS) $^  $(LIBS)
 
 FLWR_OBJS=flower.o
 $(BUILD_DIR)/libflower.so.$(VERSUFFIX): $(addprefix $(BUILD_DIR)/, $(FLWR_OBJS))
 	@echo Linking $@
-	@cc -o $@ $(LDFLAGS) $^  $(LIBS)
+	@$(CC) -o $@ $(LDFLAGS) $^  $(LIBS)
 
 
 RNOG_DIDAQ_OBJS=rno-g-didaq.o
 $(BUILD_DIR)/librno-g-didaq.so.$(VERSUFFIX): $(addprefix $(BUILD_DIR)/, $(RNOG_DIDAQ_OBJS))
 	@echo Linking $@
-	@cc -o $@ $(LDFLAGS) $^  $(LIBS) -ldidaq
+	@$(CC) -o $@ $(LDFLAGS) $^  $(LIBS) -ldidaq
 
 
 # non-DAQ objects begin with rno-.... haas to be rno- instead of rno-g so that rno-g.c works :)
 $(BUILD_DIR)/rno-%.o: src/rno-%.c $(INCLUDES) | $(BUILD_DIR)
 	@echo Compiling non-DAQ object $@
-	@cc -c -fPIC -o $@ $(CFLAGS) $<
+	@$(CC) -c -fPIC -o $@ $(CFLAGS) $<
 
 
 $(BUILD_DIR)/rno_g.so:  src/rno-g-pybind.cc  $(INCLUDES) $(BUILD_DIR)/librno-g.so | $(BUILD_DIR)
@@ -214,7 +214,7 @@ $(BUILD_DIR)/radiant.so:  src/radiant-pybind.cc  $(INCLUDES) $(BUILD_DIR)/librno
 
 $(BUILD_DIR)/%.o: src/%.c $(DAQ_INCLUDES) | $(BUILD_DIR)
 	@echo Compiling $@
-	@cc -c -fPIC -o $@ $(CFLAGS) $<
+	@$(CC) -c -fPIC -o $@ $(CFLAGS) $<
 
 $(BUILD_DIR)/rno-g-version.h: Makefile
 	@echo "Generating rno-g-version.h"
@@ -227,11 +227,11 @@ $(BUILD_DIR)/rno-g-version.h: Makefile
 
 $(BUILD_DIR)/test/rno-g-%: test/rno-g-%.c $(INCLUDES) $(BUILD_DIR)/librno-g.so | $(BUILD_DIR)
 	@echo Compiling $@
-	@cc  -o $@ $(CFLAGS) -Isrc/  $< -L$(BUILD_DIR) -lrno-g -lz -lm
+	@$(CC)  -o $@ $(CFLAGS) -Isrc/  $< -L$(BUILD_DIR) -lrno-g -lz -lm
 
 $(BUILD_DIR)/test/%: test/%.c $(INCLUDES) $(DAQ_INCLUDES) $(BUILD_DIR)/librno-g.so $(BUILD_DIR)/libradiant.so $(BUILD_DIR)/libflower.so $(BUILD_DIR)/librno-g-cal.so | $(BUILD_DIR)
 	@echo Compiling $@
-	@cc  -o $@ $(CFLAGS) -Isrc/ $< -L$(BUILD_DIR) -lradiant -lrno-g -lflower -lrno-g-cal -lz -lm $(GPIO_LIBS)
+	@$(CC)  -o $@ $(CFLAGS) -Isrc/ $< -L$(BUILD_DIR) -lradiant -lrno-g -lflower -lrno-g-cal -lz -lm $(GPIO_LIBS)
 
 $(BUILD_DIR)/test/%: test/%.py $(INCLUDES) $(DAQ_INCLUDES) $(BUILD_DIR)/librno-g.so  $(BUILD_DIR)/_rno_g.so $(BUILD_DIR)/libradiant.so | $(BUILD_DIR)
 	ln  $@ $<
