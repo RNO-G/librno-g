@@ -44,10 +44,24 @@ CFLAGS+=-DON_BBB
 DAQ_INCLUDES=src/radiant.h src/cobs.h src/adf4350.h src/flower.h src/rno-g-cal.h
 endif
 
+
+
+#check if inside rno-g-revn yocto build
+ifneq (,$(filter ${MACHINE},rno-g-revn))
+$(info We are inside yocto)
+ON_DIDAQ=yes
+endif
+
 #check if on revn board
 ifneq (,$(shell grep RevN /proc/device-tree/model 2> /dev/null))
-$(info We are on the DiDAQ)
+$(info We are on the RevN DAQ)
 ON_DIDAQ=yes
+endif
+
+
+#check if on revn board
+ifeq ($(ON_DIDAQ),yes)
+$(info We are building for the DiDAQ)
 CFLAGS+= -DON_DIDAQ -DON_AM62X -DUSE_LIBGPIOS -DON_DIDAQ -I/usr/include -I${PREFIX}/include
 LDFLAGS+=-L${PREFIX}/lib
 GPIO_LIBS=-lgpios
