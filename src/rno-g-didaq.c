@@ -63,11 +63,16 @@ int didaq_read_event(didaq_dev_t * bd, rno_g_header_t * hd, rno_g_waveform_t * w
 
   hd->trigger_type =  0;
   if (rdout.meta.trig_type & DIDAQ_TRIGGER_SOFT) hd->trigger_type |= RNO_G_TRIGGER_DIDAQ_SOFT;
-  if (rdout.meta.trig_type & DIDAQ_TRIGGER_EXT) hd->trigger_type |= RNO_G_TRIGGER_DIDAQ_EXT;
-  if (rdout.meta.trig_type & DIDAQ_TRIGGER_PPS) hd->trigger_type |= RNO_G_TRIGGER_DIDAQ_PPS;
-  if (rdout.meta.trig_type & DIDAQ_TRIGGER_PHASED) hd->trigger_type |= RNO_G_TRIGGER_RF_DIDAQ_DEEP_PHASED;
-  if (rdout.meta.trig_type & DIDAQ_TRIGGER_COINC0) hd->trigger_type |= RNO_G_TRIGGER_RF_DIDAQ_COINC0;
-  if (rdout.meta.trig_type & DIDAQ_TRIGGER_COINC1) hd->trigger_type |= RNO_G_TRIGGER_RF_DIDAQ_COINC1;
+  else if (rdout.meta.trig_type & DIDAQ_TRIGGER_EXT) hd->trigger_type |= RNO_G_TRIGGER_DIDAQ_EXT;
+  else if (rdout.meta.trig_type & DIDAQ_TRIGGER_PPS) hd->trigger_type |= RNO_G_TRIGGER_DIDAQ_PPS;
+  else if (rdout.meta.trig_type & DIDAQ_TRIGGER_PHASED) hd->trigger_type |= RNO_G_TRIGGER_RF_DIDAQ_DEEP_PHASED;
+  else if (rdout.meta.trig_type & DIDAQ_TRIGGER_COINC0) hd->trigger_type |= RNO_G_TRIGGER_RF_DIDAQ_COINC0;
+  else if (rdout.meta.trig_type & DIDAQ_TRIGGER_COINC1) hd->trigger_type |= RNO_G_TRIGGER_RF_DIDAQ_COINC1;
+  else {
+    fprintf(stderr, "Unknown trigger type! Only set DiDAQ status bit. Please investigate...");
+    hd->trigger_type |= RNO_G_TRIGGER_DIDAQ;
+  }
+
 
   for (int i = 0; i < RNO_G_NUM_RADIANT_CHANNELS; i++)
   {
