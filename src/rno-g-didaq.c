@@ -3,13 +3,16 @@
 #include <string.h>
 #include "didaq.h"
 
-// Channel groups of the two LPDA sets, as bits in the coincidence pattern
+// The two LPDA sets, as bits in the coincidence pattern (DiDAQ channel numbering)
 #define DIDAQ_SURF_DOWN_CHANNEL_MASK  0xF000u   // channels 12-15
 #define DIDAQ_SURF_UP_CHANNEL_MASK    0xF0000u  // channels 16-19
 
 void print_bits(uint32_t val, int nbits) {
-    for (int i = nbits - 1; i >= 0; i--)
-        putchar((val >> i) & 1 ? '1' : '0');
+    for (int i = nbits - 1; i >= 0; i--) {
+      if (i && i % 4 == 0)
+        putchar(" ");
+      putchar((val >> i) & 1 ? '1' : '0');
+    }
     putchar('\n');
 }
 
@@ -42,15 +45,10 @@ int didaq_read_event(didaq_dev_t * bd, rno_g_header_t * hd, rno_g_waveform_t * w
                      (rdout.meta.trig_type & (DIDAQ_TRIGGER_COINC0 | DIDAQ_TRIGGER_COINC1)) ? rdout.meta.last_coinc_pattern :
                       0;
 
-  // if ((rdout.meta.trig_type & DIDAQ_TRIGGER_PHASED) && __builtin_popcount(rdout.meta.last_beam_pattern) > 1) {
-  //   printf("Read out phased-array triggered event with the following beam mask: (%x)\n", rdout.meta.last_beam_pattern);
-  //   print_bits(rdout.meta.last_beam_pattern, DIDAQ_NUM_BEAMS);
-  // }
-
-  // if (rdout.meta.trig_type & (DIDAQ_TRIGGER_COINC0 | DIDAQ_TRIGGER_COINC1)) {
-  //   printf("Read out coinc%d trigger with the following channel mask:\n", rdout.meta.trig_type & DIDAQ_TRIGGER_COINC0 ? 0 : 1);
-  //   print_bits(rdout.meta.last_coinc_pattern, RNO_G_NUM_RADIANT_CHANNELS);
-  // }
+  if ((rdout.meta.trig_type & DIDAQ_TRIGGER_PHASED) && __builtin_popcount(rdout.meta.last_beam_pattern) > 1) {
+    printf("Read out phased-array triggered event with the following beam mask: (%x)\n", rdout.meta.last_beam_pattern);
+    print_bits(rdout.meta.last_beam_pattern, DIDAQ_NUM_BEAMS);
+  }
 
   hd->pps_count = rdout.meta.pps_counter;
   hd->sys_clk = rdout.meta.clk_cycles;
