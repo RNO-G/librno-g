@@ -83,8 +83,6 @@ int didaq_read_event(didaq_dev_t * bd, rno_g_header_t * hd, rno_g_waveform_t * w
       fprintf(stderr, "Found a non UP/DOWN COINC1 trigger ...");
     }
   }
-
-  }
   else {
     fprintf(stderr, "Unknown trigger type! Only set DiDAQ status bit. Please investigate...");
     hd->trigger_type |= RNO_G_TRIGGER_DIDAQ;
