@@ -67,12 +67,28 @@ int didaq_read_event(didaq_dev_t * bd, rno_g_header_t * hd, rno_g_waveform_t * w
   else if (rdout.meta.trig_type & DIDAQ_TRIGGER_PPS) hd->trigger_type |= RNO_G_TRIGGER_DIDAQ_PPS;
   else if (rdout.meta.trig_type & DIDAQ_TRIGGER_PHASED) hd->trigger_type |= RNO_G_TRIGGER_RF_DIDAQ_DEEP_PHASED;
   else if (rdout.meta.trig_type & DIDAQ_TRIGGER_COINC0) hd->trigger_type |= RNO_G_TRIGGER_RF_DIDAQ_COINC0;
-  else if (rdout.meta.trig_type & DIDAQ_TRIGGER_COINC1) hd->trigger_type |= RNO_G_TRIGGER_RF_DIDAQ_COINC1;
+  else if (rdout.meta.trig_type & DIDAQ_TRIGGER_COINC1) {
+    printf("COINC1 trigger: trying to assign LPDA trigger\n");
+    // 0xF000 -> 0000 0000 0000 1111 0000 0000
+    if (rdout.meta.last_coinc_pattern & 0xF000) {
+      hd->trigger_type |= RNO_G_TRIGGER_RF_DIDAQ_SURF_DOWN;
+
+    }
+    // 0xF0000 -> 0000 0000 0000 0000 1111 0000
+    else if (rdout.meta.last_coinc_pattern & 0xF0000) {
+      hd->trigger_type |= RNO_G_TRIGGER_RF_DIDAQ_SURF_UP;
+    }
+    else {
+      hd->trigger_type |= RNO_G_TRIGGER_RF_DIDAQ_COINC1;
+      fprintf(stderr, "Found a non UP/DOWN COINC1 trigger ...");
+    }
+  }
+
+  }
   else {
     fprintf(stderr, "Unknown trigger type! Only set DiDAQ status bit. Please investigate...");
     hd->trigger_type |= RNO_G_TRIGGER_DIDAQ;
   }
-
 
   for (int i = 0; i < RNO_G_NUM_RADIANT_CHANNELS; i++)
   {
