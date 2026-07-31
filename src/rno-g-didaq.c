@@ -3,6 +3,10 @@
 #include <string.h>
 #include "didaq.h"
 
+// Channel groups of the two LPDA sets, as bits in the coincidence pattern
+#define DIDAQ_SURF_DOWN_CHANNEL_MASK  0xF000u   // channels 12-15
+#define DIDAQ_SURF_UP_CHANNEL_MASK    0xF0000u  // channels 16-19
+
 void print_bits(uint32_t val, int nbits) {
     for (int i = nbits - 1; i >= 0; i--)
         putchar((val >> i) & 1 ? '1' : '0');
@@ -38,15 +42,15 @@ int didaq_read_event(didaq_dev_t * bd, rno_g_header_t * hd, rno_g_waveform_t * w
                      (rdout.meta.trig_type & (DIDAQ_TRIGGER_COINC0 | DIDAQ_TRIGGER_COINC1)) ? rdout.meta.last_coinc_pattern :
                       0;
 
-  if (rdout.meta.trig_type & DIDAQ_TRIGGER_PHASED) {
-    printf("Read out phased-array triggered event with the following beam mask: (%x)\n", rdout.meta.last_beam_pattern);
-    print_bits(rdout.meta.last_beam_pattern, DIDAQ_NUM_BEAMS);
-  }
+  // if ((rdout.meta.trig_type & DIDAQ_TRIGGER_PHASED) && __builtin_popcount(rdout.meta.last_beam_pattern) > 1) {
+  //   printf("Read out phased-array triggered event with the following beam mask: (%x)\n", rdout.meta.last_beam_pattern);
+  //   print_bits(rdout.meta.last_beam_pattern, DIDAQ_NUM_BEAMS);
+  // }
 
-  if (rdout.meta.trig_type & (DIDAQ_TRIGGER_COINC0 | DIDAQ_TRIGGER_COINC1)) {
-    printf("Read out coinc%d trigger with the following channel mask:\n", rdout.meta.trig_type & DIDAQ_TRIGGER_COINC0 ? 0 : 1);
-    print_bits(rdout.meta.last_coinc_pattern, RNO_G_NUM_RADIANT_CHANNELS);
-  }
+  // if (rdout.meta.trig_type & (DIDAQ_TRIGGER_COINC0 | DIDAQ_TRIGGER_COINC1)) {
+  //   printf("Read out coinc%d trigger with the following channel mask:\n", rdout.meta.trig_type & DIDAQ_TRIGGER_COINC0 ? 0 : 1);
+  //   print_bits(rdout.meta.last_coinc_pattern, RNO_G_NUM_RADIANT_CHANNELS);
+  // }
 
   hd->pps_count = rdout.meta.pps_counter;
   hd->sys_clk = rdout.meta.clk_cycles;
@@ -69,14 +73,18 @@ int didaq_read_event(didaq_dev_t * bd, rno_g_header_t * hd, rno_g_waveform_t * w
   else if (rdout.meta.trig_type & DIDAQ_TRIGGER_COINC0) hd->trigger_type |= RNO_G_TRIGGER_RF_DIDAQ_COINC0;
   else if (rdout.meta.trig_type & DIDAQ_TRIGGER_COINC1) {
     printf("COINC1 trigger: trying to assign LPDA trigger\n");
-    // 0xF000 -> 0000 0000 0000 1111 0000 0000
-    if (rdout.meta.last_coinc_pattern & 0xF000) {
+    // A SURF trigger does not require all channels of a group to have fired (typically >= 2,
+    // but can be a single one) -- but no channel outside of the group may have fired.
+    uint32_t coinc_pattern = rdout.meta.last_coinc_pattern;
+    if (coinc_pattern && !(coinc_pattern & ~DIDAQ_SURF_DOWN_CHANNEL_MASK)) {
       hd->trigger_type |= RNO_G_TRIGGER_RF_DIDAQ_SURF_DOWN;
-
+      printf("Detect DOWN trigger:\n");
+      print_bits(rdout.meta.last_coinc_pattern, RNO_G_NUM_RADIANT_CHANNELS);
     }
-    // 0xF0000 -> 0000 0000 0000 0000 1111 0000
-    else if (rdout.meta.last_coinc_pattern & 0xF0000) {
+    else if (coinc_pattern && !(coinc_pattern & ~DIDAQ_SURF_UP_CHANNEL_MASK)) {
       hd->trigger_type |= RNO_G_TRIGGER_RF_DIDAQ_SURF_UP;
+      printf("Detect  UP  trigger:\n");
+      print_bits(rdout.meta.last_coinc_pattern, RNO_G_NUM_RADIANT_CHANNELS);
     }
     else {
       hd->trigger_type |= RNO_G_TRIGGER_RF_DIDAQ_COINC1;
