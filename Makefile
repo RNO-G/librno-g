@@ -214,7 +214,7 @@ $(BUILD_DIR)/radiant.so:  src/radiant-pybind.cc  $(INCLUDES) $(BUILD_DIR)/librno
 
 $(BUILD_DIR)/%.o: src/%.c $(DAQ_INCLUDES) | $(BUILD_DIR)
 	@echo Compiling $@
-	@$(CC) -c -fPIC -o $@ $(CFLAGS) $<
+	$(CC) -c -fPIC -o $@ $(CFLAGS) $<
 
 $(BUILD_DIR)/rno-g-version.h: Makefile
 	@echo "Generating rno-g-version.h"
