@@ -10,7 +10,7 @@
 void print_bits(uint32_t val, int nbits) {
     for (int i = nbits - 1; i >= 0; i--) {
       if (i && i % 4 == 0)
-        putchar(" ");
+        putchar(' ');
       putchar((val >> i) & 1 ? '1' : '0');
     }
     putchar('\n');
