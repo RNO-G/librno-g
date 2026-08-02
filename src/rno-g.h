@@ -90,22 +90,36 @@ int rno_g_close_handle(rno_g_file_handle_t * h);
 
 typedef enum rno_g_trigger_type
 {
+    // Not digitizer specific trigger types (although names may include digitizer for historical purposes)
+    // Those were used, without extra status bit for the RADIANT/FLOWER combi
     RNO_G_TRIGGER_SOFT         = 1 << 0,  /**< This was a software trigger */
-    RNO_G_TRIGGER_EXT          = 1 << 1,  /**< This was an external trigger (note that the LT is implemented as an external trigger, but this is not it!) */
-    RNO_G_TRIGGER_RF_LT_SIMPLE = 1 << 2,  /**< This was an RF trigger from the LT board*/
-    RNO_G_TRIGGER_RF_LT_PHASED = 1 << 3,  /**< This was an RF trigger from the LT board*/
-    RNO_G_TRIGGER_RF_RADIANT0  = 1 << 4,  /**< This was an RF trigger from the RADIANT's trigger 0*/
-    RNO_G_TRIGGER_RF_RADIANT1  = 1 << 5,  /**< This was an RF trigger from the RADIANT's trigger 1*/
-    RNO_G_TRIGGER_RF_RADIANTX  = 1 << 6,  /**< This was a RF trigger from the RADIANT. The reason this is exists is that due to unreliable bits, we don't know if it was 0 or 1 */
+    RNO_G_TRIGGER_EXT          = 1 << 1,  /**< This was an external trigger (note that the FLOWER/LT is implemented as an external trigger, but this is not it!) */
+    RNO_G_TRIGGER_RF_LT_PHASED = 1 << 3,  /**< This was an RF trigger from the LT/FLOWER board*/
+    RNO_G_TRIGGER_RF_RADIANT0  = 1 << 4,  /**< This was an RF trigger from the RADIANT's trigger 0 (this should have always been a upward facing LPDA coincidence trigger)*/
+    RNO_G_TRIGGER_RF_RADIANT1  = 1 << 5,  /**< This was an RF trigger from the RADIANT's trigger 1 (this should have always been a downward facing LPDA coincidence trigger)*/
     RNO_G_TRIGGER_PPS          = 1 << 7,   /**< This was a PPS trigger*/
 
-    RNO_G_TRIGGER_DIDAQ        = 1 << 8,   /** DIDAQ BIT */
-    RNO_G_TRIGGER_DIDAQ_SOFT   = RNO_G_TRIGGER_DIDAQ | RNO_G_TRIGGER_SOFT,   /* same low bit as legacy soft trigger, but with DIDAQ bit set */
-    RNO_G_TRIGGER_DIDAQ_EXT    = RNO_G_TRIGGER_DIDAQ | RNO_G_TRIGGER_EXT,    /** Same low bit as legacy ext trigger, but with DIDAQ bit set */
-    RNO_G_TRIGGER_RF_DIDAQ_PHASED = RNO_G_TRIGGER_DIDAQ | RNO_G_TRIGGER_RF_LT_PHASED,
-    RNO_G_TRIGGER_RF_DIDAQ_COINC0 = RNO_G_TRIGGER_DIDAQ | RNO_G_TRIGGER_RF_RADIANT0,
-    RNO_G_TRIGGER_RF_DIDAQ_COINC1 = RNO_G_TRIGGER_DIDAQ | RNO_G_TRIGGER_RF_RADIANT1,
-    RNO_G_TRIGGER_DIDAQ_PPS    = RNO_G_TRIGGER_DIDAQ | RNO_G_TRIGGER_PPS
+    // RADIANT/FLOWER specific triggers
+    RNO_G_TRIGGER_RF_LT_SIMPLE = 1 << 2,  /**< This was an RF trigger from the LT board*/
+    RNO_G_TRIGGER_RF_RADIANTX  = 1 << 6,  /**< This was a RF trigger from the RADIANT. The reason this is exists is that due to unreliable bits, we don't know if it was 0 or 1 */
+
+    // Set DIDAQ BIT. Used in combination with RADIANT/FLOWER bits to reimplement corresponding tigger on DIDAQ
+    // Choose a high bit to avoid accidental reassignment
+    RNO_G_TRIGGER_DIDAQ        = 1 << 15,   /** DIDAQ BIT */
+
+    // DIDAQ specific triggers - reusing RADIANT/FLOWER bits + RNO_G_TRIGGER_DIDAQ bit
+    RNO_G_TRIGGER_RF_DIDAQ_COINC0 = RNO_G_TRIGGER_DIDAQ | 1 << 2,
+    RNO_G_TRIGGER_RF_DIDAQ_COINC1 = RNO_G_TRIGGER_DIDAQ | 1 << 6,
+
+    // Non DIADQ specifc triggers with DIDAQ bit
+    RNO_G_TRIGGER_DIDAQ_SOFT            = RNO_G_TRIGGER_DIDAQ | RNO_G_TRIGGER_SOFT,
+    RNO_G_TRIGGER_DIDAQ_EXT             = RNO_G_TRIGGER_DIDAQ | RNO_G_TRIGGER_EXT,
+    RNO_G_TRIGGER_RF_DIDAQ_DEEP_PHASED  = RNO_G_TRIGGER_DIDAQ | RNO_G_TRIGGER_RF_LT_PHASED,
+    RNO_G_TRIGGER_RF_DIDAQ_SURF_UP      = RNO_G_TRIGGER_DIDAQ | RNO_G_TRIGGER_RF_RADIANT0,
+    RNO_G_TRIGGER_RF_DIDAQ_SURF_DOWN    = RNO_G_TRIGGER_DIDAQ | RNO_G_TRIGGER_RF_RADIANT1,
+    RNO_G_TRIGGER_DIDAQ_PPS             = RNO_G_TRIGGER_DIDAQ | RNO_G_TRIGGER_PPS
+
+    // Free bits 8 - 14
 
 } rno_g_trigger_type_t ;
 

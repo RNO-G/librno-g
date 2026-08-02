@@ -110,7 +110,7 @@ int rno_g_header_dump(FILE *f, const rno_g_header_t *header)
       header->trigger_type & RNO_G_TRIGGER_PPS ? "PPS":"",
       header->trigger_type & RNO_G_TRIGGER_RF_LT_SIMPLE ? "RFLT":"",
       header->trigger_type & RNO_G_TRIGGER_RF_LT_PHASED ? "RFLT_PHASED":"",
-      header->trigger_type & RNO_G_TRIGGER_RF_DIDAQ_PHASED ? "RFDIDAQ_PHASED":"",
+      header->trigger_type & RNO_G_TRIGGER_RF_DIDAQ_DEEP_PHASED ? "RFDIDAQ_PHASED":"",
       header->trigger_type & RNO_G_TRIGGER_RF_DIDAQ_COINC0 ? "RFDIDAQ_COINC0":"",
       header->trigger_type & RNO_G_TRIGGER_RF_DIDAQ_COINC1 ? "RFDIDAQ_COINC1":"",
       (header->trigger_type & (RNO_G_TRIGGER_RF_RADIANT0 | RNO_G_TRIGGER_RF_RADIANTX)) == (RNO_G_TRIGGER_RF_RADIANT0 | RNO_G_TRIGGER_RF_RADIANTX)? "RFRAD0":"",
@@ -905,8 +905,8 @@ int rno_g_daqstatus_dump_didaq(FILE *f, const rno_g_daqstatus_t * ds)
   {
     ret+=fprintf(f, " %02d - %02d  | %03d - %03d |  %05hu (%05hu) - %05hu (%05hu)  \n",
       i, i + 12, ds->didaq_coin_thresholds[i], ds->didaq_coin_thresholds[i + 12],
-      ds->didaq_scalers.coinc_singles_1Hz[i], ds->didaq_scalers.coinc_singles_1Hz[i + 12],
-      ds->didaq_scalers.coinc_singles_1Hz_gated[i], ds->didaq_scalers.coinc_singles_1Hz_gated[i + 12]);
+      ds->didaq_scalers.coinc_singles_1Hz[i], ds->didaq_scalers.coinc_singles_1Hz_gated[i],
+      ds->didaq_scalers.coinc_singles_1Hz[i + 12], ds->didaq_scalers.coinc_singles_1Hz_gated[i + 12]);
   }
 
   ret+=fprintf(f,  "-----------------------------------------------------\n");
