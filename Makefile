@@ -203,6 +203,11 @@ $(BUILD_DIR)/rno-%.o: src/rno-%.c $(INCLUDES) | $(BUILD_DIR)
 	@echo Compiling non-DAQ object $@
 	@$(CC) -c -fPIC -o $@ $(CFLAGS) $<
 
+# except for rno-g-ididaq which is not a non-daq object
+$(BUILD_DIR)/rno-g-didaq.o: src/rno-g-didaq.c $(INCLUDES) | $(BUILD_DIR)
+	@echo Compiling DIDAQ object $@
+	$(CC) -c -fPIC -o $@ $(CFLAGS) $<
+
 
 $(BUILD_DIR)/rno_g.so:  src/rno-g-pybind.cc  $(INCLUDES) $(BUILD_DIR)/librno-g.so | $(BUILD_DIR)
 	@echo Generating Python bindings for rno-g. This might take a while if you are on the BBB
@@ -214,7 +219,7 @@ $(BUILD_DIR)/radiant.so:  src/radiant-pybind.cc  $(INCLUDES) $(BUILD_DIR)/librno
 
 $(BUILD_DIR)/%.o: src/%.c $(DAQ_INCLUDES) | $(BUILD_DIR)
 	@echo Compiling $@
-	$(CC) -c -fPIC -o $@ $(CFLAGS) $<
+	@$(CC) -c -fPIC -o $@ $(CFLAGS) $<
 
 $(BUILD_DIR)/rno-g-version.h: Makefile
 	@echo "Generating rno-g-version.h"
