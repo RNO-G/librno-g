@@ -233,7 +233,7 @@ $(BUILD_DIR)/rno-g-version.h: Makefile
 
 $(BUILD_DIR)/test/rno-g-%: test/rno-g-%.c $(INCLUDES) $(BUILD_DIR)/librno-g.so | $(BUILD_DIR)
 	@echo Compiling $@
-	@$(CC)  -o $@ $(LDFLAGS) $(CFLAGS) -Isrc/  $< -L$(BUILD_DIR) -lrno-g -lz -lm
+	$(CC)  -o $@  $(CFLAGS) -Isrc/  $< $(LDFLAGS) -L$(BUILD_DIR) -lrno-g -lz -lm
 
 $(BUILD_DIR)/test/%: test/%.c $(INCLUDES) $(DAQ_INCLUDES) $(BUILD_DIR)/librno-g.so $(BUILD_DIR)/libradiant.so $(BUILD_DIR)/libflower.so $(BUILD_DIR)/librno-g-cal.so | $(BUILD_DIR)
 	@echo Compiling $@
