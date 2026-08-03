@@ -19,7 +19,6 @@ CFLAGS+=$(EXTRA_CFLAGS)
 CFLAGS+=-DRADIANT_SPI_SPEED=$(RADIANT_SPI_SPEED_MHZ)
 CXXFLAGS?=-fPIC -Og -Wall -Wextra -g
 
-LDFLAGS=-shared
 LIBS=-lz -pthread
 
 # macOS dylibs bake in their own load path (install name); without this it
@@ -174,28 +173,28 @@ $(BUILD_DIR)/test: $(BUILD_DIR)
 CLIENT_OBJS=rno-g.o rno-g-version.o rno-g-nsample-diff-hist.o
 $(BUILD_DIR)/librno-g.so.$(VERSUFFIX): $(addprefix $(BUILD_DIR)/, $(CLIENT_OBJS))
 	@echo Linking $@
-	@$(CC) -o $@ $(LDFLAGS) $^  $(LIBS)
+	@$(CC) -o $@ -shared $(LDFLAGS) $^  $(LIBS)
 
 RAD_OBJS=radiant.o cobs.o adf4350.o
 $(BUILD_DIR)/libradiant.so.$(VERSUFFIX): $(addprefix $(BUILD_DIR)/, $(RAD_OBJS))
 	@echo Linking $@
-	@$(CC) -o $@ $(LDFLAGS) $^  $(LIBS)
+	@$(CC) -o $@ -shared $(LDFLAGS) $^  $(LIBS)
 
 CAL_OBJS=rno-g-cal.o
 $(BUILD_DIR)/librno-g-cal.so.$(VERSUFFIX): $(addprefix $(BUILD_DIR)/, $(CAL_OBJS))
 	@echo Linking $@
-	@$(CC) -o $@ $(LDFLAGS) $^  $(LIBS)
+	@$(CC) -o $@ -shared $(LDFLAGS) $^  $(LIBS)
 
 FLWR_OBJS=flower.o
 $(BUILD_DIR)/libflower.so.$(VERSUFFIX): $(addprefix $(BUILD_DIR)/, $(FLWR_OBJS))
 	@echo Linking $@
-	@$(CC) -o $@ $(LDFLAGS) $^  $(LIBS)
+	@$(CC) -o $@ -shared $(LDFLAGS) $^  $(LIBS)
 
 
 RNOG_DIDAQ_OBJS=rno-g-didaq.o
 $(BUILD_DIR)/librno-g-didaq.so.$(VERSUFFIX): $(addprefix $(BUILD_DIR)/, $(RNOG_DIDAQ_OBJS))
 	@echo Linking $@
-	@$(CC) -o $@ $(LDFLAGS) $^  $(LIBS) -ldidaq
+	@$(CC) -o $@ -shared $(LDFLAGS) $^  $(LIBS) -ldidaq
 
 
 # non-DAQ objects begin with rno-.... haas to be rno- instead of rno-g so that rno-g.c works :)
