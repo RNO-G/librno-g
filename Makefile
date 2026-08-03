@@ -122,31 +122,32 @@ test: $(addprefix $(BUILD_DIR)/test/, $(TESTS) )
 install: client
 	install -d $(DESTDIR)$(PREFIX)/lib
 	install -d $(DESTDIR)$(PREFIX)/include
-	install $(BUILD_DIR)/librno-g.so $(DESTDIR)$(PREFIX)/lib/
-	install $(BUILD_DIR)/librno-g.so.$(VER_MAJOR) $(DESTDIR)$(PREFIX)/lib/
 	install $(BUILD_DIR)/librno-g.so.$(VERSUFFIX) $(DESTDIR)$(PREFIX)/lib/
+	ln -sfr $(DESTDIR)$(PREFIX)/$(LIBDIR)/librno-g.so.$(VERSUFFIX) $(DESTDIR)$(PREFIX)/$(LIBDIR)/librno-g.so.$(VER_MAJOR)
+	ln -sfr $(DESTDIR)$(PREFIX)/$(LIBDIR)/librno-g.so.$(VER_MAJOR) $(DESTDIR)$(PREFIX)/$(LIBDIR)/librno-g.so
+
 	install $(INCLUDES) $(BUILD_DIR)/rno-g-version.h $(DESTDIR)$(PREFIX)/include/
 
 install-daq: install $(BUILD_DIR)/libradiant.so $(BUILD_DIR)/libflower.so $(BUILD_DIR)/librno-g-cal.so
-	install $(BUILD_DIR)/libradiant.so $(DESTDIR)$(PREFIX)/lib/
-	install $(BUILD_DIR)/libflower.so $(DESTDIR)$(PREFIX)/lib/
-	install $(BUILD_DIR)/librno-g-cal.so $(DESTDIR)$(PREFIX)/lib/
-	install $(BUILD_DIR)/libradiant.so.$(VER_MAJOR) $(DESTDIR)$(PREFIX)/lib/
-	install $(BUILD_DIR)/libflower.so.$(VER_MAJOR) $(DESTDIR)$(PREFIX)/lib/
-	install $(BUILD_DIR)/librno-g-cal.so.$(VER_MAJOR) $(DESTDIR)$(PREFIX)/lib/
 	install $(BUILD_DIR)/libradiant.so.$(VERSUFFIX) $(DESTDIR)$(PREFIX)/lib/
+	ln -sfr $(DESTDIR)$(PREFIX)/$(LIBDIR)/libradiant.so.$(VERSUFFIX) $(DESTDIR)$(PREFIX)/$(LIBDIR)/libradiant.so.$(VER_MAJOR)
+	ln -sfr $(DESTDIR)$(PREFIX)/$(LIBDIR)/libradiant.so.$(VER_MAJOR) $(DESTDIR)$(PREFIX)/$(LIBDIR)/libradiant.so
 	install $(BUILD_DIR)/libflower.so.$(VERSUFFIX) $(DESTDIR)$(PREFIX)/lib/
+	ln -sfr $(DESTDIR)$(PREFIX)/$(LIBDIR)/libflower.so.$(VERSUFFIX) $(DESTDIR)$(PREFIX)/$(LIBDIR)/libflower.so.$(VER_MAJOR)
+	ln -sfr $(DESTDIR)$(PREFIX)/$(LIBDIR)/libflower.so.$(VER_MAJOR) $(DESTDIR)$(PREFIX)/$(LIBDIR)/libflower.so
 	install $(BUILD_DIR)/librno-g-cal.so.$(VERSUFFIX) $(DESTDIR)$(PREFIX)/lib/
-
+	ln -sfr $(DESTDIR)$(PREFIX)/$(LIBDIR)/librno-g-cal.so.$(VERSUFFIX) $(DESTDIR)$(PREFIX)/$(LIBDIR)/librno-g-cal.so.$(VER_MAJOR)
+	ln -sfr $(DESTDIR)$(PREFIX)/$(LIBDIR)/librno-g-cal.so.$(VER_MAJOR) $(DESTDIR)$(PREFIX)/$(LIBDIR)/librno-g-cal.so
 	install src/radiant.h src/flower.h src/rno-g-cal.h $(DESTDIR)$(PREFIX)/include/
 
 install-didaq: install $(BUILD_DIR)/librno-g-didaq.so  $(BUILD_DIR)/librno-g-cal.so
-	install $(BUILD_DIR)/librno-g-didaq.so $(DESTDIR)$(PREFIX)/lib/
-	install $(BUILD_DIR)/librno-g-cal.so $(DESTDIR)$(PREFIX)/lib/
-	install $(BUILD_DIR)/librno-g-didaq.so.$(VER_MAJOR) $(DESTDIR)$(PREFIX)/lib/
-	install $(BUILD_DIR)/librno-g-cal.so.$(VER_MAJOR) $(DESTDIR)$(PREFIX)/lib/
 	install $(BUILD_DIR)/librno-g-didaq.so.$(VERSUFFIX) $(DESTDIR)$(PREFIX)/lib/
+	ln -sfr $(DESTDIR)$(PREFIX)/$(LIBDIR)/librno-g-didaq.so.$(VERSUFFIX) $(DESTDIR)$(PREFIX)/$(LIBDIR)/librno-g-didaq.so.$(VER_MAJOR)
+	ln -sfr $(DESTDIR)$(PREFIX)/$(LIBDIR)/librno-g-didaq.so.$(VER_MAJOR) $(DESTDIR)$(PREFIX)/$(LIBDIR)/librno-g-didaq.so
 	install $(BUILD_DIR)/librno-g-cal.so.$(VERSUFFIX) $(DESTDIR)$(PREFIX)/lib/
+	ln -sfr $(DESTDIR)$(PREFIX)/$(LIBDIR)/librno-g-cal.so.$(VERSUFFIX) $(DESTDIR)$(PREFIX)/$(LIBDIR)/librno-g-cal.so.$(VER_MAJOR)
+	ln -sfr $(DESTDIR)$(PREFIX)/$(LIBDIR)/librno-g-cal.so.$(VER_MAJOR) $(DESTDIR)$(PREFIX)/$(LIBDIR)/librno-g-cal.so
+
 	install src/rno-g-didaq.h src/rno-g-cal.h $(DESTDIR)$(PREFIX)/include/
 
 
