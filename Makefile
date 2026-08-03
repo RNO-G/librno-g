@@ -25,7 +25,7 @@ LIBS=-lz -pthread
 # defaults to the relative build path (e.g. "build/librno-g.so.1.0.0"), which
 # breaks dyld for any binary loading the library from outside that build dir.
 ifeq ($(shell uname -s),Darwin)
-LDFLAGS+=-install_name $(PREFIX)/lib/$(notdir $@)
+LDFLAGS+=-install_name ${DESTDIR}$(PREFIX)/lib/$(notdir $@)
 endif
 
 ON_BBB?=no
@@ -61,8 +61,8 @@ endif
 #check if on revn board
 ifeq ($(ON_DIDAQ),yes)
 $(info We are building for the DiDAQ)
-CFLAGS+= -DON_DIDAQ -DON_AM62X -DUSE_LIBGPIOS -DON_DIDAQ -I/usr/include -I${PREFIX}/include
-LDFLAGS+=-L${PREFIX}/lib
+CFLAGS+= -DON_DIDAQ -DON_AM62X -DUSE_LIBGPIOS -DON_DIDAQ -I/usr/include -I${DESTDIR}${PREFIX}/include
+LDFLAGS+=-L${DESTDIR}${PREFIX}/lib
 GPIO_LIBS=-lgpios
 DAQ_INCLUDES=src/rno-g-didaq.h src/rno-g-cal.h
 endif
@@ -120,8 +120,8 @@ test: $(addprefix $(BUILD_DIR)/test/, $(TESTS) )
 
 
 install: client
-	mkdir -p $(DESTDIR)$(PREFIX)/lib
-	mkdir -p $(DESTDIR)$(PREFIX)/include
+	install -d $(DESTDIR)$(PREFIX)/lib
+	install -d $(DESTDIR)$(PREFIX)/include
 	install $(BUILD_DIR)/librno-g.so $(DESTDIR)$(PREFIX)/lib/
 	install $(BUILD_DIR)/librno-g.so.$(VER_MAJOR) $(DESTDIR)$(PREFIX)/lib/
 	install $(BUILD_DIR)/librno-g.so.$(VERSUFFIX) $(DESTDIR)$(PREFIX)/lib/
@@ -157,8 +157,8 @@ ifeq ($(ON_BBB),yes)
 endif
 
 install-rno-g-utils: rno-g-utils
-	mkdir -p $(PREFIX)/bin
-	install $(addprefix $(BUILD_DIR)/test/, rno-g-dump-ds rno-g-dump-hdr rno-g-dump-ped rno-g-dump-wf rno-g-wf-sample-diff-hists rno-g-wf-stats) $(PREFIX)/bin/
+	install -d ${DESTDIR}$(PREFIX)/bin
+	install $(addprefix $(BUILD_DIR)/test/, rno-g-dump-ds rno-g-dump-hdr rno-g-dump-ped rno-g-dump-wf rno-g-wf-sample-diff-hists rno-g-wf-stats) ${DESTDIR}$(PREFIX)/bin/
 
 clean:
 	@echo Nuking $(BUILD_DIR) from orbit
