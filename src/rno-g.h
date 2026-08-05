@@ -386,6 +386,37 @@ int rno_g_daqstatus_write(rno_g_file_handle_t handle, const rno_g_daqstatus_t * 
 int rno_g_daqstatus_read(rno_g_file_handle_t handle, rno_g_daqstatus_t * ds);
 
 
+/** Per-station DiDAQ <-> RNO-G channel permutation.
+ *
+ * Which antenna is wired to which DiDAQ input varies from station to station, so the DiDAQ
+ * hardware channel numbering is not the RNO-G (physical) channel numbering. The boundary the
+ * DiDAQ shims (rno-g-didaq.h) maintain is: everything written into an rno_g_* struct -- i.e.
+ * everything that ends up on disk -- is in RNO-G numbering, everything facing libdidaq/hardware
+ * stays in DiDAQ numbering.
+ *
+ * Lives in the client library (not the DAQ-only shim) because it defines the numbering
+ * convention of the recorded data, so readers can consult it too.
+ */
+typedef struct rno_g_didaq_chanmap
+{
+  uint8_t to_rno_g[RNO_G_NUM_RADIANT_CHANNELS];  //!< to_rno_g[didaq_chan] = rno_g_chan
+  uint8_t to_didaq[RNO_G_NUM_RADIANT_CHANNELS];  //!< inverse of the above
+} rno_g_didaq_chanmap_t;
+
+/** Look up the channel map for a station.
+ *
+ * Never returns NULL: a station without an entry in the table gets the identity map (and a
+ * one-time warning on stderr).
+ */
+const rno_g_didaq_chanmap_t * rno_g_didaq_chanmap(uint8_t station);
+
+/** Permute a 24-bit channel mask from DiDAQ to RNO-G numbering. */
+uint32_t rno_g_didaq_mask_to_rno_g(uint32_t didaq_mask, const rno_g_didaq_chanmap_t * m);
+
+/** Permute a 24-bit channel mask from RNO-G to DiDAQ numbering (inverse of the above). */
+uint32_t rno_g_didaq_mask_to_didaq(uint32_t rno_g_mask, const rno_g_didaq_chanmap_t * m);
+
+
 const char * rno_g_get_git_hash();
 
 
