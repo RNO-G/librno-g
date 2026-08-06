@@ -3,11 +3,22 @@
 #include <string.h>
 #include "didaq.h"
 
-// The two LPDA sets, as bits in the coincidence pattern (DiDAQ channel numbering)
+// The DiDAQ has as many inputs as the RADIANT has channels; the channel maps assume it.
+_Static_assert(DIDAQ_NUM_CHANNELS == RNO_G_NUM_RADIANT_CHANNELS,
+               "DiDAQ channel count no longer matches the RNO-G channel count");
+
+// The per-beam quantities are memcpy'd between the two sides below, so the counts must agree.
+_Static_assert(DIDAQ_NUM_BEAMS == RNO_G_NUM_DIDAQ_BEAMS,
+               "libdidaq and librno-g disagree on the number of DiDAQ beams");
+
+// The two LPDA sets, as bits in the coincidence pattern. These are in RNO-G (physical) channel
+// numbering, i.e. they apply *after* rno_g_didaq_mask_to_rno_g(), and so are station-independent.
+// Each set is also a quad of the hardware's coinc[1] half, which the channel maps are required to
+// keep intact -- see check_trigger_groups_closed() in test/rno-g-test-didaq-chanmap.c.
 #define DIDAQ_SURF_DOWN_CHANNEL_MASK  0xF000u   // channels 12-15
 #define DIDAQ_SURF_UP_CHANNEL_MASK    0xF0000u  // channels 16-19
 
-void print_bits(uint32_t val, int nbits) {
+static void print_bits(uint32_t val, int nbits) {
     for (int i = nbits - 1; i >= 0; i--) {
       if (i && i % 4 == 0)
         putchar(' ');
@@ -16,20 +27,29 @@ void print_bits(uint32_t val, int nbits) {
     putchar('\n');
 }
 
-int didaq_read_event(didaq_dev_t * bd, rno_g_header_t * hd, rno_g_waveform_t * wf)
+int didaq_read_event(didaq_dev_t * bd, rno_g_header_t * hd, rno_g_waveform_t * wf, uint8_t station)
 {
+  memset(hd, 0, sizeof(*hd));
+  memset(wf, 0, sizeof(*wf));
+
+  // The DiDAQ input a channel is read out on is not its RNO-G channel number, so hand
+  // didaq_event_readout() the destination buffers permuted. Since wfs[] are just destination
+  // pointers, the remapping is free -- no samples get copied twice.
+  const rno_g_didaq_chanmap_t * map = rno_g_didaq_chanmap(station);
 
   didaq_event_readout_t rdout = {0};
   for (int i = 0; i < DIDAQ_NUM_CHANNELS; i++)
   {
-    rdout.wfs[i] = wf->didaq_waveforms[i];
+    rdout.wfs[i] = wf->didaq_waveforms[map->to_rno_g[i]];
   }
-
-  memset(hd, 0, sizeof(*hd));
-  memset(wf, 0, sizeof(*wf));
 
   int ret = didaq_event_readout(bd, &rdout);
   if (ret) return ret;
+
+  // Set the station here rather than leaving it to the caller, so that the station the
+  // remapping was done for and the station recorded in the data can never disagree.
+  hd->station_number = station;
+  wf->station = station;
 
   //note right now only trig_counter is populated...
   wf->event_number = rdout.meta.trig_counter;
@@ -40,9 +60,13 @@ int didaq_read_event(didaq_dev_t * bd, rno_g_header_t * hd, rno_g_waveform_t * w
   hd->event_number = rdout.meta.trig_counter;
   hd->trigger_number = rdout.meta.trig_counter;
 
+  // The coincidence pattern is channel-indexed, so it has to be permuted along with the
+  // waveforms. The beam pattern is beam-indexed and stays as-is.
+  uint32_t coinc_pattern = rno_g_didaq_mask_to_rno_g(rdout.meta.last_coinc_pattern, map);
+
   // based on trigger type set mask (beam mask or channel mask)
   hd->trigger_mask = (rdout.meta.trig_type & DIDAQ_TRIGGER_PHASED)  ?  rdout.meta.last_beam_pattern  :
-                     (rdout.meta.trig_type & (DIDAQ_TRIGGER_COINC0 | DIDAQ_TRIGGER_COINC1)) ? rdout.meta.last_coinc_pattern :
+                     (rdout.meta.trig_type & (DIDAQ_TRIGGER_COINC0 | DIDAQ_TRIGGER_COINC1)) ? coinc_pattern :
                       0;
 
   if ((rdout.meta.trig_type & DIDAQ_TRIGGER_PHASED) && __builtin_popcount(rdout.meta.last_beam_pattern) > 1) {
@@ -73,16 +97,15 @@ int didaq_read_event(didaq_dev_t * bd, rno_g_header_t * hd, rno_g_waveform_t * w
     printf("COINC1 trigger: trying to assign LPDA trigger\n");
     // A SURF trigger does not require all channels of a group to have fired (typically >= 2,
     // but can be a single one) -- but no channel outside of the group may have fired.
-    uint32_t coinc_pattern = rdout.meta.last_coinc_pattern;
     if (coinc_pattern && !(coinc_pattern & ~DIDAQ_SURF_DOWN_CHANNEL_MASK)) {
       hd->trigger_type |= RNO_G_TRIGGER_RF_DIDAQ_SURF_DOWN;
       printf("Detect DOWN trigger:\n");
-      print_bits(rdout.meta.last_coinc_pattern, RNO_G_NUM_RADIANT_CHANNELS);
+      print_bits(coinc_pattern, RNO_G_NUM_RADIANT_CHANNELS);
     }
     else if (coinc_pattern && !(coinc_pattern & ~DIDAQ_SURF_UP_CHANNEL_MASK)) {
       hd->trigger_type |= RNO_G_TRIGGER_RF_DIDAQ_SURF_UP;
       printf("Detect  UP  trigger:\n");
-      print_bits(rdout.meta.last_coinc_pattern, RNO_G_NUM_RADIANT_CHANNELS);
+      print_bits(coinc_pattern, RNO_G_NUM_RADIANT_CHANNELS);
     }
     else {
       hd->trigger_type |= RNO_G_TRIGGER_RF_DIDAQ_COINC1;
@@ -94,6 +117,7 @@ int didaq_read_event(didaq_dev_t * bd, rno_g_header_t * hd, rno_g_waveform_t * w
     hd->trigger_type |= RNO_G_TRIGGER_DIDAQ;
   }
 
+  // Same offset for every channel, so no remapping needed here.
   for (int i = 0; i < RNO_G_NUM_RADIANT_CHANNELS; i++)
   {
     hd->didaq_start_offsets[i] = rdout.in.start;
@@ -103,7 +127,7 @@ int didaq_read_event(didaq_dev_t * bd, rno_g_header_t * hd, rno_g_waveform_t * w
 }
 
 
-int didaq_read_daqstatus(didaq_dev_t * bd, rno_g_daqstatus_t * ds)
+int didaq_read_daqstatus(didaq_dev_t * bd, rno_g_daqstatus_t * ds, uint8_t station)
 {
   if (!bd || !ds) return -1;
 
@@ -117,26 +141,68 @@ int didaq_read_daqstatus(didaq_dev_t * bd, rno_g_daqstatus_t * ds)
   ret = didaq_get_thresholds(bd, &thresh_phased, &thresh_coin, false);
   if (ret) return ret;
 
-  memcpy(ds->didaq_scalers.coinc_singles_1Hz, scal.coinc_singles_1Hz, sizeof(scal.coinc_singles_1Hz));
-  memcpy(ds->didaq_scalers.coinc_singles_1Hz_gated, scal.coinc_singles_1Hz_gated, sizeof(scal.coinc_singles_1Hz_gated));
+  // The per-channel quantities are indexed by DiDAQ input; permute them into RNO-G channel
+  // numbering, like the waveforms in didaq_read_event(). Everything else here is per-beam or
+  // per-coincidence-group and copies straight across.
+  const rno_g_didaq_chanmap_t * map = rno_g_didaq_chanmap(station);
+  for (int i = 0; i < DIDAQ_NUM_CHANNELS; i++)
+  {
+    ds->didaq_scalers.coinc_singles_1Hz[map->to_rno_g[i]] = scal.coinc_singles_1Hz[i];
+    ds->didaq_scalers.coinc_singles_1Hz_gated[map->to_rno_g[i]] = scal.coinc_singles_1Hz_gated[i];
+    ds->didaq_coin_thresholds[map->to_rno_g[i]] = thresh_coin.coin_thresholds[i];
+  }
+
+  ds->station = station;
+
   memcpy(ds->didaq_scalers.coinc_trig_100mHz, scal.coinc_trig_100mHz, sizeof(scal.coinc_trig_100mHz));
   memcpy(ds->didaq_scalers.coinc_trig_100mHz_gated, scal.coinc_trig_100mHz_gated, sizeof(scal.coinc_trig_100mHz_gated));
+
   memcpy(ds->didaq_scalers.beam_trig_100mHz, scal.beam_trig_100mHz, sizeof(scal.beam_trig_100mHz));
   memcpy(ds->didaq_scalers.beam_trig_100mHz_gated, scal.beam_trig_100mHz_gated, sizeof(scal.beam_trig_100mHz_gated));
   memcpy(ds->didaq_scalers.beam_servo_1Hz, scal.beam_servo_1Hz, sizeof(scal.beam_servo_1Hz));
+
   ds->didaq_scalers.total_beam_100mHz = scal.total_beam_100mHz;
   ds->didaq_scalers.total_beam_100mHz_gated = scal.total_beam_100mHz_gated;
   ds->didaq_scalers.total_beam_1Hz = scal.total_beam_1Hz;
+
   ds->didaq_scalers.num_pps = scal.num_pps;
   ds->didaq_scalers.clk_rate = scal.clk_rate;
 
-  memcpy(ds->didaq_coin_thresholds, thresh_coin.coin_thresholds, sizeof(ds->didaq_coin_thresholds));
   memcpy(ds->didaq_phased_trigger_thresholds, thresh_phased.beam_trig_thresholds, sizeof(ds->didaq_phased_trigger_thresholds));
   memcpy(ds->didaq_phased_servo_thresholds, thresh_phased.beam_servo_thresholds, sizeof(ds->didaq_phased_servo_thresholds));
 
   ds->when_didaq = scal.readout_time.tv_sec + 1e-9 * scal.readout_time.tv_nsec;
 
   return 0;
+}
+
+int didaq_write_thresholds(didaq_dev_t * bd, const rno_g_daqstatus_t * ds, uint8_t station,
+                           int set_phased, int set_coinc)
+{
+  if (!bd || !ds) return -1;
+
+  didaq_phased_thresholds_t phased = {0};
+  didaq_coin_thresholds_t coin = {0};
+
+  // Beam-indexed, so it copies straight across.
+  if (set_phased)
+  {
+    memcpy(phased.beam_trig_thresholds, ds->didaq_phased_trigger_thresholds, sizeof(phased.beam_trig_thresholds));
+    memcpy(phased.beam_servo_thresholds, ds->didaq_phased_servo_thresholds, sizeof(phased.beam_servo_thresholds));
+  }
+
+  // Channel-indexed, so it has to be permuted back into DiDAQ input numbering -- the inverse of
+  // what didaq_read_daqstatus() does to thresh_coin.
+  if (set_coinc)
+  {
+    const rno_g_didaq_chanmap_t * map = rno_g_didaq_chanmap(station);
+    for (int i = 0; i < DIDAQ_NUM_CHANNELS; i++)
+    {
+      coin.coin_thresholds[i] = ds->didaq_coin_thresholds[map->to_rno_g[i]];
+    }
+  }
+
+  return didaq_set_thresholds(bd, set_phased ? &phased : NULL, set_coinc ? &coin : NULL);
 }
 
 int didaq_poll_trigger_ready(didaq_dev_t * bd, int timeout_ms)
