@@ -389,13 +389,9 @@ int rno_g_daqstatus_read(rno_g_file_handle_t handle, rno_g_daqstatus_t * ds);
 /** Per-station DiDAQ <-> RNO-G channel permutation.
  *
  * Which antenna is wired to which DiDAQ input varies from station to station, so the DiDAQ
- * hardware channel numbering is not the RNO-G (physical) channel numbering. The boundary the
- * DiDAQ shims (rno-g-didaq.h) maintain is: everything written into an rno_g_* struct -- i.e.
- * everything that ends up on disk -- is in RNO-G numbering, everything facing libdidaq/hardware
- * stays in DiDAQ numbering.
- *
- * Lives in the client library (not the DAQ-only shim) because it defines the numbering
- * convention of the recorded data, so readers can consult it too.
+ * hardware channel numbering is not the RNO-G channel numbering. Everything written into an
+ * rno_g_* struct -- i.e. everything that ends up on disk -- is in RNO-G numbering, everything
+ * facing libdidaq/hardware stays in DiDAQ numbering.
  */
 typedef struct rno_g_didaq_chanmap
 {

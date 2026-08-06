@@ -7,11 +7,14 @@
 _Static_assert(DIDAQ_NUM_CHANNELS == RNO_G_NUM_RADIANT_CHANNELS,
                "DiDAQ channel count no longer matches the RNO-G channel count");
 
+// The per-beam quantities are memcpy'd between the two sides below, so the counts must agree.
+_Static_assert(DIDAQ_NUM_BEAMS == RNO_G_NUM_DIDAQ_BEAMS,
+               "libdidaq and librno-g disagree on the number of DiDAQ beams");
+
 // The two LPDA sets, as bits in the coincidence pattern. These are in RNO-G (physical) channel
 // numbering, i.e. they apply *after* rno_g_didaq_mask_to_rno_g(), and so are station-independent.
-// TODO: these still hold the DiDAQ-side contiguous grouping (the hardware's coinc[1] quads) --
-// replace with the RNO-G channel numbers of the two LPDA sets once those are settled. They are
-// correct as-is for any station whose channel map is the identity.
+// Each set is also a quad of the hardware's coinc[1] half, which the channel maps are required to
+// keep intact -- see check_trigger_groups_closed() in test/rno-g-test-didaq-chanmap.c.
 #define DIDAQ_SURF_DOWN_CHANNEL_MASK  0xF000u   // channels 12-15
 #define DIDAQ_SURF_UP_CHANNEL_MASK    0xF0000u  // channels 16-19
 
@@ -168,6 +171,35 @@ int didaq_read_daqstatus(didaq_dev_t * bd, rno_g_daqstatus_t * ds, uint8_t stati
   ds->when_didaq = scal.readout_time.tv_sec + 1e-9 * scal.readout_time.tv_nsec;
 
   return 0;
+}
+
+int didaq_write_thresholds(didaq_dev_t * bd, const rno_g_daqstatus_t * ds, uint8_t station,
+                           int set_phased, int set_coinc)
+{
+  if (!bd || !ds) return -1;
+
+  didaq_phased_thresholds_t phased = {0};
+  didaq_coin_thresholds_t coin = {0};
+
+  // Beam-indexed, so it copies straight across.
+  if (set_phased)
+  {
+    memcpy(phased.beam_trig_thresholds, ds->didaq_phased_trigger_thresholds, sizeof(phased.beam_trig_thresholds));
+    memcpy(phased.beam_servo_thresholds, ds->didaq_phased_servo_thresholds, sizeof(phased.beam_servo_thresholds));
+  }
+
+  // Channel-indexed, so it has to be permuted back into DiDAQ input numbering -- the inverse of
+  // what didaq_read_daqstatus() does to thresh_coin.
+  if (set_coinc)
+  {
+    const rno_g_didaq_chanmap_t * map = rno_g_didaq_chanmap(station);
+    for (int i = 0; i < DIDAQ_NUM_CHANNELS; i++)
+    {
+      coin.coin_thresholds[i] = ds->didaq_coin_thresholds[map->to_rno_g[i]];
+    }
+  }
+
+  return didaq_set_thresholds(bd, set_phased ? &phased : NULL, set_coinc ? &coin : NULL);
 }
 
 int didaq_poll_trigger_ready(didaq_dev_t * bd, int timeout_ms)

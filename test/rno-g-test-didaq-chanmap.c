@@ -58,6 +58,43 @@ static void check_mask_roundtrip(const rno_g_didaq_chanmap_t * m, int station)
   }
 }
 
+/** Several hardware register fields are per-group rather than per-channel, so a permutation is
+ *  only expressible at all if it keeps those groups closed: the RNO-G channels of a group must be
+ *  exactly the RNO-G images of that same group's DiDAQ inputs. Where that holds, the group is the
+ *  same set of numbers on both sides, so an RNO-G-numbered config mask can be converted with
+ *  rno_g_didaq_mask_to_didaq() and then sliced up per group without losing bits.
+ */
+static void check_group_closed(const rno_g_didaq_chanmap_t * m, int station, uint32_t group,
+                               const char * what)
+{
+  uint32_t image = rno_g_didaq_mask_to_rno_g(group, m);
+  CHECK(image == group,
+        "station %d: the channel map moves channels across the %s boundary "
+        "(DiDAQ inputs 0x%06x land on RNO-G channels 0x%06x)", station, what, group, image);
+}
+
+/** The two coincidence triggers are each hardwired to one half of the board, and their exclude
+ *  masks are 12-bit register fields covering that half. rno-g-acq configures them by permuting a
+ *  24-bit RNO-G exclude mask and slicing it into the two fields, which only works if no channel
+ *  crosses the halfway line.
+ */
+static void check_coinc_halves_closed(const rno_g_didaq_chanmap_t * m, int station)
+{
+  check_group_closed(m, station, 0x000fffu, "coinc[0] / coinc[1] (channels 0-11 vs 12-23)");
+  check_group_closed(m, station, 0xfff000u, "coinc[1] / coinc[0] (channels 12-23 vs 0-11)");
+}
+
+/** Groups the trigger logic treats as a unit: the four phased-array channels, whose exclude mask
+ *  is a 4-bit register field, and the two LPDA quads that DIDAQ_SURF_DOWN/UP_CHANNEL_MASK in
+ *  rno-g-didaq.c uses to tell an up-facing COINC1 trigger from a down-facing one.
+ */
+static void check_trigger_groups_closed(const rno_g_didaq_chanmap_t * m, int station)
+{
+  check_group_closed(m, station, 0x00000fu, "phased array (channels 0-3)");
+  check_group_closed(m, station, 0x00f000u, "SURF DOWN (channels 12-15)");
+  check_group_closed(m, station, 0x0f0000u, "SURF UP (channels 16-19)");
+}
+
 int main(int argc, char ** argv)
 {
   (void) argc; (void) argv;
@@ -71,6 +108,8 @@ int main(int argc, char ** argv)
 
     check_is_permutation(m, station);
     check_mask_roundtrip(m, station);
+    check_coinc_halves_closed(m, station);
+    check_trigger_groups_closed(m, station);
   }
 
   // A station with no table entry gets the identity map, so old (unmapped) stations and any

@@ -20,7 +20,8 @@ static const uint8_t to_rno_g_identity[NCHAN] =
  * with to_rno_g_sNN[didaq_chan] = rno_g_chan, then list it in station_maps below. Stations
  * absent from the table fall back to the identity map.
  */
-static const uint8_t to_rno_g_s25[NCHAN] = {1, 0, 3, 2, 5, 4, 7, 6, 9, 8, 11, 10, 13, 12, 15, 14, 17, 16, 19, 18, 21, 20, 23, 22};
+static const uint8_t to_rno_g_s25[NCHAN] =
+  {1, 0, 3, 2, 5, 4, 7, 6, 9, 8, 11, 10, 13, 12, 15, 14, 17, 16, 19, 18, 21, 20, 23, 22};
 
 /** The station number is an int (not uint8_t) so that the fallback entry can use -1, which can
  *  never match a real station. It must stay at index 0.
@@ -41,7 +42,7 @@ static rno_g_didaq_chanmap_t built[NUM_STATION_MAPS];
 static pthread_once_t built_once = PTHREAD_ONCE_INIT;
 
 /** Fill in m from a forward table, deriving the inverse. Falls back to the identity (and
- *  complains) if to_rno_g isn't a permutation of 0..NCHAN-1.
+ *  complains) if to_rno_g isn't a permutation of 0..NCHAN-1 (i.e., not unique channels).
  */
 static void build_chanmap(rno_g_didaq_chanmap_t * m, const uint8_t * to_rno_g, int station)
 {
