@@ -156,12 +156,15 @@ int didaq_read_daqstatus(didaq_dev_t * bd, rno_g_daqstatus_t * ds, uint8_t stati
 
   memcpy(ds->didaq_scalers.coinc_trig_100mHz, scal.coinc_trig_100mHz, sizeof(scal.coinc_trig_100mHz));
   memcpy(ds->didaq_scalers.coinc_trig_100mHz_gated, scal.coinc_trig_100mHz_gated, sizeof(scal.coinc_trig_100mHz_gated));
+
   memcpy(ds->didaq_scalers.beam_trig_100mHz, scal.beam_trig_100mHz, sizeof(scal.beam_trig_100mHz));
   memcpy(ds->didaq_scalers.beam_trig_100mHz_gated, scal.beam_trig_100mHz_gated, sizeof(scal.beam_trig_100mHz_gated));
   memcpy(ds->didaq_scalers.beam_servo_1Hz, scal.beam_servo_1Hz, sizeof(scal.beam_servo_1Hz));
+
   ds->didaq_scalers.total_beam_100mHz = scal.total_beam_100mHz;
   ds->didaq_scalers.total_beam_100mHz_gated = scal.total_beam_100mHz_gated;
   ds->didaq_scalers.total_beam_1Hz = scal.total_beam_1Hz;
+
   ds->didaq_scalers.num_pps = scal.num_pps;
   ds->didaq_scalers.clk_rate = scal.clk_rate;
 
