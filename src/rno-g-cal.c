@@ -227,6 +227,7 @@ int rno_g_cal_disable(rno_g_cal_dev_t * dev)
 int rno_g_cal_disable_no_handle(uint16_t gpio)
 {
 #ifdef USE_LIBGPIOS
+  (void) gpio;
   gpios_line_t line;
   //open as an input, that will turn it off :)
   int ok = gpios_get_line_by_label("CAL_EN", &line, 0);
