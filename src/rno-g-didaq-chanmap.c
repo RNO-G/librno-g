@@ -20,7 +20,7 @@ static const uint8_t to_rno_g_identity[NCHAN] =
  * with to_rno_g_sNN[didaq_chan] = rno_g_chan, then list it in station_maps below. Stations
  * absent from the table fall back to the identity map.
  */
-static const uint8_t to_rno_g_s25[NCHAN] =
+static const uint8_t to_rno_g_didaq_2026_stations[NCHAN] =
   {1, 0, 3, 2, 5, 4, 7, 6, 9, 8, 11, 10, 13, 12, 15, 14, 17, 16, 19, 18, 21, 20, 23, 22};
 
 /** The station number is an int (not uint8_t) so that the fallback entry can use -1, which can
@@ -33,7 +33,10 @@ static const struct
 } station_maps[] =
 {
   { -1, to_rno_g_identity },  //!< fallback for stations with no entry; keep first
-  { 25, to_rno_g_s25 },
+  { 15, to_rno_g_didaq_2026_stations },
+  { 25, to_rno_g_didaq_2026_stations },
+  { 34, to_rno_g_didaq_2026_stations },
+  { 35, to_rno_g_didaq_2026_stations },
 };
 
 #define NUM_STATION_MAPS ((int) (sizeof(station_maps) / sizeof(station_maps[0])))
