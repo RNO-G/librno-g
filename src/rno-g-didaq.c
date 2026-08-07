@@ -77,7 +77,7 @@ int didaq_read_event(didaq_dev_t * bd, rno_g_header_t * hd, rno_g_waveform_t * w
   hd->pps_count = rdout.meta.pps_counter;
   hd->sys_clk = rdout.meta.clk_cycles;
   hd->sysclk_last_pps = 0; // didaq sysclk is 0 at each pps
-  hd->sysclk_last_last_pps =  UINT_MAX - didaq_get_clock_rate_estimate(bd);  // this makes the math work the same as before... awkward as it is!
+  hd->sysclk_last_last_pps = UINT_MAX - didaq_get_clock_rate_estimate(bd);  // this makes the math work the same as before... awkward as it is!
 
   hd->readout_time_secs = rdout.meta.readout_time.tv_sec;
   hd->readout_time_nsecs = rdout.meta.readout_time.tv_nsec;
