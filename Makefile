@@ -175,7 +175,7 @@ $(BUILD_DIR)/test: $(BUILD_DIR)
 CLIENT_OBJS=rno-g.o rno-g-version.o rno-g-nsample-diff-hist.o
 $(BUILD_DIR)/librno-g.so.$(VERSUFFIX): $(addprefix $(BUILD_DIR)/, $(CLIENT_OBJS))
 	@echo Linking $@
-	@$(CC) -o $@ -shared $(LDFLAGS) $^  $(LIBS)
+	@$(CC) -o $@ -shared -Wl,-soname,librno-g.so.$(VER_MAJOR) $(LDFLAGS) $^  $(LIBS)
 
 RAD_OBJS=radiant.o cobs.o adf4350.o
 $(BUILD_DIR)/libradiant.so.$(VERSUFFIX): $(addprefix $(BUILD_DIR)/, $(RAD_OBJS))
@@ -185,7 +185,7 @@ $(BUILD_DIR)/libradiant.so.$(VERSUFFIX): $(addprefix $(BUILD_DIR)/, $(RAD_OBJS))
 CAL_OBJS=rno-g-cal.o
 $(BUILD_DIR)/librno-g-cal.so.$(VERSUFFIX): $(addprefix $(BUILD_DIR)/, $(CAL_OBJS))
 	@echo Linking $@
-	@$(CC) -o $@ -shared $(LDFLAGS) $^  $(LIBS)
+	@$(CC) -o $@ -shared -Wl,-soname,librno-g-cal.so.$(VER_MAJOR) $(LDFLAGS) $^  $(LIBS)
 
 FLWR_OBJS=flower.o
 $(BUILD_DIR)/libflower.so.$(VERSUFFIX): $(addprefix $(BUILD_DIR)/, $(FLWR_OBJS))
@@ -196,7 +196,7 @@ $(BUILD_DIR)/libflower.so.$(VERSUFFIX): $(addprefix $(BUILD_DIR)/, $(FLWR_OBJS))
 RNOG_DIDAQ_OBJS=rno-g-didaq.o
 $(BUILD_DIR)/librno-g-didaq.so.$(VERSUFFIX): $(addprefix $(BUILD_DIR)/, $(RNOG_DIDAQ_OBJS))
 	@echo Linking $@
-	@$(CC) -o $@ -shared $(LDFLAGS) $^  $(LIBS) -ldidaq
+	@$(CC) -o $@ -shared -Wl,-soname,librno-g-didaq.so.$(VER_MAJOR) $(LDFLAGS) $^  $(LIBS) -ldidaq
 
 
 # non-DAQ objects begin with rno-.... haas to be rno- instead of rno-g so that rno-g.c works :)
