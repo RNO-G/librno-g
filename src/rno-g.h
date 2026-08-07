@@ -29,6 +29,7 @@ extern "C"
 #include <stdio.h>
 
 #define RNO_G_MAX_RADIANT_NSAMPLES 2048
+#define RNO_G_MAX_DIDAQ_NSAMPLES 4096
 #define RNO_G_LAB4D_NSAMPLES 4096
 #define RNO_G_PEDESTAL_NSAMPLES RNO_G_LAB4D_NSAMPLES
 #define RNO_G_NUM_RADIANT_CHANNELS 24
@@ -37,6 +38,11 @@ extern "C"
 #define RNO_G_MAX_LT_NSAMPLES 512
 #define RNO_G_NUM_LT_CHANNELS 4
 #define RNO_G_NUM_LT_BEAMS 12
+
+// DIDAQ replaces the digitizer role of RADIANT (same RNO_G_NUM_RADIANT_CHANNELS channels),
+// but its own coincidence/phased trigger channel and beam counts don't match FLOWER's.
+#define RNO_G_NUM_DIDAQ_COINC 2
+#define RNO_G_NUM_DIDAQ_BEAMS 10
 
 
 /** Forward declarations of file backends, because some may be conditionally compiled in the future */
@@ -84,24 +90,38 @@ int rno_g_close_handle(rno_g_file_handle_t * h);
 
 typedef enum rno_g_trigger_type
 {
+    // Not digitizer specific trigger types (although names may include digitizer for historical purposes)
+    // Those were used, without extra status bit for the RADIANT/FLOWER combi
     RNO_G_TRIGGER_SOFT         = 1 << 0,  /**< This was a software trigger */
-    RNO_G_TRIGGER_EXT          = 1 << 1,  /**< This was an external trigger (note that the LT is implemented as an external trigger, but this is not it!) */
+    RNO_G_TRIGGER_EXT          = 1 << 1,  /**< This was an external trigger (note that the FLOWER/LT is implemented as an external trigger, but this is not it!) */
+    RNO_G_TRIGGER_RF_LT_PHASED = 1 << 3,  /**< This was an RF trigger from the LT/FLOWER board*/
+    RNO_G_TRIGGER_RF_RADIANT0  = 1 << 4,  /**< This was an RF trigger from the RADIANT's trigger 0 (this should have always been a upward facing LPDA coincidence trigger)*/
+    RNO_G_TRIGGER_RF_RADIANT1  = 1 << 5,  /**< This was an RF trigger from the RADIANT's trigger 1 (this should have always been a downward facing LPDA coincidence trigger)*/
+    RNO_G_TRIGGER_PPS          = 1 << 7,   /**< This was a PPS trigger*/
+
+    // RADIANT/FLOWER specific triggers
     RNO_G_TRIGGER_RF_LT_SIMPLE = 1 << 2,  /**< This was an RF trigger from the LT board*/
-    RNO_G_TRIGGER_RF_LT_PHASED = 1 << 3,  /**< This was an RF trigger from the LT board*/
-    RNO_G_TRIGGER_RF_RADIANT0  = 1 << 4,  /**< This was an RF trigger from the RADIANT's trigger 0*/
-    RNO_G_TRIGGER_RF_RADIANT1  = 1 << 5,  /**< This was an RF trigger from the RADIANT's trigger 1*/
     RNO_G_TRIGGER_RF_RADIANTX  = 1 << 6,  /**< This was a RF trigger from the RADIANT. The reason this is exists is that due to unreliable bits, we don't know if it was 0 or 1 */
-    RNO_G_TRIGGER_PPS          = 1 << 7   /**< This was a PPS trigger*/
+
+    // Set DIDAQ BIT. Used in combination with RADIANT/FLOWER bits to reimplement corresponding tigger on DIDAQ
+    // Choose a high bit to avoid accidental reassignment
+    RNO_G_TRIGGER_DIDAQ        = 1 << 15,   /** DIDAQ BIT */
+
+    // DIDAQ specific triggers - reusing RADIANT/FLOWER bits + RNO_G_TRIGGER_DIDAQ bit
+    RNO_G_TRIGGER_RF_DIDAQ_COINC0 = RNO_G_TRIGGER_DIDAQ | 1 << 2,
+    RNO_G_TRIGGER_RF_DIDAQ_COINC1 = RNO_G_TRIGGER_DIDAQ | 1 << 6,
+
+    // Non DIADQ specifc triggers with DIDAQ bit
+    RNO_G_TRIGGER_DIDAQ_SOFT            = RNO_G_TRIGGER_DIDAQ | RNO_G_TRIGGER_SOFT,
+    RNO_G_TRIGGER_DIDAQ_EXT             = RNO_G_TRIGGER_DIDAQ | RNO_G_TRIGGER_EXT,
+    RNO_G_TRIGGER_RF_DIDAQ_DEEP_PHASED  = RNO_G_TRIGGER_DIDAQ | RNO_G_TRIGGER_RF_LT_PHASED,
+    RNO_G_TRIGGER_RF_DIDAQ_SURF_UP      = RNO_G_TRIGGER_DIDAQ | RNO_G_TRIGGER_RF_RADIANT0,
+    RNO_G_TRIGGER_RF_DIDAQ_SURF_DOWN    = RNO_G_TRIGGER_DIDAQ | RNO_G_TRIGGER_RF_RADIANT1,
+    RNO_G_TRIGGER_DIDAQ_PPS             = RNO_G_TRIGGER_DIDAQ | RNO_G_TRIGGER_PPS
+
+    // Free bits 8 - 14
+
 } rno_g_trigger_type_t ;
-
-
-
-typedef enum rno_g_flags
-{
-    RNO_G_FLAG_GATE           =  1 << 0, /**< This occured during PPS gate */
-    RNO_G_READOUT_ERROR       =  1 << 1, /**< There was some kind of readout error*/
-    //this will be stored as a uint8_t, so can fit a few more
-}rno_g_flags_t;
 
 
 typedef struct rno_g_lt_trigger_config
@@ -160,17 +180,18 @@ typedef struct rno_g_header
   uint32_t raw_tinfo;       //!< the raw trigger info. To  be figured out.
   uint32_t raw_evstatus;    //!< the raw event status flags. To be figured out.
 
-  uint8_t station_number; //!< The station number.
+  // using bitfield for alignment here.
+  uint32_t station_number : 8; //!< The station number.
 
   /** Trigger type. See rno_g_trigger_type_t  Or-able */
-  uint8_t trigger_type;
+  uint32_t trigger_type : 16;
 
-  /** Various flags for the event. See rno_g_flags_t orable */
-  uint8_t flags;
-  uint8_t pretrigger_windows; //!< Number of pretrigger windows?
-  uint8_t radiant_start_windows[RNO_G_NUM_RADIANT_CHANNELS][2]; //!<this encodes buffer number too. There are two of these because of 2048-sample readout works. The second one will be 0xff (255) if we are in 1024-mode.
-  uint16_t radiant_nsamples; //!< Number of samples per channel in RADIANT board (could just keep this in waveform if we wanted)
-  uint16_t lt_nsamples; //!< Number of samples per channel in low-threshold board  (could just keep this in waveform if we wanted)
+  uint32_t pretrigger_windows : 8; //!< Number of pretrigger windows?
+  union
+  {
+    uint8_t radiant_start_windows[RNO_G_NUM_RADIANT_CHANNELS][2]; //!<this encodes buffer number too. There are two of these because of 2048-sample readout works. The second one will be 0xff (255) if we are in 1024-mode.
+    uint16_t didaq_start_offsets[RNO_G_NUM_RADIANT_CHANNELS];
+  };
 
   rno_g_lt_trigger_config_t lt_simple_trigger_cfg;
   rno_g_radiant_trigger_config_t radiant_trigger_cfg[2];
@@ -198,11 +219,14 @@ typedef struct rno_g_waveform
 {
   uint32_t event_number; //!< For matching
   uint32_t run_number;   //!< For matching
-  uint16_t radiant_nsamples; //!< Number of samples per channel for RADIANT
-  uint16_t lt_nsamples; //!< Number of samples per channel for lowthresh
-  int16_t radiant_waveforms[RNO_G_NUM_RADIANT_CHANNELS][RNO_G_MAX_RADIANT_NSAMPLES]; //unrolled.
-  uint8_t lt_waveforms[RNO_G_NUM_LT_CHANNELS][RNO_G_MAX_LT_NSAMPLES]; // 8-bit digitizer
-  uint16_t radiant_sampling_rate;
+  uint16_t nsamples; //!< Number of samples per channel
+  uint8_t bytes_per_sample; //!< 2: 12-bit samples in radiant_waveforms, 1: 8-bit samples in didaq_waveforms. 0 is treated as 2 (writers predating this field).
+  union
+  {
+    int16_t radiant_waveforms[RNO_G_NUM_RADIANT_CHANNELS][RNO_G_MAX_RADIANT_NSAMPLES]; //unrolled.
+    uint8_t didaq_waveforms[RNO_G_NUM_RADIANT_CHANNELS][RNO_G_MAX_DIDAQ_NSAMPLES]; //!< 8-bit digitizer, same size as radiant_waveforms
+  };
+  uint16_t sampling_rate;
   uint8_t digitizer_readout_delay[RNO_G_NUM_RADIANT_CHANNELS];
   uint8_t station;
 
@@ -254,6 +278,23 @@ typedef struct rno_g_lt_scalers
   uint16_t scaler_counter_1Hz : 16;
   uint64_t cycle_counter;  // cycle counter, reset on each PPS
 } rno_g_lt_scalers_t;
+
+
+typedef struct rno_g_didaq_scalers
+{
+  uint16_t coinc_singles_1Hz[RNO_G_NUM_RADIANT_CHANNELS];
+  uint16_t coinc_singles_1Hz_gated[RNO_G_NUM_RADIANT_CHANNELS];
+  uint16_t coinc_trig_100mHz[RNO_G_NUM_DIDAQ_COINC];
+  uint16_t coinc_trig_100mHz_gated[RNO_G_NUM_DIDAQ_COINC];
+  uint16_t beam_trig_100mHz[RNO_G_NUM_DIDAQ_BEAMS];
+  uint16_t beam_trig_100mHz_gated[RNO_G_NUM_DIDAQ_BEAMS];
+  uint16_t beam_servo_1Hz[RNO_G_NUM_DIDAQ_BEAMS];
+  uint16_t total_beam_100mHz;
+  uint16_t total_beam_100mHz_gated;
+  uint16_t total_beam_1Hz;
+  uint16_t num_pps;
+  uint32_t clk_rate;
+} rno_g_didaq_scalers_t;
 
 
 // these are all 16-bit relative to 3.3 V rail
@@ -314,6 +355,7 @@ typedef struct rno_g_daqstatus
 {
   double when_radiant;
   double when_lt;
+  double when_didaq;
   uint32_t radiant_thresholds[RNO_G_NUM_RADIANT_CHANNELS];
   uint16_t radiant_scalers[RNO_G_NUM_RADIANT_CHANNELS];
   uint8_t radiant_prescalers[RNO_G_NUM_RADIANT_CHANNELS];
@@ -326,6 +368,12 @@ typedef struct rno_g_daqstatus
   rno_g_lt_scalers_t lt_scalers;
   rno_g_radiant_voltages_t radiant_voltages;
   rno_g_calpulser_info_t cal;
+  // DIDAQ, when present, is a drop-in replacement for RADIANT+FLOWER; it fills these
+  // instead of the radiant_*/lt_* fields above (see RNO_G_NUM_DIDAQ_COINC/BEAMS)
+  uint8_t  didaq_coin_thresholds[RNO_G_NUM_RADIANT_CHANNELS]; // one threshold per channel, no separate trigger/servo (mirrors didaq_coin_thresholds_t)
+  uint16_t didaq_phased_trigger_thresholds[RNO_G_NUM_DIDAQ_BEAMS];
+  uint16_t didaq_phased_servo_thresholds[RNO_G_NUM_DIDAQ_BEAMS];
+  rno_g_didaq_scalers_t didaq_scalers;
   uint8_t station;
 } rno_g_daqstatus_t;
 
@@ -333,8 +381,36 @@ int rno_g_daqstatus_dump(FILE *f, const rno_g_daqstatus_t * ds);
 int rno_g_daqstatus_dump_flower(FILE *f, const rno_g_daqstatus_t * ds);
 int rno_g_daqstatus_dump_radiant(FILE *f, const rno_g_daqstatus_t * ds);
 int rno_g_daqstatus_dump_calpulser(FILE *f, const rno_g_daqstatus_t * ds);
+int rno_g_daqstatus_dump_didaq(FILE *f, const rno_g_daqstatus_t * ds);
 int rno_g_daqstatus_write(rno_g_file_handle_t handle, const rno_g_daqstatus_t * ds);
 int rno_g_daqstatus_read(rno_g_file_handle_t handle, rno_g_daqstatus_t * ds);
+
+
+/** Per-station DiDAQ <-> RNO-G channel permutation.
+ *
+ * Which antenna is wired to which DiDAQ input varies from station to station, so the DiDAQ
+ * hardware channel numbering is not the RNO-G channel numbering. Everything written into an
+ * rno_g_* struct -- i.e. everything that ends up on disk -- is in RNO-G numbering, everything
+ * facing libdidaq/hardware stays in DiDAQ numbering.
+ */
+typedef struct rno_g_didaq_chanmap
+{
+  uint8_t to_rno_g[RNO_G_NUM_RADIANT_CHANNELS];  //!< to_rno_g[didaq_chan] = rno_g_chan
+  uint8_t to_didaq[RNO_G_NUM_RADIANT_CHANNELS];  //!< inverse of the above
+} rno_g_didaq_chanmap_t;
+
+/** Look up the channel map for a station.
+ *
+ * Never returns NULL: a station without an entry in the table gets the identity map (and a
+ * one-time warning on stderr).
+ */
+const rno_g_didaq_chanmap_t * rno_g_didaq_chanmap(uint8_t station);
+
+/** Permute a 24-bit channel mask from DiDAQ to RNO-G numbering. */
+uint32_t rno_g_didaq_mask_to_rno_g(uint32_t didaq_mask, const rno_g_didaq_chanmap_t * m);
+
+/** Permute a 24-bit channel mask from RNO-G to DiDAQ numbering (inverse of the above). */
+uint32_t rno_g_didaq_mask_to_didaq(uint32_t rno_g_mask, const rno_g_didaq_chanmap_t * m);
 
 
 const char * rno_g_get_git_hash();
