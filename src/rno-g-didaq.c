@@ -17,6 +17,11 @@ _Static_assert(DIDAQ_NUM_BEAMS == RNO_G_NUM_DIDAQ_BEAMS,
 // keep intact -- see check_trigger_groups_closed() in test/rno-g-test-didaq-chanmap.c.
 #define DIDAQ_SURF_DOWN_CHANNEL_MASK  0xF000u   // channels 12-15
 #define DIDAQ_SURF_UP_CHANNEL_MASK    0xF0000u  // channels 16-19
+#define DIDAQ_SURF_CHANNEL_MASK       (DIDAQ_SURF_DOWN_CHANNEL_MASK | DIDAQ_SURF_UP_CHANNEL_MASK)
+
+// Both LPDA quads live in the second coincidence half, so it is that half's configured
+// multiplicity that decides which of them could have caused a COINC1 trigger.
+#define DIDAQ_SURF_COINC_INDEX 1
 
 static void print_bits(uint32_t val, int nbits) {
     for (int i = nbits - 1; i >= 0; i--) {
@@ -94,22 +99,31 @@ int didaq_read_event(didaq_dev_t * bd, rno_g_header_t * hd, rno_g_waveform_t * w
   else if (rdout.meta.trig_type & DIDAQ_TRIGGER_PHASED) hd->trigger_type |= RNO_G_TRIGGER_RF_DIDAQ_DEEP_PHASED;
   else if (rdout.meta.trig_type & DIDAQ_TRIGGER_COINC0) hd->trigger_type |= RNO_G_TRIGGER_RF_DIDAQ_COINC0;
   else if (rdout.meta.trig_type & DIDAQ_TRIGGER_COINC1) {
-    printf("COINC1 trigger: trying to assign LPDA trigger\n");
-    // A SURF trigger does not require all channels of a group to have fired (typically >= 2,
-    // but can be a single one) -- but no channel outside of the group may have fired.
-    if (coinc_pattern && !(coinc_pattern & ~DIDAQ_SURF_DOWN_CHANNEL_MASK)) {
+    // A SURF trigger does not require all channels of a quad to have fired (typically >= 2,
+    // but can be a single one). Channels of the *other* quad may also be flagged by chance,
+    // which is still unambiguous as long as that quad stayed below the configured
+    // multiplicity.
+    const int num_required = didaq_get_coinc_num_required(bd, DIDAQ_SURF_COINC_INDEX);
+    const int n_down = __builtin_popcount(coinc_pattern & DIDAQ_SURF_DOWN_CHANNEL_MASK);
+    const int n_up = __builtin_popcount(coinc_pattern & DIDAQ_SURF_UP_CHANNEL_MASK);
+    const int surf_only = (coinc_pattern & ~DIDAQ_SURF_CHANNEL_MASK) == 0;
+
+    // Either quad alone, or one quad outvoting a handful of strays from the other. A
+    // num_required of 0 (nothing read back from the board) satisfies neither test and leaves
+    // every mixed pattern to the generic case below.
+    const int is_down = n_down && (!n_up || (n_down >= num_required && n_up < num_required));
+    const int is_up = n_up && (!n_down || (n_up >= num_required && n_down < num_required));
+
+    if (surf_only && is_down) {
       hd->trigger_type |= RNO_G_TRIGGER_RF_DIDAQ_SURF_DOWN;
-      printf("Detect DOWN trigger:\n");
-      print_bits(coinc_pattern, RNO_G_NUM_RADIANT_CHANNELS);
     }
-    else if (coinc_pattern && !(coinc_pattern & ~DIDAQ_SURF_UP_CHANNEL_MASK)) {
+    else if (surf_only && is_up) {
       hd->trigger_type |= RNO_G_TRIGGER_RF_DIDAQ_SURF_UP;
-      printf("Detect  UP  trigger:\n");
-      print_bits(coinc_pattern, RNO_G_NUM_RADIANT_CHANNELS);
     }
     else {
       hd->trigger_type |= RNO_G_TRIGGER_RF_DIDAQ_COINC1;
-      fprintf(stderr, "Found a non UP/DOWN COINC1 trigger ...");
+      fprintf(stderr, "Found a non UP/DOWN COINC1 trigger (%d down / %d up channels, %d required, surf_only=%d) ...",
+              n_down, n_up, num_required, surf_only);
     }
   }
   else {
