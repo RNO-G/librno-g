@@ -23,14 +23,17 @@ _Static_assert(DIDAQ_NUM_BEAMS == RNO_G_NUM_DIDAQ_BEAMS,
 // multiplicity that decides which of them could have caused a COINC1 trigger.
 #define DIDAQ_SURF_COINC_INDEX 1
 
-static void print_bits(uint32_t val, int nbits) {
-    for (int i = nbits - 1; i >= 0; i--) {
-      if (i && i % 4 == 0)
-        putchar(' ');
-      putchar((val >> i) & 1 ? '1' : '0');
-    }
-    putchar('\n');
-}
+// // For debugging
+// static void print_bits(uint32_t val, int nbits) {
+//   int c = 0;
+//   for (int i = nbits - 1; i >= 0; i--) {
+//     if (c && c % 4 == 0)
+//       putchar(' ');
+//     putchar((val >> i) & 1 ? '1' : '0');
+//     c++;
+//   }
+//   putchar('\n');
+// }
 
 int didaq_read_event(didaq_dev_t * bd, rno_g_header_t * hd, rno_g_waveform_t * wf, uint8_t station)
 {
@@ -73,11 +76,6 @@ int didaq_read_event(didaq_dev_t * bd, rno_g_header_t * hd, rno_g_waveform_t * w
   hd->trigger_mask = (rdout.meta.trig_type & DIDAQ_TRIGGER_PHASED)  ?  rdout.meta.last_beam_pattern  :
                      (rdout.meta.trig_type & (DIDAQ_TRIGGER_COINC0 | DIDAQ_TRIGGER_COINC1)) ? coinc_pattern :
                       0;
-
-  if ((rdout.meta.trig_type & DIDAQ_TRIGGER_PHASED) && __builtin_popcount(rdout.meta.last_beam_pattern) > 1) {
-    printf("Read out phased-array triggered event with the following beam mask: (%x)\n", rdout.meta.last_beam_pattern);
-    print_bits(rdout.meta.last_beam_pattern, DIDAQ_NUM_BEAMS);
-  }
 
   hd->pps_count = rdout.meta.pps_counter;
   hd->sys_clk = rdout.meta.clk_cycles;
