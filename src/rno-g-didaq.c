@@ -101,14 +101,13 @@ int didaq_read_event(didaq_dev_t * bd, rno_g_header_t * hd, rno_g_waveform_t * w
     // but can be a single one). Channels of the *other* quad may also be flagged by chance,
     // which is still unambiguous as long as that quad stayed below the configured
     // multiplicity.
-    const int num_required = didaq_get_coinc_num_required(bd, DIDAQ_SURF_COINC_INDEX);
+    // The register holds a "more than N" threshold, so N+1 channels actually have to fire.
+    const int num_required = didaq_get_coinc_num_required(bd, DIDAQ_SURF_COINC_INDEX) + 1;
     const int n_down = __builtin_popcount(coinc_pattern & DIDAQ_SURF_DOWN_CHANNEL_MASK);
     const int n_up = __builtin_popcount(coinc_pattern & DIDAQ_SURF_UP_CHANNEL_MASK);
     const int surf_only = (coinc_pattern & ~DIDAQ_SURF_CHANNEL_MASK) == 0;
 
-    // Either quad alone, or one quad outvoting a handful of strays from the other. A
-    // num_required of 0 (nothing read back from the board) satisfies neither test and leaves
-    // every mixed pattern to the generic case below.
+    // Either quad alone, or one quad outvoting a handful of strays from the other.
     const int is_down = n_down && (!n_up || (n_down >= num_required && n_up < num_required));
     const int is_up = n_up && (!n_down || (n_up >= num_required && n_down < num_required));
 
