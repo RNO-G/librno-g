@@ -912,7 +912,7 @@ int rno_g_daqstatus_dump_didaq(FILE *f, const rno_g_daqstatus_t * ds)
   ret+=fprintf(f,  "-----------------------------------------------------\n");
   ret+=fprintf(f," coinc group |   %d   |   %d\n", 0, 1);
   ret+=fprintf(f," trig 100mHz |  %04hu |  %04hu\n",
-    ds->didaq_scalers.coinc_trig_100mHz[0], ds->didaq_scalers.coinc_trig_100mHz[1])
+    ds->didaq_scalers.coinc_trig_100mHz[0], ds->didaq_scalers.coinc_trig_100mHz[1]);
   ret+=fprintf(f," gated       |  %04hu |  %04hu\n",
     ds->didaq_scalers.coinc_trig_100mHz_gated[0], ds->didaq_scalers.coinc_trig_100mHz_gated[1]);
 
