@@ -909,10 +909,10 @@ int rno_g_daqstatus_dump_didaq(FILE *f, const rno_g_daqstatus_t * ds)
       ds->didaq_scalers.coinc_singles_1Hz[i + 12], ds->didaq_scalers.coinc_singles_1Hz_gated[i + 12]);
   }
 
-  ret+=fprintf(f," coinc group |   %d   |   %d\n", 0, 1);
-  ret+=fprintf(f," trig 100mHz |  %04hu |  %04hu\n",
+  ret+=fprintf(f," coinc group |   %d  |   %d\n", 0, 1);
+  ret+=fprintf(f," trig 100mHz |  %03hu |  %03hu\n",
     ds->didaq_scalers.coinc_trig_100mHz[0], ds->didaq_scalers.coinc_trig_100mHz[1]);
-  ret+=fprintf(f," gated       |  %04hu |  %04hu\n",
+  ret+=fprintf(f," gated       |  %03hu |  %03hu\n",
     ds->didaq_scalers.coinc_trig_100mHz_gated[0], ds->didaq_scalers.coinc_trig_100mHz_gated[1]);
 
 
@@ -925,7 +925,7 @@ int rno_g_daqstatus_dump_didaq(FILE *f, const rno_g_daqstatus_t * ds)
       ds->didaq_scalers.beam_trig_100mHz[i], ds->didaq_scalers.beam_trig_100mHz_gated[i]);
   }
   ret+=fprintf(f,  "total beam trig | 1Hz | 100mHz (gated)\n");
-  ret+=fprintf(f,  "                | %03hu | %03hu (%03hu)",
+  ret+=fprintf(f,  "                | %03hu | %06hu (%05hu)\n",
     ds->didaq_scalers.total_beam_1Hz, ds->didaq_scalers.total_beam_100mHz, ds->didaq_scalers.total_beam_100mHz_gated);
 
   return ret;
