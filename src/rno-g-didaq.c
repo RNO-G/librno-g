@@ -23,14 +23,17 @@ _Static_assert(DIDAQ_NUM_BEAMS == RNO_G_NUM_DIDAQ_BEAMS,
 // multiplicity that decides which of them could have caused a COINC1 trigger.
 #define DIDAQ_SURF_COINC_INDEX 1
 
-static void print_bits(uint32_t val, int nbits) {
-    for (int i = nbits - 1; i >= 0; i--) {
-      if (i && i % 4 == 0)
-        putchar(' ');
-      putchar((val >> i) & 1 ? '1' : '0');
-    }
-    putchar('\n');
-}
+// // For debugging
+// static void print_bits(uint32_t val, int nbits) {
+//   int c = 0;
+//   for (int i = nbits - 1; i >= 0; i--) {
+//     if (c && c % 4 == 0)
+//       putchar(' ');
+//     putchar((val >> i) & 1 ? '1' : '0');
+//     c++;
+//   }
+//   putchar('\n');
+// }
 
 int didaq_read_event(didaq_dev_t * bd, rno_g_header_t * hd, rno_g_waveform_t * wf, uint8_t station)
 {
@@ -74,11 +77,6 @@ int didaq_read_event(didaq_dev_t * bd, rno_g_header_t * hd, rno_g_waveform_t * w
                      (rdout.meta.trig_type & (DIDAQ_TRIGGER_COINC0 | DIDAQ_TRIGGER_COINC1)) ? coinc_pattern :
                       0;
 
-  if ((rdout.meta.trig_type & DIDAQ_TRIGGER_PHASED) && __builtin_popcount(rdout.meta.last_beam_pattern) > 1) {
-    printf("Read out phased-array triggered event with the following beam mask: (%x)\n", rdout.meta.last_beam_pattern);
-    print_bits(rdout.meta.last_beam_pattern, DIDAQ_NUM_BEAMS);
-  }
-
   hd->pps_count = rdout.meta.pps_counter;
   hd->sys_clk = rdout.meta.clk_cycles;
   hd->sysclk_last_pps = 0; // didaq sysclk is 0 at each pps
@@ -103,14 +101,13 @@ int didaq_read_event(didaq_dev_t * bd, rno_g_header_t * hd, rno_g_waveform_t * w
     // but can be a single one). Channels of the *other* quad may also be flagged by chance,
     // which is still unambiguous as long as that quad stayed below the configured
     // multiplicity.
-    const int num_required = didaq_get_coinc_num_required(bd, DIDAQ_SURF_COINC_INDEX);
+    // The register holds a "more than N" threshold, so N+1 channels actually have to fire.
+    const int num_required = didaq_get_coinc_num_required(bd, DIDAQ_SURF_COINC_INDEX) + 1;
     const int n_down = __builtin_popcount(coinc_pattern & DIDAQ_SURF_DOWN_CHANNEL_MASK);
     const int n_up = __builtin_popcount(coinc_pattern & DIDAQ_SURF_UP_CHANNEL_MASK);
     const int surf_only = (coinc_pattern & ~DIDAQ_SURF_CHANNEL_MASK) == 0;
 
-    // Either quad alone, or one quad outvoting a handful of strays from the other. A
-    // num_required of 0 (nothing read back from the board) satisfies neither test and leaves
-    // every mixed pattern to the generic case below.
+    // Either quad alone, or one quad outvoting a handful of strays from the other.
     const int is_down = n_down && (!n_up || (n_down >= num_required && n_up < num_required));
     const int is_up = n_up && (!n_down || (n_up >= num_required && n_down < num_required));
 
