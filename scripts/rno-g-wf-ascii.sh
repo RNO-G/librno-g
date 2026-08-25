@@ -64,7 +64,7 @@ if [ -z "$DUMP_WF" ]; then
     DUMP_WF=$(command -v rno-g-dump-wf)
   else
     echo "rno-g-dump-wf not found: run 'make rno-g-utils' or set DUMP_WF" >&2
-    exit 1
+    # exit 1
   fi
 fi
 

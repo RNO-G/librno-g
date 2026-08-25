@@ -27,16 +27,16 @@ int main(int nargs, char ** args)
         double sum = 0; 
         double sum2 = 0; 
         int nzeroes = 0; 
-        for (int isamp = 0; isamp < wf.radiant_nsamples; isamp++) 
+        for (int isamp = 0; isamp < wf.nsamples; isamp++) 
         {
-          int16_t val = wf.radiant_waveforms[ichan][isamp]; 
+          int16_t val = wf.bytes_per_sample == 1 ? wf.didaq_waveforms[ichan][isamp] : wf.radiant_waveforms[ichan][isamp];
           if (val> max) max = val;
           if (val< min) min = val;
           sum += val; 
           sum2 += val*val; 
           if (!val) nzeroes++; 
         }
-        printf (" min: %d, max: %d, avg: %g, rms: %g, nzero: %d\n", min, max, sum/wf.radiant_nsamples, sqrt(sum2/wf.radiant_nsamples -  sum*sum/wf.radiant_nsamples/wf.radiant_nsamples), nzeroes); 
+        printf (" min: %d, max: %d, avg: %g, rms: %g, nzero: %d\n", min, max, sum/wf.nsamples, sqrt(sum2/wf.nsamples -  sum*sum/wf.nsamples/wf.nsamples), nzeroes); 
 
       }
     }
